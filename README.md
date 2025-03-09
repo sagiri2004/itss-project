@@ -1,4 +1,4 @@
-# group-web-project
+# ITSS Project
 
 # Hướng dẫn chạy dự án
 
