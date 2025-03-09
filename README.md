@@ -23,6 +23,12 @@ npm install
 
 - Cấu hình lại database trong file backend/src/config/connectDB.js (Hãy tải my sql nếu chưa có)
 
+- Hoặc sử dụng Docker để chạy MySQL bằng lệnh:
+
+```bash
+docker-compose up -d
+```
+
 - Sử dụng lệnh npx sequelize-cli db:migrate để tạo tablet trong my sql từ thư mục **backend**
 
 ### 4. Chạy dự án
