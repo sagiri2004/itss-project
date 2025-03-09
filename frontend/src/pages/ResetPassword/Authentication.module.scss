@@ -1,0 +1,30 @@
+.wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(120deg, #112466, #86b4e3);
+}
+
+.container {
+  width: 400px; /* Adjusted width for better alignment */
+  padding: 30px; /* Added padding for better spacing */
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.title {
+  margin-bottom: 20px;
+  font-weight: bold;
+  color: white;
+  text-align: center;
+}
+
+.error {
+  color: #ff4d4f;
+  margin-bottom: 10px;
+}
