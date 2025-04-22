@@ -9,12 +9,12 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/users")
 public class UserController {
 	@Autowired
 	private EmailService emailService;
 
-	@GetMapping("/users")
+	@GetMapping
 	@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
 	public String userAccess() {
 		return "Welcome, User!";
