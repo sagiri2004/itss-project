@@ -30,6 +30,7 @@ public class RescueServiceServiceImpl implements RescueServiceService {
 				.name(request.getName())
 				.description(request.getDescription())
 				.price(request.getPrice())
+				.type(request.getType())
 				.company(company)
 				.build();
 
@@ -56,6 +57,8 @@ public class RescueServiceServiceImpl implements RescueServiceService {
 				.name(service.getName())
 				.description(service.getDescription())
 				.price(service.getPrice())
+				.type(service.getType())
+				.companyId(service.getCompany().getId())
 				.companyName(service.getCompany().getName())
 				.build();
 	}
