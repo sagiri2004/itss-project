@@ -32,7 +32,9 @@ public class RescueCompany {
 	Address address;
 	Double latitude;
 	Double longitude;
-	String userId;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "user_id")
+	User user;
 
 	@CreationTimestamp
 	LocalDateTime createdAt;
