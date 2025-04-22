@@ -49,6 +49,10 @@ public class SecurityConfig {
 
 						.requestMatchers("/rescue-companies/**").hasAnyRole("COMPANY", "ADMIN", "USER")
 
+						.requestMatchers("/rescue-vehicles/**").hasAnyRole("COMPANY", "ADMIN")
+
+						.requestMatchers("/rescue-requests/**").hasAnyRole("COMPANY", "ADMIN", "USER")
+
 						// Mọi request khác phải được xác thực
 						.anyRequest().authenticated()
 		);

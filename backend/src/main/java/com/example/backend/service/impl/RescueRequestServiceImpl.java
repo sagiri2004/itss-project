@@ -1,0 +1,699 @@
+package com.example.backend.service.impl;
+
+import com.example.backend.dto.request.RescueRequestCreateRequest;
+import com.example.backend.dto.response.InvoiceResponse;
+import com.example.backend.dto.response.RescueRequestResponse;
+import com.example.backend.event.NotificationEvent;
+import com.example.backend.exception.AuthException;
+import com.example.backend.exception.ResourceNotFoundException;
+import com.example.backend.kafka.NotificationEventProducer;
+import com.example.backend.model.*;
+import com.example.backend.model.enums.InvoiceStatus;
+import com.example.backend.model.enums.RescueRequestStatus;
+import com.example.backend.model.enums.RescueVehicleDispatchStatus;
+import com.example.backend.model.enums.RescueVehicleStatus;
+import com.example.backend.repository.*;
+import com.example.backend.service.RescueRequestService;
+import com.example.backend.utils.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class RescueRequestServiceImpl implements RescueRequestService {
+
+	private final RescueRequestRepository requestRepository;
+	private final RescueServiceRepository serviceRepository;
+	private final RescueCompanyRepository rescueCompanyRepository;
+	private final RescueVehicleRepository rescueVehicleRepository;
+	private final InvoiceRepository invoiceRepository;
+	private final RescueVehicleDispatchRepository rescueVehicleDispatchRepository;
+	private final UserRepository userRepository;
+	private final NotificationEventProducer notificationEventProducer;
+	private final JwtUtil jwtUtil;
+
+	@Override
+	public RescueRequestResponse createRescueRequest(RescueRequestCreateRequest request, String userId) {
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+		RescueService rescueService = serviceRepository.findById(request.getRescueServiceId())
+				.orElseThrow(() -> new ResourceNotFoundException("Service not found"));
+
+		RescueRequest rescueRequest = RescueRequest.builder()
+				.user(user)
+				.rescueService(rescueService)
+				.company(rescueService.getCompany())
+				.latitude(request.getLatitude())
+				.longitude(request.getLongitude())
+				.description(request.getDescription())
+				.estimatedPrice(rescueService.getPrice())
+				.status(RescueRequestStatus.CREATED)
+				.build();
+
+		RescueRequest saved = requestRepository.save(rescueRequest);
+
+		User companyOwner = rescueService.getCompany().getUser();
+		NotificationEvent event = NotificationEvent.builder()
+				.userId(companyOwner.getId())
+				.title("Yêu cầu cứu hộ mới")
+				.content("Bạn vừa nhận được một yêu cầu cứu hộ mới. Hãy kiểm tra hệ thống!")
+				.type("RESCUE_REQUEST")
+				.build();
+
+		notificationEventProducer.sendNotificationEvent(event);
+
+		return toResponse(saved);
+	}
+
+	@Override
+	@PreAuthorize("hasAnyRole('COMPANY', 'ADMIN')")
+	public List<RescueRequestResponse> getRequestsForCompany(String token, RescueRequestStatus status) {
+		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
+
+		List<RescueCompany> companies = rescueCompanyRepository.findAllByUserId(userId);
+
+		if (companies.isEmpty()) {
+			throw new ResourceNotFoundException("Không tìm thấy công ty do bạn quản lý");
+		}
+
+		RescueCompany company = companies.get(0);
+
+		List<RescueService> services = serviceRepository.findByCompanyId(company.getId());
+
+		if (services.isEmpty()) return List.of();
+
+		List<RescueRequest> requests;
+		if (status != null) {
+			requests = requestRepository.findByRescueServiceInAndStatus(services, status);
+		} else {
+			requests = requestRepository.findByRescueServiceIn(services);
+		}
+
+		return requests.stream()
+				.map(this::toResponse)
+				.toList();
+	}
+
+	@Override
+	public RescueRequestResponse acceptRequest(String requestId, String token) {
+		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
+		RescueRequest request = requestRepository.findById(requestId)
+				.orElseThrow(() -> new ResourceNotFoundException("RescueRequest not found"));
+
+		List<RescueCompany> companies = rescueCompanyRepository.findAllByUserId(userId);
+
+		if (companies.isEmpty()) {
+			throw new ResourceNotFoundException("Không tìm thấy công ty do bạn quản lý");
+		}
+
+		RescueCompany company = companies.get(0);
+
+		if (!request.getRescueService().getCompany().getId().equals(company.getId())) {
+			throw new AuthException("Bạn không có quyền tiếp nhận yêu cầu này");
+		}
+
+		request.setStatus(RescueRequestStatus.ACCEPTED_BY_COMPANY);
+		RescueRequest saved = requestRepository.save(request);
+
+		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
+				.userId(request.getUser().getId())
+				.title("Yêu cầu được tiếp nhận")
+				.content("Yêu cầu cứu hộ của bạn đã được công ty tiếp nhận.")
+				.type("RESCUE_UPDATE")
+				.build());
+		return toResponse(saved);
+	}
+
+	@Override
+	public RescueRequestResponse cancelByUser(String requestId, String token) {
+		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
+		RescueRequest request = requestRepository.findById(requestId)
+				.orElseThrow(() -> new ResourceNotFoundException("RescueRequest not found"));
+
+		if (!request.getUser().getId().equals(userId)) {
+			throw new AuthException("Bạn không phải người tạo yêu cầu này");
+		}
+
+		if (request.getStatus() == RescueRequestStatus.IN_PROGRESS ||
+				request.getStatus() == RescueRequestStatus.COMPLETED ||
+				request.getStatus() == RescueRequestStatus.INVOICED ||
+				request.getStatus() == RescueRequestStatus.PAID) {
+			throw new AuthException("Không thể hủy yêu cầu ở trạng thái này");
+		}
+
+		RescueRequestStatus currentStatus = request.getStatus();
+		request.setStatus(RescueRequestStatus.CANCELLED_BY_USER);
+
+		try {
+			// Lấy danh sách xe được điều động cho yêu cầu này
+			List<RescueVehicleDispatch> dispatches = rescueVehicleDispatchRepository.findByRescueRequest(request);
+
+			// Cập nhật trạng thái của các lệnh điều động và trạng thái của xe
+			for (RescueVehicleDispatch dispatch : dispatches) {
+				// Cập nhật trạng thái điều động thành CANCELLED
+				dispatch.setStatus(RescueVehicleDispatchStatus.CANCELLED);
+				rescueVehicleDispatchRepository.save(dispatch);
+
+				// Cập nhật trạng thái xe thành AVAILABLE
+				RescueVehicle vehicle = dispatch.getRescueVehicle();
+				vehicle.setStatus(RescueVehicleStatus.AVAILABLE);
+				rescueVehicleRepository.save(vehicle);
+			}
+
+			// Lưu yêu cầu với trạng thái mới
+			RescueRequest saved = requestRepository.save(request);
+
+			// Thông báo cho công ty cứu hộ về việc hủy
+			if (saved.getRescueService() != null && saved.getRescueService().getCompany() != null
+					&& saved.getRescueService().getCompany().getUser() != null) {
+				notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
+						.userId(saved.getRescueService().getCompany().getUser().getId())
+						.title("Yêu cầu bị hủy")
+						.content("Người dùng đã hủy yêu cầu cứu hộ.")
+						.type("RESCUE_UPDATE")
+						.build());
+			}
+
+			return toResponse(saved);
+		} catch (Exception e) {
+			request.setStatus(currentStatus); // Khôi phục trạng thái ban đầu nếu có lỗi
+			throw e;
+		}
+	}
+
+	@Override
+	public RescueRequestResponse cancelByCompany(String requestId, String token) {
+		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
+		RescueRequest request = requestRepository.findById(requestId)
+				.orElseThrow(() -> new ResourceNotFoundException("RescueRequest not found"));
+
+		List<RescueCompany> companies = rescueCompanyRepository.findAllByUserId(userId);
+
+		if (companies.isEmpty()) {
+			throw new ResourceNotFoundException("Không tìm thấy công ty do bạn quản lý");
+		}
+
+		RescueCompany company = companies.get(0);
+
+		if (!request.getRescueService().getCompany().getId().equals(company.getId())) {
+			throw new AuthException("Bạn không có quyền hủy yêu cầu này");
+		}
+
+		RescueRequestStatus currentStatus = request.getStatus();
+		if (currentStatus == RescueRequestStatus.IN_PROGRESS ||
+				currentStatus == RescueRequestStatus.COMPLETED ||
+				currentStatus == RescueRequestStatus.INVOICED ||
+				currentStatus == RescueRequestStatus.PAID) {
+			throw new AuthException("Không thể hủy yêu cầu ở trạng thái này");
+		}
+
+		request.setStatus(RescueRequestStatus.CANCELLED_BY_COMPANY);
+		try {
+			// Lấy danh sách xe được điều động cho yêu cầu này
+			List<RescueVehicleDispatch> dispatches = rescueVehicleDispatchRepository.findByRescueRequest(request);
+
+			// Cập nhật trạng thái của các lệnh điều động và trạng thái của xe
+			for (RescueVehicleDispatch dispatch : dispatches) {
+				// Cập nhật trạng thái điều động thành CANCELLED
+				dispatch.setStatus(RescueVehicleDispatchStatus.CANCELLED);
+				rescueVehicleDispatchRepository.save(dispatch);
+
+				// Cập nhật trạng thái xe thành AVAILABLE
+				RescueVehicle vehicle = dispatch.getRescueVehicle();
+				vehicle.setStatus(RescueVehicleStatus.AVAILABLE);
+				rescueVehicleRepository.save(vehicle);
+			}
+
+			// Lưu yêu cầu với trạng thái mới
+			RescueRequest saved = requestRepository.save(request);
+
+			notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
+					.userId(request.getUser().getId())
+					.title("Yêu cầu bị hủy")
+					.content("Công ty cứu hộ đã hủy yêu cầu của bạn.")
+					.type("RESCUE_UPDATE")
+					.build());
+
+			return toResponse(saved);
+		} catch (Exception e) {
+			request.setStatus(currentStatus); // Revert to original status
+			throw e;
+		}
+	}
+
+	@Override
+	public RescueRequestResponse dispatchRescueVehicle(String requestId, String vehicleId, String token) {
+		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
+		RescueRequest request = requestRepository.findById(requestId)
+				.orElseThrow(() -> new ResourceNotFoundException("RescueRequest not found"));
+
+		List<RescueCompany> companies = rescueCompanyRepository.findAllByUserId(userId);
+
+		if (companies.isEmpty()) {
+			throw new ResourceNotFoundException("Không tìm thấy công ty do bạn quản lý");
+		}
+
+		RescueCompany company = companies.get(0);
+
+		if (!request.getRescueService().getCompany().getId().equals(company.getId())) {
+			throw new AuthException("Bạn không có quyền thực hiện yêu cầu này");
+		}
+
+		if (request.getStatus() != RescueRequestStatus.ACCEPTED_BY_COMPANY) {
+			throw new AuthException("Yêu cầu phải ở trạng thái được tiếp nhận trước khi điều xe");
+		}
+
+		RescueVehicle vehicle = rescueVehicleRepository.findById(vehicleId)
+				.orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy xe cứu hộ"));
+
+		// Kiểm tra xe thuộc công ty
+		if (!vehicle.getCompany().getId().equals(company.getId())) {
+			throw new AuthException("Xe cứu hộ không thuộc công ty của bạn");
+		}
+
+		// Kiểm tra trạng thái xe
+		if (vehicle.getStatus() != RescueVehicleStatus.AVAILABLE) {
+			throw new IllegalStateException("Xe cứu hộ này không khả dụng để điều động");
+		}
+
+		// Kiểm tra xe đã được dispatched đến request này chưa
+		if (rescueVehicleDispatchRepository.existsByRescueRequestAndRescueVehicle(request, vehicle)) {
+			throw new IllegalStateException("Xe này đã được điều động cho yêu cầu cứu hộ này");
+		}
+
+		try {
+			// Cập nhật trạng thái xe
+			vehicle.setStatus(RescueVehicleStatus.ON_DUTY);
+			rescueVehicleRepository.save(vehicle);
+
+			// Tạo dispatch record
+			RescueVehicleDispatch dispatch = RescueVehicleDispatch.builder()
+					.rescueRequest(request)
+					.rescueVehicle(vehicle)
+					.status(RescueVehicleDispatchStatus.DISPATCHED)
+					.build();
+			rescueVehicleDispatchRepository.save(dispatch);
+
+			// Cập nhật trạng thái request
+			request.setStatus(RescueRequestStatus.RESCUE_VEHICLE_DISPATCHED);
+			RescueRequest saved = requestRepository.save(request);
+
+			notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
+					.userId(request.getUser().getId())
+					.title("Xe cứu hộ đang được điều động")
+					.content("Xe cứu hộ đang được điều động đến vị trí của bạn.")
+					.type("RESCUE_UPDATE")
+					.build());
+
+			return toResponse(saved);
+		} catch (Exception e) {
+			// Trong trường hợp có lỗi, khôi phục trạng thái ban đầu
+			request.setStatus(RescueRequestStatus.ACCEPTED_BY_COMPANY);
+
+			// Nếu đã cập nhật trạng thái xe, khôi phục lại
+			try {
+				vehicle.setStatus(RescueVehicleStatus.AVAILABLE);
+				rescueVehicleRepository.save(vehicle);
+			} catch (Exception ex) {
+				// Ghi log nếu không thể khôi phục trạng thái xe
+			}
+			throw e;
+		}
+	}
+
+	@Override
+	public RescueRequestResponse markVehicleArrived(String requestId, String token) {
+		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
+		RescueRequest request = requestRepository.findById(requestId)
+				.orElseThrow(() -> new ResourceNotFoundException("RescueRequest not found"));
+
+		List<RescueCompany> companies = rescueCompanyRepository.findAllByUserId(userId);
+
+		if (companies.isEmpty()) {
+			throw new ResourceNotFoundException("Không tìm thấy công ty do bạn quản lý");
+		}
+
+		RescueCompany company = companies.get(0);
+
+		if (!request.getRescueService().getCompany().getId().equals(company.getId())) {
+			throw new AuthException("Bạn không có quyền thực hiện yêu cầu này");
+		}
+
+		if (request.getStatus() != RescueRequestStatus.RESCUE_VEHICLE_DISPATCHED) {
+			throw new IllegalStateException("Yêu cầu phải ở trạng thái đã điều động xe trước khi đánh dấu xe đã đến nơi");
+		}
+
+		// Cập nhật trạng thái request
+		request.setStatus(RescueRequestStatus.RESCUE_VEHICLE_ARRIVED);
+		RescueRequest saved = requestRepository.save(request);
+
+		// Cập nhật thông tin trong bảng dispatch
+		List<RescueVehicleDispatch> dispatches = rescueVehicleDispatchRepository.findByRescueRequest(request);
+		if (!dispatches.isEmpty()) {
+			// Cập nhật thời gian đến nơi cho xe được dispatch
+			RescueVehicleDispatch dispatch = dispatches.get(0);
+			dispatch.setArrivedAt(LocalDateTime.now());
+			dispatch.setStatus(RescueVehicleDispatchStatus.ARRIVED);
+			rescueVehicleDispatchRepository.save(dispatch);
+		}
+
+		// Gửi thông báo cho người dùng
+		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
+				.userId(request.getUser().getId())
+				.title("Xe cứu hộ đã đến")
+				.content("Xe cứu hộ đã đến vị trí của bạn. Đội kỹ thuật sẽ kiểm tra tình trạng xe.")
+				.type("RESCUE_UPDATE")
+				.build());
+
+		return toResponse(saved);
+	}
+
+	@Override
+	public RescueRequestResponse markInspectionDone(String requestId, String token) {
+		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
+		RescueRequest request = requestRepository.findById(requestId)
+				.orElseThrow(() -> new ResourceNotFoundException("RescueRequest not found"));
+
+		List<RescueCompany> companies = rescueCompanyRepository.findAllByUserId(userId);
+
+		if (companies.isEmpty()) {
+			throw new ResourceNotFoundException("Không tìm thấy công ty do bạn quản lý");
+		}
+
+		RescueCompany company = companies.get(0);
+
+		if (!request.getRescueService().getCompany().getId().equals(company.getId())) {
+			throw new AuthException("Bạn không có quyền thực hiện yêu cầu này");
+		}
+
+		if (request.getStatus() != RescueRequestStatus.RESCUE_VEHICLE_ARRIVED) {
+			throw new IllegalStateException("Yêu cầu phải ở trạng thái xe đã đến nơi trước khi hoàn tất kiểm tra");
+		}
+
+		// Cập nhật trạng thái request
+		request.setStatus(RescueRequestStatus.INSPECTION_DONE);
+		RescueRequest saved = requestRepository.save(request);
+
+		// Gửi thông báo cho người dùng
+		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
+				.userId(request.getUser().getId())
+				.title("Kiểm tra xe hoàn tất")
+				.content("Đội kỹ thuật đã hoàn tất kiểm tra tình trạng xe. Công ty sẽ cập nhật chi phí sửa chữa.")
+				.type("RESCUE_UPDATE")
+				.build());
+
+		return toResponse(saved);
+	}
+
+	@Override
+	public RescueRequestResponse updatePrice(String requestId, Double newPrice, String notes, String token) {
+		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
+		RescueRequest request = requestRepository.findById(requestId)
+				.orElseThrow(() -> new ResourceNotFoundException("RescueRequest not found"));
+
+		List<RescueCompany> companies = rescueCompanyRepository.findAllByUserId(userId);
+
+		if (companies.isEmpty()) {
+			throw new ResourceNotFoundException("Không tìm thấy công ty do bạn quản lý");
+		}
+
+		RescueCompany company = companies.get(0);
+
+		if (!request.getRescueService().getCompany().getId().equals(company.getId())) {
+			throw new AuthException("Bạn không có quyền thực hiện yêu cầu này");
+		}
+
+		if (request.getStatus() != RescueRequestStatus.INSPECTION_DONE) {
+			throw new IllegalStateException("Yêu cầu phải ở trạng thái đã kiểm tra xe trước khi cập nhật giá");
+		}
+
+		if (newPrice == null || newPrice <= 0) {
+			throw new IllegalArgumentException("Giá mới phải lớn hơn 0");
+		}
+
+		// Cập nhật trạng thái và giá mới
+		request.setStatus(RescueRequestStatus.PRICE_UPDATED);
+		request.setFinalPrice(newPrice);
+
+		// Cập nhật ghi chú nếu có
+		if (notes != null && !notes.trim().isEmpty()) {
+			request.setNotes(notes);
+		}
+
+		RescueRequest saved = requestRepository.save(request);
+
+		// Gửi thông báo cho người dùng
+		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
+				.userId(request.getUser().getId())
+				.title("Cập nhật chi phí sửa chữa")
+				.content("Công ty cứu hộ đã cập nhật chi phí sửa chữa. Vui lòng kiểm tra và xác nhận.")
+				.type("RESCUE_UPDATE")
+				.build());
+
+		return toResponse(saved);
+	}
+
+	@Override
+	public RescueRequestResponse confirmPrice(String requestId, String token) {
+		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
+		RescueRequest request = requestRepository.findById(requestId)
+				.orElseThrow(() -> new ResourceNotFoundException("RescueRequest not found"));
+
+		// Validate user owns this request
+		if (!request.getUser().getId().equals(userId)) {
+			throw new AuthException("Bạn không phải người tạo yêu cầu này");
+		}
+
+		// Validate current status
+		if (request.getStatus() != RescueRequestStatus.PRICE_UPDATED) {
+			throw new IllegalStateException("Yêu cầu phải ở trạng thái đã cập nhật giá trước khi xác nhận");
+		}
+
+		// Update request status
+		request.setStatus(RescueRequestStatus.PRICE_CONFIRMED);
+		RescueRequest saved = requestRepository.save(request);
+
+		// Send notification to company
+		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
+				.userId(request.getRescueService().getCompany().getUser().getId())
+				.title("Khách hàng đã chấp nhận báo giá")
+				.content("Khách hàng đã chấp nhận báo giá sửa chữa. Bạn có thể bắt đầu sửa chữa.")
+				.type("RESCUE_UPDATE")
+				.build());
+
+		return toResponse(saved);
+	}
+
+	@Override
+	public RescueRequestResponse rejectPrice(String requestId, String token) {
+		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
+		RescueRequest request = requestRepository.findById(requestId)
+				.orElseThrow(() -> new ResourceNotFoundException("RescueRequest not found"));
+
+		// Validate user owns this request
+		if (!request.getUser().getId().equals(userId)) {
+			throw new AuthException("Bạn không phải người tạo yêu cầu này");
+		}
+
+		// Validate current status
+		if (request.getStatus() != RescueRequestStatus.PRICE_UPDATED) {
+			throw new IllegalStateException("Yêu cầu phải ở trạng thái đã cập nhật giá trước khi từ chối");
+		}
+
+		// Update request status
+		request.setStatus(RescueRequestStatus.REJECTED_BY_USER);
+		RescueRequest saved = requestRepository.save(request);
+
+		// Free up vehicles
+		List<RescueVehicleDispatch> dispatches = rescueVehicleDispatchRepository.findByRescueRequest(request);
+		for (RescueVehicleDispatch dispatch : dispatches) {
+			RescueVehicle vehicle = dispatch.getRescueVehicle();
+			vehicle.setStatus(RescueVehicleStatus.AVAILABLE);
+			rescueVehicleRepository.save(vehicle);
+
+			dispatch.setStatus(RescueVehicleDispatchStatus.CANCELLED);
+			rescueVehicleDispatchRepository.save(dispatch);
+		}
+
+		// Send notification to company
+		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
+				.userId(request.getRescueService().getCompany().getUser().getId())
+				.title("Khách hàng đã từ chối báo giá")
+				.content("Khách hàng đã từ chối báo giá sửa chữa.")
+				.type("RESCUE_UPDATE")
+				.build());
+
+		return toResponse(saved);
+	}
+
+	@Override
+	public RescueRequestResponse startRepair(String requestId, String token) {
+		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
+		RescueRequest request = requestRepository.findById(requestId)
+				.orElseThrow(() -> new ResourceNotFoundException("RescueRequest not found"));
+
+		List<RescueCompany> companies = rescueCompanyRepository.findAllByUserId(userId);
+		if (companies.isEmpty()) {
+			throw new ResourceNotFoundException("Không tìm thấy công ty do bạn quản lý");
+		}
+		RescueCompany company = companies.get(0);
+
+		// Validate company owns this request
+		if (!request.getRescueService().getCompany().getId().equals(company.getId())) {
+			throw new AuthException("Bạn không có quyền thực hiện yêu cầu này");
+		}
+
+		// Validate current status
+		if (request.getStatus() != RescueRequestStatus.PRICE_CONFIRMED) {
+			throw new IllegalStateException("Yêu cầu phải ở trạng thái đã xác nhận giá trước khi bắt đầu sửa chữa");
+		}
+
+		// Update request status
+		request.setStatus(RescueRequestStatus.IN_PROGRESS);
+		RescueRequest saved = requestRepository.save(request);
+
+		// Send notification to user
+		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
+				.userId(request.getUser().getId())
+				.title("Đã bắt đầu sửa chữa")
+				.content("Công ty cứu hộ đã bắt đầu sửa chữa xe của bạn.")
+				.type("RESCUE_UPDATE")
+				.build());
+
+		return toResponse(saved);
+	}
+
+	@Override
+	public RescueRequestResponse completeRepair(String requestId, String token) {
+		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
+		RescueRequest request = requestRepository.findById(requestId)
+				.orElseThrow(() -> new ResourceNotFoundException("RescueRequest not found"));
+
+		List<RescueCompany> companies = rescueCompanyRepository.findAllByUserId(userId);
+		if (companies.isEmpty()) {
+			throw new ResourceNotFoundException("Không tìm thấy công ty do bạn quản lý");
+		}
+		RescueCompany company = companies.get(0);
+
+		// Validate company owns this request
+		if (!request.getRescueService().getCompany().getId().equals(company.getId())) {
+			throw new AuthException("Bạn không có quyền thực hiện yêu cầu này");
+		}
+
+		// Validate current status
+		if (request.getStatus() != RescueRequestStatus.IN_PROGRESS) {
+			throw new IllegalStateException("Yêu cầu phải ở trạng thái đang sửa chữa trước khi hoàn tất sửa chữa");
+		}
+
+		// Check if invoice already exists for this request
+		if (invoiceRepository.existsByRescueRequest(request)) {
+			throw new IllegalStateException("Hóa đơn đã tồn tại cho yêu cầu này");
+		}
+
+		// Update request status to COMPLETED
+		request.setStatus(RescueRequestStatus.COMPLETED);
+		RescueRequest saved = requestRepository.save(request);
+
+		// Free up dispatched vehicles
+		List<RescueVehicleDispatch> dispatches = rescueVehicleDispatchRepository.findByRescueRequest(request);
+		for (RescueVehicleDispatch dispatch : dispatches) {
+			RescueVehicle vehicle = dispatch.getRescueVehicle();
+			vehicle.setStatus(RescueVehicleStatus.AVAILABLE);
+			rescueVehicleRepository.save(vehicle);
+
+			dispatch.setStatus(RescueVehicleDispatchStatus.COMPLETED);
+			dispatch.setCompletedAt(LocalDateTime.now());
+			rescueVehicleDispatchRepository.save(dispatch);
+		}
+
+		// Create invoice
+		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime dueDate = now.plusDays(7); // Due in 7 days
+
+		// Generate invoice number (format: INV-YYYYMMDD-XXXX where XXXX is a sequential number)
+		String dateStr = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+		String invoiceNumber = "INV-" + dateStr + "-" + String.format("%04d", getNextInvoiceSequence());
+
+		Invoice invoice = Invoice.builder()
+				.rescueRequest(request)
+				.amount(request.getFinalPrice())
+				.invoiceNumber(invoiceNumber)
+				.invoiceDate(now)
+				.dueDate(dueDate)
+				.status(InvoiceStatus.PENDING)
+				.notes("Hóa đơn cho dịch vụ cứu hộ và sửa chữa xe")
+				.build();
+
+		invoiceRepository.save(invoice);
+
+		// Update request status to INVOICED
+		request.setStatus(RescueRequestStatus.INVOICED);
+		saved = requestRepository.save(request);
+
+		// Send notification to user
+		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
+				.userId(request.getUser().getId())
+				.title("Sửa chữa hoàn tất và hóa đơn đã tạo")
+				.content("Xe của bạn đã được sửa chữa hoàn tất. Hóa đơn đã được tạo, vui lòng thanh toán để hoàn tất quá trình.")
+				.type("RESCUE_UPDATE")
+				.build());
+
+		return toResponse(saved);
+	}
+
+	// Helper method to get the next invoice sequence number
+	private int getNextInvoiceSequence() {
+		// You could implement this using a database sequence or a counter table
+		// For simplicity, we'll just count existing invoices and add 1
+		long count = invoiceRepository.count();
+		return (int) count + 1;
+	}
+
+
+	private RescueRequestResponse toResponse(RescueRequest request) {
+		RescueRequestResponse.RescueRequestResponseBuilder builder = RescueRequestResponse.builder()
+				.id(request.getId())
+				.userId(request.getUser().getId())
+				.serviceId(request.getRescueService().getId())
+				.serviceName(request.getRescueService().getName())
+				.companyId(request.getRescueService().getCompany().getId())
+				.companyName(request.getRescueService().getCompany().getName())
+				.latitude(request.getLatitude())
+				.longitude(request.getLongitude())
+				.description(request.getDescription())
+				.estimatedPrice(request.getEstimatedPrice())
+				.finalPrice(request.getFinalPrice())
+				.status(request.getStatus())
+				.createdAt(request.getCreatedAt());
+
+		// Add notes if they exist
+		if (request.getNotes() != null && !request.getNotes().isEmpty()) {
+			builder.notes(request.getNotes());
+		}
+
+		return builder.build();
+	}
+
+	private InvoiceResponse toInvoiceResponse(Invoice invoice) {
+		return InvoiceResponse.builder()
+				.id(invoice.getId())
+				.rescueRequestId(invoice.getRescueRequest().getId())
+				.invoiceNumber(invoice.getInvoiceNumber())
+				.amount(invoice.getAmount())
+				.invoiceDate(invoice.getInvoiceDate())
+				.dueDate(invoice.getDueDate())
+				.paidDate(invoice.getPaidDate())
+				.status(invoice.getStatus())
+				.paymentMethod(invoice.getPaymentMethod())
+				.notes(invoice.getNotes())
+				.createdAt(invoice.getCreatedAt())
+				.build();
+	}
+}

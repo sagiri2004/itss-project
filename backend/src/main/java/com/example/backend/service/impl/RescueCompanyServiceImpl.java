@@ -2,10 +2,12 @@ package com.example.backend.service.impl;
 
 import com.example.backend.dto.request.RescueCompanyRequest;
 import com.example.backend.dto.response.RescueCompanyResponse;
-import com.example.backend.exception.AuthException;
+import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.RescueCompany;
+import com.example.backend.model.User;
 import com.example.backend.model.common.Address;
 import com.example.backend.repository.RescueCompanyRepository;
+import com.example.backend.repository.UserRepository;
 import com.example.backend.service.RescueCompanyService;
 import com.example.backend.utils.LocationUtils;
 import lombok.RequiredArgsConstructor;
@@ -20,12 +22,16 @@ import java.util.stream.Collectors;
 public class RescueCompanyServiceImpl implements RescueCompanyService {
 
 	private final RescueCompanyRepository repository;
+	private final UserRepository userRepository;
 	private final LocationUtils locationUtils;
 
 	@Override
 	public RescueCompanyResponse create(RescueCompanyRequest request, String userId) {
 		// Get the address from coordinates
 		Address address = locationUtils.getAddressFromCoordinates(request.getLatitude(), request.getLongitude());
+
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
 		// Create the RescueCompany with Address
 		RescueCompany company = RescueCompany.builder()
@@ -35,7 +41,7 @@ public class RescueCompanyServiceImpl implements RescueCompanyService {
 				.latitude(request.getLatitude())
 				.longitude(request.getLongitude())
 				.address(address)
-				.userId(userId)
+				.user(user)
 				.createdAt(LocalDateTime.now())
 				.build();
 
@@ -46,7 +52,7 @@ public class RescueCompanyServiceImpl implements RescueCompanyService {
 	@Override
 	public RescueCompanyResponse update(String id, RescueCompanyRequest request) {
 		RescueCompany company = repository.findById(id)
-				.orElseThrow(() -> new AuthException("Rescue company not found"));
+				.orElseThrow(() -> new ResourceNotFoundException("Rescue company not found"));
 
 		// Update details of the company
 		company.setName(request.getName());
@@ -63,7 +69,7 @@ public class RescueCompanyServiceImpl implements RescueCompanyService {
 	@Override
 	public void delete(String id) {
 		if (!repository.existsById(id)) {
-			throw new AuthException("Rescue company not found");
+			throw new ResourceNotFoundException("Rescue company not found");
 		}
 		repository.deleteById(id);
 	}
@@ -72,7 +78,7 @@ public class RescueCompanyServiceImpl implements RescueCompanyService {
 	public RescueCompanyResponse getById(String id) {
 		return repository.findById(id)
 				.map(this::toResponse)
-				.orElseThrow(() -> new AuthException("Rescue company not found"));
+				.orElseThrow(() -> new ResourceNotFoundException("Rescue company not found"));
 	}
 
 	@Override
@@ -90,8 +96,8 @@ public class RescueCompanyServiceImpl implements RescueCompanyService {
 				.description(company.getDescription())
 				.latitude(company.getLatitude())
 				.longitude(company.getLongitude())
-				.address(company.getAddress()) // Include the address in response
-				.userId(company.getUserId())
+				.address(company.getAddress())
+				.userId(company.getUser().getId())
 				.build();
 	}
 }
