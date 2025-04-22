@@ -1,4 +1,4 @@
-package com.example.backend.config;
+package com.example.backend.configuration;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -48,6 +48,10 @@ public class SecurityConfig {
 						.requestMatchers("/user/**").hasAnyRole("USER", "ADMIN")
 
 						.requestMatchers("/rescue-companies/**").hasAnyRole("COMPANY", "ADMIN", "USER")
+
+						.requestMatchers("/rescue-vehicles/**").hasAnyRole("COMPANY", "ADMIN")
+
+						.requestMatchers("/rescue-requests/**").hasAnyRole("COMPANY", "ADMIN", "USER")
 
 						// Mọi request khác phải được xác thực
 						.anyRequest().authenticated()

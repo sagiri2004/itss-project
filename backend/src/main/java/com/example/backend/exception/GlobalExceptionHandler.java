@@ -6,20 +6,28 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
 	@ExceptionHandler(AuthException.class)
-	public ResponseEntity<?> handleAuthException(AuthException ex) {
-		return ResponseEntity
-				.status(HttpStatus.BAD_REQUEST)
-				.body(Map.of(
-						"timestamp", LocalDateTime.now(),
-						"status", HttpStatus.BAD_REQUEST.value(),
-						"error", "Authentication Error",
-						"message", ex.getMessage()
-				));
+	public ResponseEntity<?> handleAuth(AuthException ex) {
+		return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
+	}
+
+	@ExceptionHandler(ResourceNotFoundException.class)
+	public ResponseEntity<?> handleNotFound(ResourceNotFoundException ex) {
+		return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+	}
+
+	private ResponseEntity<?> buildResponse(HttpStatus status, String message) {
+		Map<String, Object> body = new HashMap<>();
+		body.put("timestamp", LocalDateTime.now());
+		body.put("status", status.value());
+		body.put("error", status.getReasonPhrase());
+		body.put("message", message);
+		return new ResponseEntity<>(body, status);
 	}
 }

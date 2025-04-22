@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Spring Boot WebSocket Chat</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+</head>
+<body>
+<div>
+    <input type="text" id="name" placeholder="Tên của bạn"/>
+    <button id="connect" onclick="connect()">Kết nối</button>
+    <button id="disconnect" onclick="disconnect()" disabled>Ngắt kết nối</button>
+</div>
+<div id="chat">
+    <input type="text" id="message" placeholder="Nhập tin nhắn..."/>
+    <button id="send" onclick="sendMessage()" disabled>Gửi</button>
+    <ul id="messageList"></ul>
+</div>
+
+<script>
+    var stompClient = null;
+    var username = null;
+
+    function connect() {
+        username = document.getElementById('name').value;
+        if(username) {
+            var socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            stompClient.connect({}, onConnected, onError);
+        }
+    }
+
+    function onConnected() {
+        stompClient.subscribe('/topic/public', onMessageReceived);
+        stompClient.send("/app/chat.addUser",
+            {},
+            JSON.stringify({sender: username, content: '', timestamp: ''})
+        );
+        document.getElementById('connect').disabled = true;
+        document.getElementById('disconnect').disabled = false;
+        document.getElementById('send').disabled = false;
+    }
+
+    function onError() {
+        console.log('Lỗi kết nối');
+    }
+
+    function disconnect() {
+        if(stompClient !== null) {
+            stompClient.disconnect();
+        }
+        document.getElementById('connect').disabled = false;
+        document.getElementById('disconnect').disabled = true;
+        document.getElementById('send').disabled = true;
+    }
+
+    function sendMessage() {
+        var messageContent = document.getElementById('message').value;
+        if(messageContent && stompClient) {
+            var chatMessage = {
+                sender: username,
+                content: messageContent,
+                timestamp: ''
+            };
+            stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(chatMessage));
+            document.getElementById('message').value = '';
+        }
+    }
+
+    function onMessageReceived(payload) {
+        var message = JSON.parse(payload.body);
+        var messageElement = document.createElement('li');
+        messageElement.textContent = message.sender + ": " + message.content + " (" + message.timestamp + ")";
+        document.getElementById('messageList').appendChild(messageElement);
+    }
+</script>
+</body>
+</html>

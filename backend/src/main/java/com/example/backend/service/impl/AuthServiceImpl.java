@@ -8,7 +8,7 @@ import com.example.backend.dto.response.AuthResponse;
 import com.example.backend.exception.AuthException;
 import com.example.backend.model.User;
 import com.example.backend.model.enums.UserRole;
-import com.example.backend.repository.AuthUserRepository;
+import com.example.backend.repository.UserRepository;
 import com.example.backend.service.AuthService;
 import com.example.backend.service.EmailService;
 import com.example.backend.utils.JwtUtil;
@@ -22,7 +22,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
-	private final AuthUserRepository userRepository;
+	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final EmailService emailService;
 	private final JwtUtil jwtUtil;
