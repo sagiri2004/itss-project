@@ -14,4 +14,7 @@ public interface RescueRequestRepository extends JpaRepository<RescueRequest, St
 	List<RescueRequest> findByRescueServiceInAndStatus(List<RescueService> services, RescueRequestStatus status);
 
 	List<RescueRequest> findByRescueServiceIn(List<RescueService> services);
+	
+	List<RescueRequest> findByCompanyId(String companyId);
+
 }

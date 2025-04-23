@@ -22,6 +22,11 @@ public class GlobalExceptionHandler {
 		return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
 	}
 
+	@ExceptionHandler(Exception.class)
+	public ResponseEntity<?> handleOther(Exception ex) {
+		return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
+	}
+
 	private ResponseEntity<?> buildResponse(HttpStatus status, String message) {
 		Map<String, Object> body = new HashMap<>();
 		body.put("timestamp", LocalDateTime.now());
