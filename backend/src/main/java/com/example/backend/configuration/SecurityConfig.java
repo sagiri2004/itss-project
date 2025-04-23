@@ -3,6 +3,7 @@ package com.example.backend.configuration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -23,39 +24,39 @@ import javax.crypto.spec.SecretKeySpec;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-	private final String[] PUBLIC_ENDPOINTS = {
+	private final String[] PUBLIC_AUTH_ENDPOINTS = {
 			"/api/v1/auth/register",
 			"/api/v1/auth/login",
 			"/api/v1/auth/validate",
 			"/api/v1/send",
 			"/api/v1/auth/forgot-password",
 			"/api/v1/auth/reset-password",
+			"/v3/api-docs/**",
+			"/swagger-ui/**",
+			"/swagger-ui.html",
+			"/api-docs/**",
+			"/v3/**"
 	};
+
 	@Value("${jwt.signerKey}")
 	private String signerKey;
 
 	@Bean
-	public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
-		httpSecurity.authorizeHttpRequests(request ->
-				request
-						// Public endpoints (cho phép tất cả mọi người)
-						.requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
+	public SecurityFilterChain apiSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
+		httpSecurity.authorizeHttpRequests(request -> {
+			request.requestMatchers(HttpMethod.POST, PUBLIC_AUTH_ENDPOINTS).permitAll();
+			request.requestMatchers(HttpMethod.GET, PUBLIC_AUTH_ENDPOINTS).permitAll();
 
-						// Chỉ admin mới có thể truy cập các endpoint quản trị
-						.requestMatchers("/admin/**").hasRole("ADMIN")
+			// Role-based access patterns
+			request.requestMatchers("/admin/**").hasRole("ADMIN");
+			request.requestMatchers("/user/**").hasAnyRole("USER", "ADMIN");
+			request.requestMatchers("/rescue-companies/**").hasAnyRole("COMPANY", "ADMIN", "USER");
+			request.requestMatchers("/rescue-vehicles/**").hasAnyRole("COMPANY", "ADMIN");
+			request.requestMatchers("/rescue-requests/**").hasAnyRole("COMPANY", "ADMIN", "USER");
 
-						// Chỉ user đã đăng nhập mới có thể truy cập endpoint này
-						.requestMatchers("/user/**").hasAnyRole("USER", "ADMIN")
-
-						.requestMatchers("/rescue-companies/**").hasAnyRole("COMPANY", "ADMIN", "USER")
-
-						.requestMatchers("/rescue-vehicles/**").hasAnyRole("COMPANY", "ADMIN")
-
-						.requestMatchers("/rescue-requests/**").hasAnyRole("COMPANY", "ADMIN", "USER")
-
-						// Mọi request khác phải được xác thực
-						.anyRequest().authenticated()
-		);
+			// Default for all other requests
+			request.anyRequest().authenticated();
+		});
 
 		httpSecurity.oauth2ResourceServer(oauth2 ->
 				oauth2.jwt(jwtConfigurer -> jwtConfigurer.decoder(jwtDecoder()))
@@ -83,8 +84,8 @@ public class SecurityConfig {
 	@Bean
 	public JwtAuthenticationConverter jwtAuthenticationConverter() {
 		JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
-		grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_"); // Prefix cho vai trò
-		grantedAuthoritiesConverter.setAuthoritiesClaimName("roles"); // Đọc từ claim "roles"
+		grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
+		grantedAuthoritiesConverter.setAuthoritiesClaimName("roles");
 
 		JwtAuthenticationConverter authenticationConverter = new JwtAuthenticationConverter();
 		authenticationConverter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);

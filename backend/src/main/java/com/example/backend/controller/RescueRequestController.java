@@ -5,6 +5,15 @@ import com.example.backend.dto.response.RescueRequestResponse;
 import com.example.backend.model.enums.RescueRequestStatus;
 import com.example.backend.service.RescueRequestService;
 import com.example.backend.utils.JwtUtil;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,15 +24,29 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/rescue-requests")
 @RequiredArgsConstructor
+@Tag(name = "Rescue Requests", description = "API quản lý yêu cầu cứu hộ")
 public class RescueRequestController {
 
 	private final RescueRequestService rescueRequestService;
 	private final JwtUtil jwtUtil;
 
+	@Operation(summary = "Tạo yêu cầu cứu hộ mới",
+			description = "API cho phép người dùng tạo yêu cầu cứu hộ mới",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Tạo yêu cầu thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueRequestResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Dữ liệu đầu vào không hợp lệ"),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện")
+	})
 	@PostMapping
 	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<RescueRequestResponse> createRequest(
+			@Parameter(description = "Thông tin yêu cầu cứu hộ", required = true)
 			@RequestBody RescueRequestCreateRequest request,
+			@Parameter(description = "Token xác thực", required = true)
 			@RequestHeader("Authorization") String authHeader
 	) {
 		String token = jwtUtil.extractTokenFromHeader(authHeader);
@@ -31,89 +54,271 @@ public class RescueRequestController {
 		return ResponseEntity.ok(rescueRequestService.createRescueRequest(request, userId));
 	}
 
+	@Operation(summary = "Lấy danh sách yêu cầu cứu hộ cho công ty",
+			description = "API cho phép công ty cứu hộ lấy danh sách các yêu cầu cứu hộ (có thể lọc theo trạng thái)",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Lấy danh sách thành công",
+					content = @Content(mediaType = "application/json",
+							array = @ArraySchema(schema = @Schema(implementation = RescueRequestResponse.class)))),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện")
+	})
 	@GetMapping("/company")
 	@PreAuthorize("hasRole('COMPANY')")
 	public ResponseEntity<List<RescueRequestResponse>> getRequestsForCompany(
+			@Parameter(description = "Token xác thực", required = true)
 			@RequestHeader("Authorization") String token,
+			@Parameter(description = "Trạng thái yêu cầu cứu hộ cần lọc", required = false)
 			@RequestParam(value = "status", required = false) RescueRequestStatus status
 	) {
 		return ResponseEntity.ok(rescueRequestService.getRequestsForCompany(token, status));
 	}
 
+	@Operation(summary = "Chấp nhận yêu cầu cứu hộ",
+			description = "API cho phép công ty cứu hộ chấp nhận yêu cầu cứu hộ",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Chấp nhận yêu cầu thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueRequestResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Không thể chấp nhận yêu cầu"),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
+	})
 	@PutMapping("/{id}/accept")
 	@PreAuthorize("hasRole('COMPANY')")
-	public ResponseEntity<RescueRequestResponse> acceptRequest(@PathVariable String id, @RequestHeader("Authorization") String token) {
+	public ResponseEntity<RescueRequestResponse> acceptRequest(
+			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
+			@PathVariable String id,
+			@Parameter(description = "Token xác thực", required = true)
+			@RequestHeader("Authorization") String token) {
 		return ResponseEntity.ok(rescueRequestService.acceptRequest(id, token));
 	}
 
+	@Operation(summary = "Hủy yêu cầu cứu hộ (bởi người dùng)",
+			description = "API cho phép người dùng hủy yêu cầu cứu hộ của mình",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Hủy yêu cầu thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueRequestResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Không thể hủy yêu cầu"),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
+	})
 	@PutMapping("/{id}/cancel-by-user")
 	@PreAuthorize("hasRole('USER')")
-	public ResponseEntity<RescueRequestResponse> cancelByUser(@PathVariable String id, @RequestHeader("Authorization") String token) {
+	public ResponseEntity<RescueRequestResponse> cancelByUser(
+			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
+			@PathVariable String id,
+			@Parameter(description = "Token xác thực", required = true)
+			@RequestHeader("Authorization") String token) {
 		return ResponseEntity.ok(rescueRequestService.cancelByUser(id, token));
 	}
 
+	@Operation(summary = "Hủy yêu cầu cứu hộ (bởi công ty)",
+			description = "API cho phép công ty cứu hộ hủy yêu cầu cứu hộ đã nhận",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Hủy yêu cầu thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueRequestResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Không thể hủy yêu cầu"),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
+	})
 	@PutMapping("/{id}/cancel-by-company")
 	@PreAuthorize("hasRole('COMPANY')")
-	public ResponseEntity<RescueRequestResponse> cancelByCompany(@PathVariable String id, @RequestHeader("Authorization") String token) {
+	public ResponseEntity<RescueRequestResponse> cancelByCompany(
+			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
+			@PathVariable String id,
+			@Parameter(description = "Token xác thực", required = true)
+			@RequestHeader("Authorization") String token) {
 		return ResponseEntity.ok(rescueRequestService.cancelByCompany(id, token));
 	}
 
+	@Operation(summary = "Điều phối xe cứu hộ",
+			description = "API cho phép công ty cứu hộ điều phối xe cứu hộ cho một yêu cầu",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Điều phối xe thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueRequestResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Không thể điều phối xe"),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu hoặc xe")
+	})
 	@PutMapping("/{id}/dispatch-vehicle")
 	@PreAuthorize("hasRole('COMPANY')")
-	public ResponseEntity<RescueRequestResponse> dispatchRescueVehicle(@PathVariable String id, @RequestParam String vehicleId, @RequestHeader("Authorization") String token) {
+	public ResponseEntity<RescueRequestResponse> dispatchRescueVehicle(
+			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
+			@PathVariable String id,
+			@Parameter(description = "ID của xe cứu hộ", required = true)
+			@RequestParam String vehicleId,
+			@Parameter(description = "Token xác thực", required = true)
+			@RequestHeader("Authorization") String token) {
 		return ResponseEntity.ok(rescueRequestService.dispatchRescueVehicle(id, vehicleId, token));
 	}
+
+	@Operation(summary = "Đánh dấu xe đã đến nơi",
+			description = "API cho phép đánh dấu xe cứu hộ đã đến nơi cần cứu hộ",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Cập nhật trạng thái thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueRequestResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Không thể cập nhật trạng thái"),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
+	})
 	@PutMapping("/{id}/vehicle-arrived")
 	@PreAuthorize("hasRole('COMPANY')")
-	public ResponseEntity<RescueRequestResponse> vehicleArrived(@PathVariable String id,
-	                                                            @RequestHeader("Authorization") String token) {
+	public ResponseEntity<RescueRequestResponse> vehicleArrived(
+			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
+			@PathVariable String id,
+			@Parameter(description = "Token xác thực", required = true)
+			@RequestHeader("Authorization") String token) {
 		return ResponseEntity.ok(rescueRequestService.markVehicleArrived(id, token));
 	}
 
+	@Operation(summary = "Đánh dấu đã kiểm tra xong",
+			description = "API cho phép đánh dấu đã kiểm tra xong tình trạng xe cần cứu hộ",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Cập nhật trạng thái thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueRequestResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Không thể cập nhật trạng thái"),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
+	})
 	@PutMapping("/{id}/inspection-done")
 	@PreAuthorize("hasRole('COMPANY')")
-	public ResponseEntity<RescueRequestResponse> inspectionDone(@PathVariable String id,
-	                                                            @RequestHeader("Authorization") String token) {
+	public ResponseEntity<RescueRequestResponse> inspectionDone(
+			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
+			@PathVariable String id,
+			@Parameter(description = "Token xác thực", required = true)
+			@RequestHeader("Authorization") String token) {
 		return ResponseEntity.ok(rescueRequestService.markInspectionDone(id, token));
 	}
 
+	@Operation(summary = "Cập nhật giá",
+			description = "API cho phép công ty cứu hộ cập nhật giá dịch vụ sau khi kiểm tra",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Cập nhật giá thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueRequestResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Không thể cập nhật giá"),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
+	})
 	@PutMapping("/{id}/update-price")
 	@PreAuthorize("hasRole('COMPANY')")
-	public ResponseEntity<RescueRequestResponse> updatePrice(@PathVariable String id,
-	                                                         @RequestParam Double newPrice,
-	                                                         @RequestParam(required = false) String notes,
-	                                                         @RequestHeader("Authorization") String token) {
+	public ResponseEntity<RescueRequestResponse> updatePrice(
+			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
+			@PathVariable String id,
+			@Parameter(description = "Giá mới", required = true)
+			@RequestParam Double newPrice,
+			@Parameter(description = "Ghi chú về giá", required = false)
+			@RequestParam(required = false) String notes,
+			@Parameter(description = "Token xác thực", required = true)
+			@RequestHeader("Authorization") String token) {
 		return ResponseEntity.ok(rescueRequestService.updatePrice(id, newPrice, notes, token));
 	}
 
+	@Operation(summary = "Chấp nhận giá",
+			description = "API cho phép người dùng chấp nhận giá dịch vụ",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Chấp nhận giá thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueRequestResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Không thể chấp nhận giá"),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
+	})
 	@PutMapping("/{id}/confirm-price")
 	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<RescueRequestResponse> confirmPrice(
+			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
+			@Parameter(description = "Token xác thực", required = true)
 			@RequestHeader("Authorization") String token) {
 		return ResponseEntity.ok(rescueRequestService.confirmPrice(id, token));
 	}
 
+	@Operation(summary = "Từ chối giá",
+			description = "API cho phép người dùng từ chối giá dịch vụ",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Từ chối giá thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueRequestResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Không thể từ chối giá"),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
+	})
 	@PutMapping("/{id}/reject-price")
 	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<RescueRequestResponse> rejectPrice(
+			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
+			@Parameter(description = "Token xác thực", required = true)
 			@RequestHeader("Authorization") String token) {
 		return ResponseEntity.ok(rescueRequestService.rejectPrice(id, token));
 	}
 
+	@Operation(summary = "Bắt đầu sửa chữa",
+			description = "API cho phép công ty cứu hộ đánh dấu bắt đầu sửa chữa",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Cập nhật trạng thái thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueRequestResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Không thể cập nhật trạng thái"),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
+	})
 	@PutMapping("/{id}/start-repair")
 	@PreAuthorize("hasRole('COMPANY')")
 	public ResponseEntity<RescueRequestResponse> startRepair(
+			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
+			@Parameter(description = "Token xác thực", required = true)
 			@RequestHeader("Authorization") String token) {
 		return ResponseEntity.ok(rescueRequestService.startRepair(id, token));
 	}
 
+	@Operation(summary = "Hoàn thành sửa chữa",
+			description = "API cho phép công ty cứu hộ đánh dấu hoàn thành sửa chữa",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Cập nhật trạng thái thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueRequestResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Không thể cập nhật trạng thái"),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
+	})
 	@PutMapping("/{id}/complete-repair")
 	@PreAuthorize("hasRole('COMPANY')")
 	public ResponseEntity<RescueRequestResponse> completeRepair(
+			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
+			@Parameter(description = "Token xác thực", required = true)
 			@RequestHeader("Authorization") String token) {
 		return ResponseEntity.ok(rescueRequestService.completeRepair(id, token));
 	}

@@ -36,6 +36,16 @@ spring:
             enable: true
         transport:
           protocol: smtp
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    config-url: /api-docs/swagger-config
+    url: /api-docs
+  group-configs:
+    - group: invoices
+      paths-to-match: /api/v1/invoices/**
 
 jwt:
   signerKey: "In this society, only those who work hard, diligently, and tirelessly will earn their share. Only by working can one eat. Those who expect to eat without working will end up eating sh*t."
