@@ -1,11 +1,16 @@
-package com.example.backend.event;
+package com.example.notificationservice.model;
 
-import com.example.backend.event.enums.NotificationType;
+import com.example.notificationservice.model.enums.NotificationType;
 import lombok.*;
+
+import java.time.LocalDateTime;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
 import java.util.Map;
 
 @Data
@@ -13,7 +18,7 @@ import java.util.Map;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class NotificationEvent implements Serializable {
+public class Notification implements Serializable {
 	String recipientId;
 	String title;
 	String content;

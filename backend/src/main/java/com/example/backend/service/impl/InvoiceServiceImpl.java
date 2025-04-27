@@ -4,6 +4,7 @@ import com.example.backend.dto.request.InvoiceCreateRequest;
 import com.example.backend.dto.request.InvoiceUpdateRequest;
 import com.example.backend.dto.response.InvoiceResponse;
 import com.example.backend.event.NotificationEvent;
+import com.example.backend.event.enums.NotificationType;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.kafka.NotificationEventProducer;
 import com.example.backend.model.Invoice;
@@ -203,10 +204,11 @@ public class InvoiceServiceImpl implements InvoiceService {
 
 		// Send notification to the user about the new invoice
 		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-				.userId(rescueRequest.getUser().getId())
+				.recipientId(rescueRequest.getUser().getId())
 				.title("Hóa đơn mới")
 				.content("Một hóa đơn mới đã được tạo cho dịch vụ cứu hộ của bạn. Vui lòng kiểm tra và thanh toán.")
-				.type("INVOICE_CREATED")
+				.type(NotificationType.INVOICE_CREATED)  // Sử dụng enum INVOICE_CREATED
+				.sentAt(LocalDateTime.now())  // Thời gian gửi thông báo
 				.build());
 
 		return toResponse(savedInvoice);
@@ -244,10 +246,11 @@ public class InvoiceServiceImpl implements InvoiceService {
 
 				// Send notification about payment
 				notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-						.userId(rescueRequest.getUser().getId())
+						.recipientId(rescueRequest.getUser().getId())
 						.title("Hóa đơn đã được thanh toán")
 						.content("Hóa đơn của bạn đã được đánh dấu là đã thanh toán. Cảm ơn bạn đã sử dụng dịch vụ.")
-						.type("INVOICE_PAID")
+						.type(NotificationType.INVOICE_PAID)  // Sử dụng enum INVOICE_PAID
+						.sentAt(LocalDateTime.now())
 						.build());
 			}
 		}
@@ -295,10 +298,11 @@ public class InvoiceServiceImpl implements InvoiceService {
 
 		// Send notification about payment
 		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-				.userId(rescueRequest.getUser().getId())
+				.recipientId(rescueRequest.getUser().getId())
 				.title("Hóa đơn đã được thanh toán")
 				.content("Hóa đơn của bạn đã được đánh dấu là đã thanh toán. Cảm ơn bạn đã sử dụng dịch vụ.")
-				.type("INVOICE_PAID")
+				.type(NotificationType.INVOICE_PAID)  // Sử dụng enum INVOICE_PAID
+				.sentAt(LocalDateTime.now())
 				.build());
 
 		// Save updated invoice

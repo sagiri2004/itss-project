@@ -1,0 +1,25 @@
+server:
+  port: 9006
+logging:
+  level:
+    org.apache.kafka: ERROR
+    org.springframework.kafka: ERROR
+    org.apache.kafka.clients.consumer: ERROR
+    org.apache.kafka.clients.producer: ERROR
+
+spring:
+  application:
+    name: notification-service
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  cache:
+    type: redis
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notification-service
+jwt:
+  signerKey: "In this society, only those who work hard, diligently, and tirelessly will earn their share. Only by working can one eat. Those who expect to eat without working will end up eating sh*t."
+  expirationMs: 69696969
