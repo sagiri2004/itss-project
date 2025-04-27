@@ -1,0 +1,19 @@
+services:
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    image: sagiri2k4/notification-service:latest
+    networks:
+      - microservice-networks
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: sagiri2k4/backend:latest
+    networks:
+      - microservice-networks
+networks:
+  microservice-networks:
+    driver: bridge

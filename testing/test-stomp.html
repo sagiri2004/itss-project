@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Test WebSocket 2 User (Chat Realtime)</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <style>
+      .user-container {
+        border: 1px solid #ccc;
+        padding: 20px;
+        margin: 20px;
+        width: 45%;
+        display: inline-block;
+        vertical-align: top;
+      }
+      .messages {
+        border: 1px solid #aaa;
+        height: 200px;
+        overflow-y: scroll;
+        margin-top: 10px;
+        padding: 10px;
+        background: #f9f9f9;
+      }
+      .status {
+        color: green;
+        font-weight: bold;
+        margin-top: 10px;
+      }
+      .error {
+        color: red;
+        font-weight: bold;
+        margin-top: 10px;
+      }
+      .debug-panel {
+        margin-top: 20px;
+        padding: 10px;
+        background: #f0f0f0;
+        border: 1px solid #ddd;
+      }
+      .id-info {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 8px;
+      }
+      .credentials {
+        background-color: #f8f8f8;
+        padding: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .credentials label {
+        display: inline-block;
+        width: 120px;
+        margin-bottom: 5px;
+      }
+      .credentials input {
+        width: 80%;
+        padding: 5px;
+        margin-bottom: 8px;
+      }
+      .toggle-credentials {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Giả lập User và Company chat với nhau qua WebSocket</h1>
+
+    <div class="user-container">
+      <h2>User</h2>
+      <button class="toggle-credentials" onclick="toggleCredentials('user')">
+        Hiện/Ẩn thông tin kết nối
+      </button>
+      <div class="credentials" id="userCredentials">
+        <label for="userId">User ID:</label>
+        <input
+          type="text"
+          id="userId"
+          placeholder="ID của user để kết nối"
+          value="5b87d200-a81d-4435-982f-ef1a1354e4ba"
+        /><br />
+        <label for="userToken">Token:</label>
+        <input
+          type="text"
+          id="userToken"
+          placeholder="JWT Token của user"
+          value="eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyIiwidXNlcklkIjoiNWI4N2QyMDAtYTgxZC00NDM1LTk4MmYtZWYxYTEzNTRlNGJhIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1NzQ4MjQ1LCJleHAiOjE3NDU4MTc5NDJ9.6y0WIQmTXtZy2sEgCjBhv6qVadejqYFuYnY1DZrv2DcqkRsULgMVkdsZe-PQJj4lYgfqFdktJG1uPHaYKHZtog"
+        /><br />
+        <label for="userSenderType">Sender Type:</label>
+        <input
+          type="text"
+          id="userSenderType"
+          placeholder="Loại người gửi"
+          value="USER"
+        />
+      </div>
+      <input
+        type="text"
+        id="userContent"
+        placeholder="Nội dung tin nhắn"
+      /><br /><br />
+      <input
+        type="text"
+        id="userConversationId"
+        placeholder="Conversation ID"
+        value="conv-001"
+      /><br /><br />
+      <input
+        type="text"
+        id="userRescueCompanyId"
+        placeholder="Rescue Company ID"
+        value="fed716c8-c05c-4254-ae03-e8386053b3c8"
+      /><br /><br />
+      <button onclick="connect('user')">Connect User</button>
+      <button onclick="sendMessage('user')">Gửi tin nhắn User</button>
+      <button onclick="disconnect('user')">Disconnect</button>
+      <div class="status" id="userStatus"></div>
+      <div class="messages" id="userMessages"></div>
+    </div>
+
+    <div class="user-container">
+      <h2>Company</h2>
+      <button class="toggle-credentials" onclick="toggleCredentials('company')">
+        Hiện/Ẩn thông tin kết nối
+      </button>
+      <div class="credentials" id="companyCredentials">
+        <label for="companyUserId">User ID:</label>
+        <input
+          type="text"
+          id="companyUserId"
+          placeholder="ID của user có role COMPANY để kết nối"
+          value="bbda3992-2e67-4c6e-bbfb-3140c7e01587"
+        /><br />
+        <label for="companyId">Company ID:</label>
+        <input
+          type="text"
+          id="companyId"
+          placeholder="ID của company để gửi tin nhắn"
+          value="fed716c8-c05c-4254-ae03-e8386053b3c8"
+        /><br />
+        <label for="companyToken">Token:</label>
+        <input
+          type="text"
+          id="companyToken"
+          placeholder="JWT Token của company"
+          value="eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiYmJkYTM5OTItMmU2Ny00YzZlLWJiZmItMzE0MGM3ZTAxNTg3Iiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1NzQ4NDk3LCJleHAiOjE3NDU4MTgxOTR9.rIb_thDZfas0w-kI21YRLRxrdbib2ieXNW3vmyVJ15wR10IvKpuoDNeIuGvHmlme8M31Hgor0r3w7tjOgiIVAw"
+        /><br />
+        <label for="companySenderType">Sender Type:</label>
+        <input
+          type="text"
+          id="companySenderType"
+          placeholder="Loại người gửi"
+          value="RESCUE_COMPANY"
+        />
+      </div>
+      <input
+        type="text"
+        id="companyContent"
+        placeholder="Nội dung tin nhắn"
+      /><br /><br />
+      <input
+        type="text"
+        id="companyConversationId"
+        placeholder="Conversation ID"
+        value="conv-001"
+      /><br /><br />
+      <input
+        type="text"
+        id="companyRecipientUserId"
+        placeholder="User ID người nhận"
+        value="5b87d200-a81d-4435-982f-ef1a1354e4ba"
+      /><br /><br />
+      <button onclick="connect('company')">Connect Company</button>
+      <button onclick="sendMessage('company')">Gửi tin nhắn Company</button>
+      <button onclick="disconnect('company')">Disconnect</button>
+      <div class="status" id="companyStatus"></div>
+      <div class="messages" id="companyMessages"></div>
+    </div>
+
+    <div class="debug-panel">
+      <h3>Debug Information</h3>
+      <div id="debugLog"></div>
+    </div>
+
+    <script>
+      // Mặc định ẩn phần credential khi load trang
+      document.addEventListener("DOMContentLoaded", function () {
+        document.getElementById("userCredentials").style.display = "none";
+        document.getElementById("companyCredentials").style.display = "none";
+      });
+
+      function toggleCredentials(type) {
+        const credentials = document.getElementById(`${type}Credentials`);
+        if (credentials.style.display === "none") {
+          credentials.style.display = "block";
+        } else {
+          credentials.style.display = "none";
+        }
+      }
+
+      let stompClients = {};
+
+      function log(message) {
+        console.log(message);
+        const debugLog = document.getElementById("debugLog");
+        const logEntry = document.createElement("div");
+        logEntry.textContent = new Date().toLocaleTimeString() + ": " + message;
+        debugLog.appendChild(logEntry);
+        debugLog.scrollTop = debugLog.scrollHeight;
+      }
+
+      function setStatus(type, message, isError = false) {
+        const statusElement = document.getElementById(`${type}Status`);
+        statusElement.textContent = message;
+        statusElement.className = isError ? "error" : "status";
+      }
+
+      function connect(type) {
+        setStatus(type, "Đang kết nối...");
+
+        // Lấy thông tin từ form thay vì hard-code
+        let userId, token, senderType, companyId;
+
+        if (type === "user") {
+          userId = document.getElementById("userId").value;
+          token = document.getElementById("userToken").value;
+          senderType = document.getElementById("userSenderType").value;
+        } else {
+          userId = document.getElementById("companyUserId").value;
+          token = document.getElementById("companyToken").value;
+          senderType = document.getElementById("companySenderType").value;
+          companyId = document.getElementById("companyId").value;
+        }
+
+        // Tạo URL với token trong tham số query (lưu ý: đây là cách không khuyến nghị cho môi trường production)
+        const wsUrl = `ws://localhost:9006/ws?token=${encodeURIComponent(
+          token
+        )}`;
+
+        try {
+          // Sử dụng WebSocket trực tiếp, vì chúng ta đã chỉ định URL với token
+          const socket = new WebSocket(wsUrl);
+          const stompClient = Stomp.over(socket);
+
+          // Tắt log debug mặc định của STOMP
+          stompClient.debug = function (str) {
+            // log(str); // Bỏ comment nếu muốn xem log STOMP chi tiết
+          };
+
+          stompClient.connect(
+            {}, // Headers trống vì token đã trong URL
+            function (frame) {
+              log(`${type} connected: ` + frame);
+              stompClients[type] = stompClient;
+              setStatus(type, "Đã kết nối thành công");
+
+              // Đăng ký nhận thông báo cá nhân
+              stompClient.subscribe(
+                "/user/queue/notifications",
+                function (messageOutput) {
+                  try {
+                    const message = JSON.parse(messageOutput.body);
+                    log(
+                      `${type} nhận được thông báo: ${JSON.stringify(message)}`
+                    );
+                    displayMessage(type, message);
+                  } catch (e) {
+                    log(`Error parsing message: ${e}`);
+                    displayMessage(type, {
+                      content: messageOutput.body,
+                      senderType: "SYSTEM",
+                    });
+                  }
+                }
+              );
+
+              // Đăng ký nhận thông báo public (nếu cần)
+              stompClient.subscribe("/topic/public", function (messageOutput) {
+                try {
+                  const message = JSON.parse(messageOutput.body);
+                  log(
+                    `${type} nhận được thông báo public: ${JSON.stringify(
+                      message
+                    )}`
+                  );
+                  displayMessage(type, message);
+                } catch (e) {
+                  log(`Error parsing public message: ${e}`);
+                  displayMessage(type, {
+                    content: messageOutput.body,
+                    senderType: "PUBLIC",
+                  });
+                }
+              });
+            },
+            function (error) {
+              log(`Connection error ${type}: ${error}`);
+              setStatus(type, `Lỗi kết nối: ${error}`, true);
+            }
+          );
+        } catch (error) {
+          log(`Error creating connection for ${type}: ${error}`);
+          setStatus(type, `Lỗi tạo kết nối: ${error}`, true);
+        }
+      }
+
+      function disconnect(type) {
+        const stompClient = stompClients[type];
+        if (stompClient) {
+          stompClient.disconnect(function () {
+            log(`${type} disconnected`);
+            setStatus(type, "Đã ngắt kết nối");
+            stompClients[type] = null;
+          });
+        }
+      }
+
+      function sendMessage(type) {
+        const stompClient = stompClients[type];
+        if (!stompClient || !stompClient.connected) {
+          alert(`${type} chưa connect!`);
+          return;
+        }
+
+        const content =
+          document.getElementById(`${type}Content`).value ||
+          "Nội dung mặc định";
+        const conversationId =
+          document.getElementById(`${type}ConversationId`).value || "conv-001";
+
+        let message;
+
+        if (type === "user") {
+          // User gửi tin nhắn cho Company
+          const userId = document.getElementById("userId").value;
+          const rescueCompanyId =
+            document.getElementById(`userRescueCompanyId`).value;
+          const senderType = document.getElementById("userSenderType").value;
+
+          message = {
+            content: content,
+            conversationId: conversationId,
+            rescueCompanyId: rescueCompanyId,
+            userId: userId,
+            senderType: senderType,
+            isRead: false,
+            sentAt: new Date().toISOString(),
+          };
+        } else {
+          // Company gửi tin nhắn cho User
+          const userId = document.getElementById(
+            `companyRecipientUserId`
+          ).value;
+          const rescueCompanyId = document.getElementById("companyId").value;
+          const senderType = document.getElementById("companySenderType").value;
+
+          message = {
+            content: content,
+            conversationId: conversationId,
+            rescueCompanyId: rescueCompanyId,
+            userId: userId,
+            senderType: senderType,
+            isRead: false,
+            sentAt: new Date().toISOString(),
+          };
+        }
+
+        stompClient.send("/app/message", {}, JSON.stringify(message));
+        log(`${type} gửi tin nhắn: ${JSON.stringify(message)}`);
+
+        // Thêm tin nhắn đã gửi vào giao diện
+        displayMessage(type, {
+          ...message,
+          senderType: message.senderType + " (You)",
+        });
+      }
+
+      function displayMessage(type, message) {
+        const containerId = type + "Messages";
+        const container = document.getElementById(containerId);
+
+        const div = document.createElement("div");
+
+        let timeStr = "";
+        if (message.sentAt) {
+          const time = new Date(message.sentAt).toLocaleTimeString();
+          timeStr = `<span style="color: #888">[${time}]</span> `;
+        }
+
+        let fromStr = "";
+        if (message.userId && message.rescueCompanyId) {
+          if (
+            message.senderType === "USER" ||
+            message.senderType === "USER (You)"
+          ) {
+            fromStr = `<span style="color: blue">${message.senderType}</span>`;
+          } else {
+            fromStr = `<span style="color: green">${message.senderType}</span>`;
+          }
+        } else {
+          fromStr = `<span style="color: purple">${message.senderType}</span>`;
+        }
+
+        div.innerHTML = `${timeStr}${fromStr}: ${message.content}`;
+        container.appendChild(div);
+
+        // Tự động scroll xuống dưới
+        container.scrollTop = container.scrollHeight;
+      }
+
+      // Xử lý khi trang đóng để ngắt kết nối
+      window.onbeforeunload = function () {
+        Object.keys(stompClients).forEach((type) => {
+          if (stompClients[type]) {
+            stompClients[type].disconnect();
+          }
+        });
+      };
+    </script>
+  </body>
+</html>

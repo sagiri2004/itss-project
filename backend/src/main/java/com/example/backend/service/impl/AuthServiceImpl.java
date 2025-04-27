@@ -6,8 +6,10 @@ import com.example.backend.dto.request.RegisterRequest;
 import com.example.backend.dto.request.ResetPasswordRequest;
 import com.example.backend.dto.response.AuthResponse;
 import com.example.backend.exception.AuthException;
+import com.example.backend.model.RescueCompany;
 import com.example.backend.model.User;
 import com.example.backend.model.enums.UserRole;
+import com.example.backend.repository.RescueCompanyRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.service.AuthService;
 import com.example.backend.service.EmailService;
@@ -16,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -23,6 +26,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 	private final UserRepository userRepository;
+	private final RescueCompanyRepository repository;
 	private final PasswordEncoder passwordEncoder;
 	private final EmailService emailService;
 	private final JwtUtil jwtUtil;
@@ -81,10 +85,21 @@ public class AuthServiceImpl implements AuthService {
 
 		String token = jwtUtil.generateToken(user.getUsername(), user.getRoles(), user.getId());
 
+		// Get company ID if available
+		String companyId = null;
+		Optional<RescueCompany> companyOpt = userRepository.findById(user.getId())
+				.flatMap(u -> repository.findByUserId(u.getId()));
+		if (companyOpt.isPresent()) {
+			companyId = companyOpt.get().getId();
+		}
+
 		return AuthResponse.builder()
 				.token(token)
 				.message("User logged in successfully")
+				.userId(user.getId())
+				.companyId(companyId)
 				.build();
+
 	}
 
 	@Override
