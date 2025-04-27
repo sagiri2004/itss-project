@@ -4,7 +4,9 @@ import com.example.backend.dto.request.RescueRequestCreateRequest;
 import com.example.backend.dto.response.InvoiceResponse;
 import com.example.backend.dto.response.RescueRequestResponse;
 import com.example.backend.event.NotificationEvent;
+import com.example.backend.event.enums.NotificationType;
 import com.example.backend.exception.AuthException;
+import com.example.backend.exception.InvalidStatusException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.kafka.NotificationEventProducer;
 import com.example.backend.model.*;
@@ -23,6 +25,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -61,13 +64,14 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 
 		User companyOwner = rescueService.getCompany().getUser();
 		NotificationEvent event = NotificationEvent.builder()
-				.userId(companyOwner.getId())
+				.recipientId(companyOwner.getId())
 				.title("Yêu cầu cứu hộ mới")
 				.content("Bạn vừa nhận được một yêu cầu cứu hộ mới. Hãy kiểm tra hệ thống!")
-				.type("RESCUE_REQUEST")
+				.type(NotificationType.RESCUE_REQUEST)
+				.sentAt(LocalDateTime.now())
 				.build();
-
 		notificationEventProducer.sendNotificationEvent(event);
+
 
 		return toResponse(saved);
 	}
@@ -122,12 +126,15 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 		request.setStatus(RescueRequestStatus.ACCEPTED_BY_COMPANY);
 		RescueRequest saved = requestRepository.save(request);
 
-		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-				.userId(request.getUser().getId())
+		NotificationEvent event = NotificationEvent.builder()
+				.recipientId(request.getUser().getId())
 				.title("Yêu cầu được tiếp nhận")
 				.content("Yêu cầu cứu hộ của bạn đã được công ty tiếp nhận.")
-				.type("RESCUE_UPDATE")
-				.build());
+				.type(NotificationType.REQUEST_ACCEPTED)
+				.sentAt(LocalDateTime.now())
+				.build();
+		notificationEventProducer.sendNotificationEvent(event);
+
 		return toResponse(saved);
 	}
 
@@ -145,7 +152,7 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 				request.getStatus() == RescueRequestStatus.COMPLETED ||
 				request.getStatus() == RescueRequestStatus.INVOICED ||
 				request.getStatus() == RescueRequestStatus.PAID) {
-			throw new AuthException("Không thể hủy yêu cầu ở trạng thái này");
+			throw new InvalidStatusException("Không thể hủy yêu cầu ở trạng thái này");
 		}
 
 		RescueRequestStatus currentStatus = request.getStatus();
@@ -173,12 +180,16 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 			// Thông báo cho công ty cứu hộ về việc hủy
 			if (saved.getRescueService() != null && saved.getRescueService().getCompany() != null
 					&& saved.getRescueService().getCompany().getUser() != null) {
-				notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-						.userId(saved.getRescueService().getCompany().getUser().getId())
+				NotificationEvent event = NotificationEvent.builder()
+						.recipientId(saved.getRescueService().getCompany().getUser().getId())
 						.title("Yêu cầu bị hủy")
 						.content("Người dùng đã hủy yêu cầu cứu hộ.")
-						.type("RESCUE_UPDATE")
-						.build());
+						.type(NotificationType.REQUEST_CANCELED)
+						.sentAt(LocalDateTime.now())
+						.build();
+				notificationEventProducer.sendNotificationEvent(event);
+
+
 			}
 
 			return toResponse(saved);
@@ -211,7 +222,7 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 				currentStatus == RescueRequestStatus.COMPLETED ||
 				currentStatus == RescueRequestStatus.INVOICED ||
 				currentStatus == RescueRequestStatus.PAID) {
-			throw new AuthException("Không thể hủy yêu cầu ở trạng thái này");
+			throw new InvalidStatusException("Không thể hủy yêu cầu ở trạng thái này");
 		}
 
 		request.setStatus(RescueRequestStatus.CANCELLED_BY_COMPANY);
@@ -234,12 +245,16 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 			// Lưu yêu cầu với trạng thái mới
 			RescueRequest saved = requestRepository.save(request);
 
-			notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-					.userId(request.getUser().getId())
+			NotificationEvent event = NotificationEvent.builder()
+					.recipientId(request.getUser().getId())
 					.title("Yêu cầu bị hủy")
 					.content("Công ty cứu hộ đã hủy yêu cầu của bạn.")
-					.type("RESCUE_UPDATE")
-					.build());
+					.type(NotificationType.REQUEST_CANCELED)
+					.sentAt(LocalDateTime.now())
+					.build();
+			notificationEventProducer.sendNotificationEvent(event);
+
+
 
 			return toResponse(saved);
 		} catch (Exception e) {
@@ -267,7 +282,7 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 		}
 
 		if (request.getStatus() != RescueRequestStatus.ACCEPTED_BY_COMPANY) {
-			throw new AuthException("Yêu cầu phải ở trạng thái được tiếp nhận trước khi điều xe");
+			throw new InvalidStatusException("Yêu cầu phải ở trạng thái được tiếp nhận trước khi điều xe");
 		}
 
 		RescueVehicle vehicle = rescueVehicleRepository.findById(vehicleId)
@@ -280,12 +295,12 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 
 		// Kiểm tra trạng thái xe
 		if (vehicle.getStatus() != RescueVehicleStatus.AVAILABLE) {
-			throw new IllegalStateException("Xe cứu hộ này không khả dụng để điều động");
+			throw new InvalidStatusException("Xe cứu hộ này không khả dụng để điều động");
 		}
 
 		// Kiểm tra xe đã được dispatched đến request này chưa
 		if (rescueVehicleDispatchRepository.existsByRescueRequestAndRescueVehicle(request, vehicle)) {
-			throw new IllegalStateException("Xe này đã được điều động cho yêu cầu cứu hộ này");
+			throw new InvalidStatusException("Xe này đã được điều động cho yêu cầu cứu hộ này");
 		}
 
 		try {
@@ -305,12 +320,15 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 			request.setStatus(RescueRequestStatus.RESCUE_VEHICLE_DISPATCHED);
 			RescueRequest saved = requestRepository.save(request);
 
-			notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-					.userId(request.getUser().getId())
+			NotificationEvent event = NotificationEvent.builder()
+					.recipientId(request.getUser().getId())
 					.title("Xe cứu hộ đang được điều động")
 					.content("Xe cứu hộ đang được điều động đến vị trí của bạn.")
-					.type("RESCUE_UPDATE")
-					.build());
+					.type(NotificationType.VEHICLE_DISPATCHED)
+					.sentAt(LocalDateTime.now())
+					.build();
+			notificationEventProducer.sendNotificationEvent(event);
+
 
 			return toResponse(saved);
 		} catch (Exception e) {
@@ -347,7 +365,7 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 		}
 
 		if (request.getStatus() != RescueRequestStatus.RESCUE_VEHICLE_DISPATCHED) {
-			throw new IllegalStateException("Yêu cầu phải ở trạng thái đã điều động xe trước khi đánh dấu xe đã đến nơi");
+			throw new InvalidStatusException("Yêu cầu phải ở trạng thái đã điều động xe trước khi đánh dấu xe đã đến nơi");
 		}
 
 		// Cập nhật trạng thái request
@@ -364,13 +382,14 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 			rescueVehicleDispatchRepository.save(dispatch);
 		}
 
-		// Gửi thông báo cho người dùng
-		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-				.userId(request.getUser().getId())
+		NotificationEvent event = NotificationEvent.builder()
+				.recipientId(request.getUser().getId())
 				.title("Xe cứu hộ đã đến")
 				.content("Xe cứu hộ đã đến vị trí của bạn. Đội kỹ thuật sẽ kiểm tra tình trạng xe.")
-				.type("RESCUE_UPDATE")
-				.build());
+				.type(NotificationType.VEHICLE_ARRIVED)
+				.sentAt(LocalDateTime.now())
+				.build();
+		notificationEventProducer.sendNotificationEvent(event);
 
 		return toResponse(saved);
 	}
@@ -394,7 +413,7 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 		}
 
 		if (request.getStatus() != RescueRequestStatus.RESCUE_VEHICLE_ARRIVED) {
-			throw new IllegalStateException("Yêu cầu phải ở trạng thái xe đã đến nơi trước khi hoàn tất kiểm tra");
+			throw new InvalidStatusException("Yêu cầu phải ở trạng thái xe đã đến nơi trước khi hoàn tất kiểm tra");
 		}
 
 		// Cập nhật trạng thái request
@@ -402,12 +421,14 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 		RescueRequest saved = requestRepository.save(request);
 
 		// Gửi thông báo cho người dùng
-		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-				.userId(request.getUser().getId())
+		NotificationEvent event = NotificationEvent.builder()
+				.recipientId(request.getUser().getId())
 				.title("Kiểm tra xe hoàn tất")
-				.content("Đội kỹ thuật đã hoàn tất kiểm tra tình trạng xe. Công ty sẽ cập nhật chi phí sửa chữa.")
-				.type("RESCUE_UPDATE")
-				.build());
+				.content("Đội kỹ thuật đã hoàn tất kiểm tra xe của bạn.")
+				.type(NotificationType.INSPECTION_COMPLETED)
+				.sentAt(LocalDateTime.now())
+				.build();
+		notificationEventProducer.sendNotificationEvent(event);
 
 		return toResponse(saved);
 	}
@@ -431,7 +452,7 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 		}
 
 		if (request.getStatus() != RescueRequestStatus.INSPECTION_DONE) {
-			throw new IllegalStateException("Yêu cầu phải ở trạng thái đã kiểm tra xe trước khi cập nhật giá");
+			throw new InvalidStatusException("Yêu cầu phải ở trạng thái đã kiểm tra xe trước khi cập nhật giá");
 		}
 
 		if (newPrice == null || newPrice <= 0) {
@@ -450,12 +471,16 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 		RescueRequest saved = requestRepository.save(request);
 
 		// Gửi thông báo cho người dùng
-		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-				.userId(request.getUser().getId())
-				.title("Cập nhật chi phí sửa chữa")
-				.content("Công ty cứu hộ đã cập nhật chi phí sửa chữa. Vui lòng kiểm tra và xác nhận.")
-				.type("RESCUE_UPDATE")
-				.build());
+		NotificationEvent event = NotificationEvent.builder()
+				.recipientId(request.getUser().getId())
+				.title("Báo giá mới")
+				.content("Công ty cứu hộ đã cập nhật báo giá cho dịch vụ. Vui lòng kiểm tra.")
+				.type(NotificationType.PRICE_UPDATED)
+				.sentAt(LocalDateTime.now())
+				.additionalData(Map.of("price", newPrice, "notes", notes != null ? notes : ""))
+				.build();
+		notificationEventProducer.sendNotificationEvent(event);
+
 
 		return toResponse(saved);
 	}
@@ -473,7 +498,7 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 
 		// Validate current status
 		if (request.getStatus() != RescueRequestStatus.PRICE_UPDATED) {
-			throw new IllegalStateException("Yêu cầu phải ở trạng thái đã cập nhật giá trước khi xác nhận");
+			throw new InvalidStatusException("Yêu cầu phải ở trạng thái đã cập nhật giá trước khi xác nhận");
 		}
 
 		// Update request status
@@ -481,12 +506,15 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 		RescueRequest saved = requestRepository.save(request);
 
 		// Send notification to company
-		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-				.userId(request.getRescueService().getCompany().getUser().getId())
-				.title("Khách hàng đã chấp nhận báo giá")
-				.content("Khách hàng đã chấp nhận báo giá sửa chữa. Bạn có thể bắt đầu sửa chữa.")
-				.type("RESCUE_UPDATE")
-				.build());
+		NotificationEvent event = NotificationEvent.builder()
+				.recipientId(request.getRescueService().getCompany().getUser().getId())
+				.title("Báo giá được chấp nhận")
+				.content("Khách hàng đã chấp nhận báo giá dịch vụ.")
+				.type(NotificationType.PRICE_CONFIRMED)
+				.sentAt(LocalDateTime.now())
+				.build();
+		notificationEventProducer.sendNotificationEvent(event);
+
 
 		return toResponse(saved);
 	}
@@ -504,7 +532,7 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 
 		// Validate current status
 		if (request.getStatus() != RescueRequestStatus.PRICE_UPDATED) {
-			throw new IllegalStateException("Yêu cầu phải ở trạng thái đã cập nhật giá trước khi từ chối");
+			throw new InvalidStatusException("Yêu cầu phải ở trạng thái đã cập nhật giá trước khi từ chối");
 		}
 
 		// Update request status
@@ -523,12 +551,14 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 		}
 
 		// Send notification to company
-		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-				.userId(request.getRescueService().getCompany().getUser().getId())
-				.title("Khách hàng đã từ chối báo giá")
-				.content("Khách hàng đã từ chối báo giá sửa chữa.")
-				.type("RESCUE_UPDATE")
-				.build());
+		NotificationEvent event = NotificationEvent.builder()
+				.recipientId(request.getRescueService().getCompany().getUser().getId())
+				.title("Báo giá bị từ chối")
+				.content("Khách hàng đã từ chối báo giá dịch vụ.")
+				.type(NotificationType.PRICE_REJECTED)
+				.sentAt(LocalDateTime.now())
+				.build();
+		notificationEventProducer.sendNotificationEvent(event);
 
 		return toResponse(saved);
 	}
@@ -552,20 +582,21 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 
 		// Validate current status
 		if (request.getStatus() != RescueRequestStatus.PRICE_CONFIRMED) {
-			throw new IllegalStateException("Yêu cầu phải ở trạng thái đã xác nhận giá trước khi bắt đầu sửa chữa");
+			throw new InvalidStatusException("Yêu cầu phải ở trạng thái đã xác nhận giá trước khi bắt đầu sửa chữa");
 		}
 
 		// Update request status
 		request.setStatus(RescueRequestStatus.IN_PROGRESS);
 		RescueRequest saved = requestRepository.save(request);
 
-		// Send notification to user
-		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-				.userId(request.getUser().getId())
-				.title("Đã bắt đầu sửa chữa")
-				.content("Công ty cứu hộ đã bắt đầu sửa chữa xe của bạn.")
-				.type("RESCUE_UPDATE")
-				.build());
+		NotificationEvent event = NotificationEvent.builder()
+				.recipientId(request.getUser().getId())
+				.title("Bắt đầu sửa chữa")
+				.content("Đội kỹ thuật đã bắt đầu tiến hành sửa chữa xe của bạn.")
+				.type(NotificationType.REPAIR_STARTED)
+				.sentAt(LocalDateTime.now())
+				.build();
+		notificationEventProducer.sendNotificationEvent(event);
 
 		return toResponse(saved);
 	}
@@ -589,12 +620,12 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 
 		// Validate current status
 		if (request.getStatus() != RescueRequestStatus.IN_PROGRESS) {
-			throw new IllegalStateException("Yêu cầu phải ở trạng thái đang sửa chữa trước khi hoàn tất sửa chữa");
+			throw new InvalidStatusException("Yêu cầu phải ở trạng thái đang sửa chữa trước khi hoàn tất sửa chữa");
 		}
 
 		// Check if invoice already exists for this request
 		if (invoiceRepository.existsByRescueRequest(request)) {
-			throw new IllegalStateException("Hóa đơn đã tồn tại cho yêu cầu này");
+			throw new InvalidStatusException("Hóa đơn đã tồn tại cho yêu cầu này");
 		}
 
 		// Update request status to COMPLETED
@@ -638,12 +669,15 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 		saved = requestRepository.save(request);
 
 		// Send notification to user
-		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
-				.userId(request.getUser().getId())
-				.title("Sửa chữa hoàn tất và hóa đơn đã tạo")
-				.content("Xe của bạn đã được sửa chữa hoàn tất. Hóa đơn đã được tạo, vui lòng thanh toán để hoàn tất quá trình.")
-				.type("RESCUE_UPDATE")
-				.build());
+		NotificationEvent event = NotificationEvent.builder()
+				.recipientId(request.getUser().getId())
+				.title("Sửa chữa hoàn tất")
+				.content("Xe của bạn đã được sửa chữa xong.")
+				.type(NotificationType.REPAIR_COMPLETED)
+				.sentAt(LocalDateTime.now())
+				.build();
+		notificationEventProducer.sendNotificationEvent(event);
+
 
 		return toResponse(saved);
 	}

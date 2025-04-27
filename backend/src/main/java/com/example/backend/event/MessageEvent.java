@@ -1,23 +1,21 @@
 package com.example.backend.event;
 
-import com.example.backend.event.enums.NotificationType;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Map;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class NotificationEvent implements Serializable {
-	String recipientId;
-	String title;
+public class MessageEvent {
 	String content;
-	NotificationType type;
+	String conversationId;
+	String rescueCompanyId;
+	String userId;
+	String senderType;
+	boolean isRead;
 	LocalDateTime sentAt;
-	Map<String, Object> additionalData;
 }
