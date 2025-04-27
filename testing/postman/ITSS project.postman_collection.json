@@ -1,0 +1,1041 @@
+{
+	"info": {
+		"_postman_id": "62c4c874-5f44-45ea-ba17-8971cd115b42",
+		"name": "ITSS project",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "37331212"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"company\",\n  \"password\": \"company\",\n  \"email\": \"company@example.com\",\n  \"name\": \"company\",\n  \"roles\": [\"USER\", \"COMPANY\"]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/auth/register",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"company\",\n  \"password\": \"company\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/auth/login",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Register admin",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"acane\",\n  \"password\": \"ztmy\",\n  \"name\": \"Acane\",\n  \"email\": \"acane@example.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/auth/register",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Forgot password",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"test\",\n  \"email\": \"thang.nh225763@gmail.com\"\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/auth/forgot-password",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"forgot-password"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reset password",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"test\",\n  \"code\": \"a400f0d8\",\n  \"newPassword\": \"test1\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/auth/reset-password",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"reset-password"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Rescue companies",
+			"item": [
+				{
+					"name": "Create company",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1MzM4NDY1LCJleHAiOjE3NDU0MDgxNjJ9.7DLrN0ckJFuNDoVbHYZOK2sXWOLROquzLTiYiXa7GY2fhbAD_rRPzlfIaOGwXWIgB6PBOjkFojoZYqk3Z1CjiA",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Rescue Team A\",\n  \"phone\": \"+84123456789\",\n  \"description\": \"A professional rescue company providing 24/7 assistance.\",\n  \"latitude\": 21.006791527347836,\n  \"longitude\": 105.8436614805358\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-companies",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-companies"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get all company",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyIiwidXNlcklkIjoiMzQ1ZWIwM2MtZDE5Yi00YzNlLTg4YjktMjUxZjY2Y2M2YWM4Iiwicm9sZXMiOlsiVVNFUiJdLCJpYXQiOjE3NDU2OTU5MTAsImV4cCI6MTc0NTc2NTYwN30.UySR8rjI-MG1YOkMflUukBnFmJtA-tLv-bLe1NZqSoJRd952_NncNuTiwl-3kys3hfG8NE9mDHCuyZjDtTTS3A",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-companies",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-companies"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get company",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ0ZXN0IiwidXNlcklkIjoiNjY3ZWNkOTAtZWIzMi00M2JhLWJhYjktMDQ0NWVhYmVmNTIzIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1MjQwNjkxLCJleHAiOjE3NDUzMTAzODh9.C6_KYkYCMMDgspCNHDuIQ8a5TfDWhvwNdTvQVhpDmk5O82BGI_4XcLw0Nx3svnawjnp3WX7u6Ofu-kqIvSAJJg",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-companies/0cfe4fff-9a20-4714-ae47-e23c3074b522",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-companies",
+								"0cfe4fff-9a20-4714-ae47-e23c3074b522"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Put company",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ0ZXN0IiwidXNlcklkIjoiNjY3ZWNkOTAtZWIzMi00M2JhLWJhYjktMDQ0NWVhYmVmNTIzIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1MjQwNjkxLCJleHAiOjE3NDUzMTAzODh9.C6_KYkYCMMDgspCNHDuIQ8a5TfDWhvwNdTvQVhpDmk5O82BGI_4XcLw0Nx3svnawjnp3WX7u6Ofu-kqIvSAJJg",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Rescue Team AAAA\",\n  \"phone\": \"+84123456789\",\n  \"description\": \"A professional rescue company providing 24/7 assistance.\",\n  \"latitude\": 21.006791527347836,\n  \"longitude\": 105.8436614805358\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-companies/0cfe4fff-9a20-4714-ae47-e23c3074b522",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-companies",
+								"0cfe4fff-9a20-4714-ae47-e23c3074b522"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete company",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ0ZXN0IiwidXNlcklkIjoiNjY3ZWNkOTAtZWIzMi00M2JhLWJhYjktMDQ0NWVhYmVmNTIzIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1MjQwNjkxLCJleHAiOjE3NDUzMTAzODh9.C6_KYkYCMMDgspCNHDuIQ8a5TfDWhvwNdTvQVhpDmk5O82BGI_4XcLw0Nx3svnawjnp3WX7u6Ofu-kqIvSAJJg",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-companies/0cfe4fff-9a20-4714-ae47-e23c3074b522",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-companies",
+								"0cfe4fff-9a20-4714-ae47-e23c3074b522"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Rescue request",
+			"item": [
+				{
+					"name": "Create request",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyIiwidXNlcklkIjoiMzQ1ZWIwM2MtZDE5Yi00YzNlLTg4YjktMjUxZjY2Y2M2YWM4Iiwicm9sZXMiOlsiVVNFUiJdLCJpYXQiOjE3NDU2Nzc1MTAsImV4cCI6MTc0NTc0NzIwN30.RGN9HzlC-d2lrvumuRyIe9PsHRDFQJzFvwOiBoUiMpLw9-j8Ln5eKIGVJuCmokE3AA8FYfDV71Dxa7o7mYnPBA",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"rescueServiceId\": \"2f154249-8d88-4310-98e2-6ced92910142\",\n  \"description\": \"Xe chết máy giữa đường, cần hỗ trợ kéo xe.\",\n  \"latitude\": 10.762622,\n  \"longitude\": 106.660172\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-requests",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-requests"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get request to company",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "yJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1Njc3OTUyLCJleHAiOjE3NDU3NDc2NDl9.g4NKG5purFeFPG2PwKUaArRQY6EmWyXPtX9tLbHUHIkvwLDyeqI61kGA9Bh2FzB4JKq0fogybDam637vHt3TJg",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-requests/company?status=CREATED",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-requests",
+								"company"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "CREATED"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Accept request",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1NzM2ODAxLCJleHAiOjE3NDU4MDY0OTh9.q-10r1LFuZKIKqxJVncqxqgHtl58HwSBHYOK72WYA-1LY2oNfqIs3iI6dZ9mzVt-zO9ElMXQEIgBt2-xSIhogQ",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-requests/0cf8b7bf-0315-4313-9331-f5c84649ad6e/accept",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-requests",
+								"0cf8b7bf-0315-4313-9331-f5c84649ad6e",
+								"accept"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel request by company",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1MzM4NDY1LCJleHAiOjE3NDU0MDgxNjJ9.7DLrN0ckJFuNDoVbHYZOK2sXWOLROquzLTiYiXa7GY2fhbAD_rRPzlfIaOGwXWIgB6PBOjkFojoZYqk3Z1CjiA",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-requests/6a30dbeb-cd5f-4c2b-8249-86295c46dd20/cancel-by-company",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-requests",
+								"6a30dbeb-cd5f-4c2b-8249-86295c46dd20",
+								"cancel-by-company"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel request by user",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyIiwidXNlcklkIjoiMzQ1ZWIwM2MtZDE5Yi00YzNlLTg4YjktMjUxZjY2Y2M2YWM4Iiwicm9sZXMiOlsiVVNFUiJdLCJpYXQiOjE3NDUzMzg0MTgsImV4cCI6MTc0NTQwODExNX0.h6yXovGmr4QygtZBs-IeoF7L1LdP979AfZJjWPzyWKHxVlaCfLLZg_nOgpdrQZaSBnP_ASe8JXxoQ3ZERjDl8g",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-requests/4379956e-79c1-4b71-ace8-bcba0186646b/cancel-by-user",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-requests",
+								"4379956e-79c1-4b71-ace8-bcba0186646b",
+								"cancel-by-user"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Dispatch vehicle",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1NzM2ODAxLCJleHAiOjE3NDU4MDY0OTh9.q-10r1LFuZKIKqxJVncqxqgHtl58HwSBHYOK72WYA-1LY2oNfqIs3iI6dZ9mzVt-zO9ElMXQEIgBt2-xSIhogQ",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-requests/391f8fe3-0c61-4ca7-8e85-a7afc81fdf33/dispatch-vehicle?vehicleId=994f9806-87ca-4c34-83a5-f581f645d88d",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-requests",
+								"391f8fe3-0c61-4ca7-8e85-a7afc81fdf33",
+								"dispatch-vehicle"
+							],
+							"query": [
+								{
+									"key": "vehicleId",
+									"value": "994f9806-87ca-4c34-83a5-f581f645d88d"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Inspection done",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1NzM2ODAxLCJleHAiOjE3NDU4MDY0OTh9.q-10r1LFuZKIKqxJVncqxqgHtl58HwSBHYOK72WYA-1LY2oNfqIs3iI6dZ9mzVt-zO9ElMXQEIgBt2-xSIhogQ",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-requests/0cf8b7bf-0315-4313-9331-f5c84649ad6e/inspection-done",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-requests",
+								"0cf8b7bf-0315-4313-9331-f5c84649ad6e",
+								"inspection-done"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Vehicle arrived",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1NzM2ODAxLCJleHAiOjE3NDU4MDY0OTh9.q-10r1LFuZKIKqxJVncqxqgHtl58HwSBHYOK72WYA-1LY2oNfqIs3iI6dZ9mzVt-zO9ElMXQEIgBt2-xSIhogQ",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-requests/0cf8b7bf-0315-4313-9331-f5c84649ad6e/vehicle-arrived",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-requests",
+								"0cf8b7bf-0315-4313-9331-f5c84649ad6e",
+								"vehicle-arrived"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update price",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1NzM2ODAxLCJleHAiOjE3NDU4MDY0OTh9.q-10r1LFuZKIKqxJVncqxqgHtl58HwSBHYOK72WYA-1LY2oNfqIs3iI6dZ9mzVt-zO9ElMXQEIgBt2-xSIhogQ",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-requests/0cf8b7bf-0315-4313-9331-f5c84649ad6e/update-price?newPrice=150000&notes=Thêm phụ phí",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-requests",
+								"0cf8b7bf-0315-4313-9331-f5c84649ad6e",
+								"update-price"
+							],
+							"query": [
+								{
+									"key": "newPrice",
+									"value": "150000"
+								},
+								{
+									"key": "notes",
+									"value": "Thêm phụ phí"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Confirm price",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyIiwidXNlcklkIjoiMzQ1ZWIwM2MtZDE5Yi00YzNlLTg4YjktMjUxZjY2Y2M2YWM4Iiwicm9sZXMiOlsiVVNFUiJdLCJpYXQiOjE3NDU2Nzc1MTAsImV4cCI6MTc0NTc0NzIwN30.RGN9HzlC-d2lrvumuRyIe9PsHRDFQJzFvwOiBoUiMpLw9-j8Ln5eKIGVJuCmokE3AA8FYfDV71Dxa7o7mYnPBA",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-requests/0cf8b7bf-0315-4313-9331-f5c84649ad6e/confirm-price",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-requests",
+								"0cf8b7bf-0315-4313-9331-f5c84649ad6e",
+								"confirm-price"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Start repair",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1MzM4NDY1LCJleHAiOjE3NDU0MDgxNjJ9.7DLrN0ckJFuNDoVbHYZOK2sXWOLROquzLTiYiXa7GY2fhbAD_rRPzlfIaOGwXWIgB6PBOjkFojoZYqk3Z1CjiA",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-requests/b4e3e335-ae19-4861-a017-1c0a03a7bd14/start-repair",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-requests",
+								"b4e3e335-ae19-4861-a017-1c0a03a7bd14",
+								"start-repair"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Complete repair",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1MzM4NDY1LCJleHAiOjE3NDU0MDgxNjJ9.7DLrN0ckJFuNDoVbHYZOK2sXWOLROquzLTiYiXa7GY2fhbAD_rRPzlfIaOGwXWIgB6PBOjkFojoZYqk3Z1CjiA",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-requests/b4e3e335-ae19-4861-a017-1c0a03a7bd14/complete-repair",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-requests",
+								"b4e3e335-ae19-4861-a017-1c0a03a7bd14",
+								"complete-repair"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Rescue services",
+			"item": [
+				{
+					"name": "Create service",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1MzM4NDY1LCJleHAiOjE3NDU0MDgxNjJ9.7DLrN0ckJFuNDoVbHYZOK2sXWOLROquzLTiYiXa7GY2fhbAD_rRPzlfIaOGwXWIgB6PBOjkFojoZYqk3Z1CjiA",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Towing Service\",\n  \"description\": \"Kéo xe bị hỏng từ vị trí của khách hàng đến nơi sửa chữa gần nhất.\",\n  \"price\": 500.0,\n  \"type\": \"TOWING\",\n  \"companyId\": \"d1e9b874-169d-4424-9ff6-d9997a6b60de\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-services",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-services"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Rescue vehicles",
+			"item": [
+				{
+					"name": "Create vehicle",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyIiwidXNlcklkIjoiMzQ1ZWIwM2MtZDE5Yi00YzNlLTg4YjktMjUxZjY2Y2M2YWM4Iiwicm9sZXMiOlsiVVNFUiJdLCJpYXQiOjE3NDUzMzg0MTgsImV4cCI6MTc0NTQwODExNX0.h6yXovGmr4QygtZBs-IeoF7L1LdP979AfZJjWPzyWKHxVlaCfLLZg_nOgpdrQZaSBnP_ASe8JXxoQ3ZERjDl8g",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"licensePlate\": \"29A-12345\",\n  \"model\": \"Ford Ranger\",\n  \"companyId\": \"d1e9b874-169d-4424-9ff6-d9997a6b60de\",\n  \"equipmentDetails\": [\n    \"TIRE_REPAIR_KIT\",\n    \"JACK\",\n    \"TOOL_BOX\"\n  ],\n  \"status\": \"AVAILABLE\"\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-vehicles",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-vehicles"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get all vehicles",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1MzM4NDY1LCJleHAiOjE3NDU0MDgxNjJ9.7DLrN0ckJFuNDoVbHYZOK2sXWOLROquzLTiYiXa7GY2fhbAD_rRPzlfIaOGwXWIgB6PBOjkFojoZYqk3Z1CjiA",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/rescue-vehicles",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"rescue-vehicles"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Invoices",
+			"item": [
+				{
+					"name": "New Request",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1MzM4NDY1LCJleHAiOjE3NDU0MDgxNjJ9.7DLrN0ckJFuNDoVbHYZOK2sXWOLROquzLTiYiXa7GY2fhbAD_rRPzlfIaOGwXWIgB6PBOjkFojoZYqk3Z1CjiA",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/swagger-ui.html",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"swagger-ui.html"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Message",
+			"item": [
+				{
+					"name": "User send message",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyIiwidXNlcklkIjoiMzQ1ZWIwM2MtZDE5Yi00YzNlLTg4YjktMjUxZjY2Y2M2YWM4Iiwicm9sZXMiOlsiVVNFUiJdLCJpYXQiOjE3NDU2MDk2OTEsImV4cCI6MTc0NTY3OTM4OH0.BIehdk_asKZqO0upnNhTe9lR2UUWKJZ13MeBI3ODowqbiB6NVgdNTFwYOyltC0j47cnIVxQ47VLh6POomXIiQw",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"content\": \"string\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/chat/conversations/d1e9b874-169d-4424-9ff6-d9997a6b60de/send",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"chat",
+								"conversations",
+								"d1e9b874-169d-4424-9ff6-d9997a6b60de",
+								"send"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Test notification",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ0ZXN0IiwidXNlcklkIjoiNzk3YTc1ODEtNDNiYi00ZmQ2LWI4M2YtNDcyYjNjMzlkZjQxIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1MzI3ODY3LCJleHAiOjE3NDUzOTc1NjR9.0zKzPNWa5eZHduDsnneK5nbGzqtOwUavnjmUfDSla64EFM09LkKENRlFJ3zZ0sgGeV1tqGJeTckqzudq6uQkNQ",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"userId\": \"797a7581-43bb-4fd6-b83f-472b3c39df41\",\n    \"title\": \"siuuuuu\",\n    \"content\": \"siuuu\",\n    \"type\": \"siuuu\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/v1/users/notify",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"users",
+						"notify"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "New Request",
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		}
+	]
+}
