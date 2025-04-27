@@ -43,6 +43,32 @@
         color: #666;
         margin-bottom: 8px;
       }
+      .credentials {
+        background-color: #f8f8f8;
+        padding: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .credentials label {
+        display: inline-block;
+        width: 120px;
+        margin-bottom: 5px;
+      }
+      .credentials input {
+        width: 80%;
+        padding: 5px;
+        margin-bottom: 8px;
+      }
+      .toggle-credentials {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        border-radius: 4px;
+      }
     </style>
   </head>
   <body>
@@ -50,8 +76,31 @@
 
     <div class="user-container">
       <h2>User</h2>
-      <div class="id-info">
-        <p><b>User ID (để kết nối):</b> 345eb03c-d19b-4c3e-88b9-251f66cc6ac8</p>
+      <button class="toggle-credentials" onclick="toggleCredentials('user')">
+        Hiện/Ẩn thông tin kết nối
+      </button>
+      <div class="credentials" id="userCredentials">
+        <label for="userId">User ID:</label>
+        <input
+          type="text"
+          id="userId"
+          placeholder="ID của user để kết nối"
+          value="5b87d200-a81d-4435-982f-ef1a1354e4ba"
+        /><br />
+        <label for="userToken">Token:</label>
+        <input
+          type="text"
+          id="userToken"
+          placeholder="JWT Token của user"
+          value="eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyIiwidXNlcklkIjoiNWI4N2QyMDAtYTgxZC00NDM1LTk4MmYtZWYxYTEzNTRlNGJhIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1NzQ4MjQ1LCJleHAiOjE3NDU4MTc5NDJ9.6y0WIQmTXtZy2sEgCjBhv6qVadejqYFuYnY1DZrv2DcqkRsULgMVkdsZe-PQJj4lYgfqFdktJG1uPHaYKHZtog"
+        /><br />
+        <label for="userSenderType">Sender Type:</label>
+        <input
+          type="text"
+          id="userSenderType"
+          placeholder="Loại người gửi"
+          value="USER"
+        />
       </div>
       <input
         type="text"
@@ -68,7 +117,7 @@
         type="text"
         id="userRescueCompanyId"
         placeholder="Rescue Company ID"
-        value="d1e9b874-169d-4424-9ff6-d9997a6b60de"
+        value="fed716c8-c05c-4254-ae03-e8386053b3c8"
       /><br /><br />
       <button onclick="connect('user')">Connect User</button>
       <button onclick="sendMessage('user')">Gửi tin nhắn User</button>
@@ -79,9 +128,38 @@
 
     <div class="user-container">
       <h2>Company</h2>
-      <div class="id-info">
-        <p><b>User ID (để kết nối):</b> 066e5c34-0101-4d69-a32f-44cb0616368c</p>
-        <p><b>Company ID:</b> d1e9b874-169d-4424-9ff6-d9997a6b60de</p>
+      <button class="toggle-credentials" onclick="toggleCredentials('company')">
+        Hiện/Ẩn thông tin kết nối
+      </button>
+      <div class="credentials" id="companyCredentials">
+        <label for="companyUserId">User ID:</label>
+        <input
+          type="text"
+          id="companyUserId"
+          placeholder="ID của user có role COMPANY để kết nối"
+          value="bbda3992-2e67-4c6e-bbfb-3140c7e01587"
+        /><br />
+        <label for="companyId">Company ID:</label>
+        <input
+          type="text"
+          id="companyId"
+          placeholder="ID của company để gửi tin nhắn"
+          value="fed716c8-c05c-4254-ae03-e8386053b3c8"
+        /><br />
+        <label for="companyToken">Token:</label>
+        <input
+          type="text"
+          id="companyToken"
+          placeholder="JWT Token của company"
+          value="eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiYmJkYTM5OTItMmU2Ny00YzZlLWJiZmItMzE0MGM3ZTAxNTg3Iiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1NzQ4NDk3LCJleHAiOjE3NDU4MTgxOTR9.rIb_thDZfas0w-kI21YRLRxrdbib2ieXNW3vmyVJ15wR10IvKpuoDNeIuGvHmlme8M31Hgor0r3w7tjOgiIVAw"
+        /><br />
+        <label for="companySenderType">Sender Type:</label>
+        <input
+          type="text"
+          id="companySenderType"
+          placeholder="Loại người gửi"
+          value="RESCUE_COMPANY"
+        />
       </div>
       <input
         type="text"
@@ -96,9 +174,9 @@
       /><br /><br />
       <input
         type="text"
-        id="companyUserId"
-        placeholder="User ID"
-        value="345eb03c-d19b-4c3e-88b9-251f66cc6ac8"
+        id="companyRecipientUserId"
+        placeholder="User ID người nhận"
+        value="5b87d200-a81d-4435-982f-ef1a1354e4ba"
       /><br /><br />
       <button onclick="connect('company')">Connect Company</button>
       <button onclick="sendMessage('company')">Gửi tin nhắn Company</button>
@@ -113,21 +191,20 @@
     </div>
 
     <script>
-      const users = {
-        user: {
-          id: "345eb03c-d19b-4c3e-88b9-251f66cc6ac8", // ID của user để kết nối
-          token:
-            "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyIiwidXNlcklkIjoiMzQ1ZWIwM2MtZDE5Yi00YzNlLTg4YjktMjUxZjY2Y2M2YWM4Iiwicm9sZXMiOlsiVVNFUiJdLCJpYXQiOjE3NDU2OTU5MTAsImV4cCI6MTc0NTc2NTYwN30.UySR8rjI-MG1YOkMflUukBnFmJtA-tLv-bLe1NZqSoJRd952_NncNuTiwl-3kys3hfG8NE9mDHCuyZjDtTTS3A",
-          senderType: "USER",
-        },
-        company: {
-          id: "066e5c34-0101-4d69-a32f-44cb0616368c", // ID của user có role COMPANY để kết nối
-          companyId: "d1e9b874-169d-4424-9ff6-d9997a6b60de", // ID của company để gửi tin nhắn
-          token:
-            "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJjb21wYW55IiwidXNlcklkIjoiMDY2ZTVjMzQtMDEwMS00ZDY5LWEzMmYtNDRjYjA2MTYzNjhjIiwicm9sZXMiOlsiVVNFUiIsIkNPTVBBTlkiXSwiaWF0IjoxNzQ1Njk1ODU1LCJleHAiOjE3NDU3NjU1NTJ9.yzrvpVT6tpovaf5gzXsrEW4dzcgdtwyRsouKawhbzWiWW6j_jB83fRZzE_rtU8JfEFJbBAgUS8rnq0U_MyTibw",
-          senderType: "RESCUE_COMPANY",
-        },
-      };
+      // Mặc định ẩn phần credential khi load trang
+      document.addEventListener("DOMContentLoaded", function () {
+        document.getElementById("userCredentials").style.display = "none";
+        document.getElementById("companyCredentials").style.display = "none";
+      });
+
+      function toggleCredentials(type) {
+        const credentials = document.getElementById(`${type}Credentials`);
+        if (credentials.style.display === "none") {
+          credentials.style.display = "block";
+        } else {
+          credentials.style.display = "none";
+        }
+      }
 
       let stompClients = {};
 
@@ -149,8 +226,19 @@
       function connect(type) {
         setStatus(type, "Đang kết nối...");
 
-        const user = users[type];
-        const token = user.token;
+        // Lấy thông tin từ form thay vì hard-code
+        let userId, token, senderType, companyId;
+
+        if (type === "user") {
+          userId = document.getElementById("userId").value;
+          token = document.getElementById("userToken").value;
+          senderType = document.getElementById("userSenderType").value;
+        } else {
+          userId = document.getElementById("companyUserId").value;
+          token = document.getElementById("companyToken").value;
+          senderType = document.getElementById("companySenderType").value;
+          companyId = document.getElementById("companyId").value;
+        }
 
         // Tạo URL với token trong tham số query (lưu ý: đây là cách không khuyến nghị cho môi trường production)
         const wsUrl = `ws://localhost:9006/ws?token=${encodeURIComponent(
@@ -252,31 +340,34 @@
 
         if (type === "user") {
           // User gửi tin nhắn cho Company
+          const userId = document.getElementById("userId").value;
           const rescueCompanyId =
-            document.getElementById(`userRescueCompanyId`).value ||
-            "d1e9b874-169d-4424-9ff6-d9997a6b60de";
+            document.getElementById(`userRescueCompanyId`).value;
+          const senderType = document.getElementById("userSenderType").value;
 
           message = {
             content: content,
             conversationId: conversationId,
             rescueCompanyId: rescueCompanyId,
-            userId: users.user.id,
-            senderType: users.user.senderType,
+            userId: userId,
+            senderType: senderType,
             isRead: false,
             sentAt: new Date().toISOString(),
           };
         } else {
           // Company gửi tin nhắn cho User
-          const userId =
-            document.getElementById(`companyUserId`).value ||
-            "345eb03c-d19b-4c3e-88b9-251f66cc6ac8";
+          const userId = document.getElementById(
+            `companyRecipientUserId`
+          ).value;
+          const rescueCompanyId = document.getElementById("companyId").value;
+          const senderType = document.getElementById("companySenderType").value;
 
           message = {
             content: content,
             conversationId: conversationId,
-            rescueCompanyId: users.company.companyId, // Sử dụng companyId, không phải userId
+            rescueCompanyId: rescueCompanyId,
             userId: userId,
-            senderType: users.company.senderType,
+            senderType: senderType,
             isRead: false,
             sentAt: new Date().toISOString(),
           };
