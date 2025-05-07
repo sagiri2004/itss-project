@@ -31,6 +31,7 @@ export function getStatusVariant(status: string): "default" | "secondary" | "des
     RESCUE_VEHICLE_ARRIVED: "default",
     INSPECTION_DONE: "default",
     PRICE_UPDATED: "default",
+    WAITING: "secondary",
     PRICE_CONFIRMED: "default",
     IN_PROGRESS: "default",
     COMPLETED: "default",

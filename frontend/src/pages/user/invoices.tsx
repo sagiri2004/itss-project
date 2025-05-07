@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -52,6 +53,7 @@ const mockInvoices = [
 
 export default function UserInvoices() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
   const [filteredInvoices, setFilteredInvoices] = useState(mockInvoices)
 
@@ -73,6 +75,10 @@ export default function UserInvoices() {
     )
 
     setFilteredInvoices(filtered)
+  }
+
+  const handlePayInvoice = (invoiceId: string) => {
+    navigate(`/user/payment/${invoiceId}`)
   }
 
   // Helper to get badge variant based on invoice status
@@ -195,8 +201,8 @@ export default function UserInvoices() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            {invoice.status === "PENDING" && (
-                              <Button size="sm">
+                            {(invoice.status === "PENDING" || invoice.status === "OVERDUE") && (
+                              <Button size="sm" onClick={() => handlePayInvoice(invoice.id)}>
                                 <CreditCard className="mr-2 h-4 w-4" />
                                 Pay
                               </Button>

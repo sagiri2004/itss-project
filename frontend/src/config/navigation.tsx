@@ -1,4 +1,4 @@
-import { Home, FileText, Car, Settings, Users, Building, MessageSquare, Map, Wrench, Bell, CreditCard, User } from 'lucide-react'
+import { Home, FileText, Car, Settings, Users, Building, MessageSquare, Map, Wrench, Bell, CreditCard, User, Lock } from 'lucide-react'
 
 // User navigation
 export const userNavItems = [
@@ -6,19 +6,39 @@ export const userNavItems = [
     title: "Main",
     items: [
       {
-        label: "Dashboard",
+        title: "Dashboard",
         href: "/user",
         icon: Home,
       },
       {
-        label: "My Requests",
+        title: "My Requests",
         href: "/user/requests",
         icon: Bell,
       },
       {
-        label: "Invoices",
+        title: "Chats",
+        href: "/user/chats",
+        icon: MessageSquare,
+      },
+      {
+        title: "Invoices",
         href: "/user/invoices",
         icon: FileText,
+      },
+    ],
+  },
+  {
+    title: "Account",
+    items: [
+      {
+        title: "Profile",
+        href: "/user/profile",
+        icon: User,
+      },
+      {
+        title: "Change Password",
+        href: "/user/change-password",
+        icon: Lock,
       },
     ],
   },
@@ -30,118 +50,123 @@ export const companyNavItems = [
     title: "Main",
     items: [
       {
-        label: "Dashboard",
+        title: "Dashboard",
         href: "/company",
         icon: Home,
       },
       {
-        label: "Services",
+        title: "Services",
         href: "/company/services",
         icon: Wrench,
       },
-    ],
-  },
-  {
-    title: "Operations",
-    items: [
       {
-        label: "Vehicles",
+        title: "Vehicles",
         href: "/company/vehicles",
         icon: Car,
       },
       {
-        label: "Vehicle Tracking",
+        title: "Vehicle Tracking",
         href: "/company/vehicle-tracking",
         icon: Map,
       },
       {
-        label: "Requests",
+        title: "Requests",
         href: "/company/requests",
         icon: Bell,
+      },
+      {
+        title: "Chats",
+        href: "/company/chats",
+        icon: MessageSquare,
+      },
+      {
+        title: "Invoices",
+        href: "/company/invoices",
+        icon: CreditCard,
       },
     ],
   },
   {
-    title: "Finance",
+    title: "Account",
     items: [
       {
-        label: "Invoices",
-        href: "/company/invoices",
-        icon: CreditCard,
-      },
-      {
-        label: "Profile",
+        title: "Profile",
         href: "/company/profile",
         icon: User,
+      },
+      {
+        title: "Change Password",
+        href: "/company/change-password",
+        icon: Lock,
       },
     ],
   },
 ]
 
-// Admin navigation items
+// Admin navigation
 export const adminNavItems = [
   {
     title: "Main",
     items: [
       {
-        label: "Dashboard",
+        title: "Dashboard",
         href: "/admin",
         icon: Home,
       },
       {
-        label: "Services",
+        title: "Services",
         href: "/admin/services",
         icon: Wrench,
       },
-    ],
-  },
-  {
-    title: "Management",
-    items: [
       {
-        label: "Companies",
+        title: "Companies",
         href: "/admin/companies",
         icon: Building,
       },
       {
-        label: "Vehicles",
+        title: "Vehicles",
         href: "/admin/vehicles",
         icon: Car,
       },
       {
-        label: "Map Overview",
+        title: "Map Overview",
         href: "/admin/map",
         icon: Map,
       },
-    ],
-  },
-  {
-    title: "Operations",
-    items: [
       {
-        label: "Requests",
+        title: "Requests",
         href: "/admin/requests",
         icon: Bell,
       },
       {
-        label: "Invoices",
+        title: "Invoices",
         href: "/admin/invoices",
         icon: FileText,
       },
       {
-        label: "Users",
+        title: "Users",
         href: "/admin/users",
         icon: Users,
       },
       {
-        label: "Chats",
+        title: "Chats",
         href: "/admin/chats",
         icon: MessageSquare,
       },
+    ],
+  },
+  {
+    title: "Account",
+    items: [
       {
-        label: "Settings",
+        title: "Settings",
         href: "/admin/settings",
         icon: Settings,
+      },
+      {
+        title: "Change Password",
+        href: "/admin/change-password",
+        icon: Lock,
       },
     ],
   },

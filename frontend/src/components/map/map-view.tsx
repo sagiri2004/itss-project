@@ -117,10 +117,10 @@ export function MapView({
 
 // Helper functions for marker icons
 function getMarkerIcon(type: "vehicle" | "request" | "user", status?: string) {
-  const iconSize = [25, 41]
-  const iconAnchor = [12, 41]
-  const popupAnchor = [1, -34]
-  const tooltipAnchor = [16, -28]
+  const iconSize: [number, number] = [25, 41]
+  const iconAnchor: [number, number] = [12, 41]
+  const popupAnchor: [number, number] = [1, -34]
+  const tooltipAnchor: [number, number] = [16, -28]
 
   let iconUrl = ""
 

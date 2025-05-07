@@ -1,205 +1,320 @@
 "use client"
 
-import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { useParams, Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, MessageSquare } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
+import ChatInterface from "@/components/chat/chat-interface"
+import type { Message } from "@/types/chat"
 
-// Mock chat data
-const mockChats = [
-  {
+// Mock data for a specific chat (same as company chat for demo)
+const mockChatData = {
+  "chat-001": {
     id: "chat-001",
     requestId: "req-001",
     companyId: "company-001",
-    companyName: "FastFix Roadside",
-    lastMessage: "We'll be there in about 15 minutes.",
-    timestamp: "2023-05-07T14:30:00",
-    unread: 2,
-    status: "ACTIVE",
+    companyName: "Roadside Assistance Co.",
+    service: "Flat Tire Replacement",
+    status: "ACCEPTED_BY_COMPANY",
+    messages: [
+      {
+        id: "msg-001",
+        senderId: "user-001",
+        senderName: "You",
+        senderRole: "user" as "user",
+        content: "Hello, my car has a flat tire. Can you help?",
+        type: "text",
+        timestamp: "2023-05-07T10:15:00",
+      },
+      {
+        id: "msg-002",
+        senderId: "company-001",
+        senderName: "Roadside Assistance Co.",
+        senderRole: "company" as "company",
+        content: "Hi John, we can definitely help. Can you share your location?",
+        type: "text",
+        timestamp: "2023-05-07T10:17:00",
+      },
+      {
+        id: "msg-003",
+        senderId: "user-001",
+        senderName: "You",
+        senderRole: "user",
+        content: "I'm at 123 Main St, Anytown.",
+        type: "text",
+        timestamp: "2023-05-07T10:18:00",
+      },
+      {
+        id: "msg-004",
+        senderId: "company-001",
+        senderName: "Roadside Assistance Co.",
+        senderRole: "company",
+        content: "Thank you. Based on our initial assessment, here's our price offer for the service.",
+        type: "price_offer",
+        timestamp: "2023-05-07T10:20:00",
+        metadata: {
+          price: 85.0,
+        },
+      },
+      {
+        id: "msg-005",
+        senderId: "user-001",
+        senderName: "You",
+        senderRole: "user",
+        content: "I accept the price offer.",
+        type: "price_accepted",
+        timestamp: "2023-05-07T10:22:00",
+      },
+      {
+        id: "msg-006",
+        senderId: "company-001",
+        senderName: "Roadside Assistance Co.",
+        senderRole: "company",
+        content: "Great! We'll dispatch a technician right away. They should arrive in about 30 minutes.",
+        type: "text",
+        timestamp: "2023-05-07T10:23:00",
+      },
+      {
+        id: "msg-007",
+        senderId: "system",
+        senderName: "System",
+        senderRole: "system" as "system",
+        content: "Service status updated to: RESCUE_VEHICLE_DISPATCHED",
+        type: "status_update",
+        timestamp: "2023-05-07T10:25:00",
+      },
+      {
+        id: "msg-008",
+        senderId: "company-001",
+        senderName: "Roadside Assistance Co.",
+        senderRole: "company",
+        content: "Our technician is on the way. You can track their location in the app.",
+        type: "text",
+        timestamp: "2023-05-07T10:30:00",
+      },
+    ],
   },
-  {
+  "chat-002": {
     id: "chat-002",
     requestId: "req-002",
     companyId: "company-002",
-    companyName: "QuickHelp Auto",
-    lastMessage: "Your invoice has been generated. Please check your email.",
-    timestamp: "2023-05-06T11:45:00",
-    unread: 0,
+    companyName: "Quick Roadside Help",
+    service: "Battery Jump Start",
     status: "COMPLETED",
+    messages: [
+      {
+        id: "msg-101",
+        senderId: "user-001",
+        senderName: "You",
+        senderRole: "user",
+        content: "My car won't start. I think it's the battery.",
+        type: "text",
+        timestamp: "2023-05-05T14:00:00",
+      },
+      {
+        id: "msg-102",
+        senderId: "company-002",
+        senderName: "Quick Roadside Help",
+        senderRole: "company",
+        content: "Hi there, we can help with a jump start. What's your location?",
+        type: "text",
+        timestamp: "2023-05-05T14:02:00",
+      },
+      {
+        id: "msg-103",
+        senderId: "user-001",
+        senderName: "You",
+        senderRole: "user",
+        content: "I'm at 456 Oak Ave, Somewhere.",
+        type: "text",
+        timestamp: "2023-05-05T14:03:00",
+      },
+      {
+        id: "msg-104",
+        senderId: "company-002",
+        senderName: "Quick Roadside Help",
+        senderRole: "company",
+        content: "Here's our price offer for the battery jump start service.",
+        type: "price_offer",
+        timestamp: "2023-05-05T14:05:00",
+        metadata: {
+          price: 65.0,
+        },
+      },
+      {
+        id: "msg-105",
+        senderId: "user-001",
+        senderName: "You",
+        senderRole: "user",
+        content: "That's a bit high. Can you do it for less?",
+        type: "price_rejected",
+        timestamp: "2023-05-05T14:07:00",
+        metadata: {
+          reason: "The price is higher than I expected.",
+        },
+      },
+      {
+        id: "msg-106",
+        senderId: "company-002",
+        senderName: "Quick Roadside Help",
+        senderRole: "company",
+        content: "We can offer a discount. Here's our revised price.",
+        type: "price_offer",
+        timestamp: "2023-05-05T14:10:00",
+        metadata: {
+          price: 55.0,
+        },
+      },
+      {
+        id: "msg-107",
+        senderId: "user-001",
+        senderName: "You",
+        senderRole: "user",
+        content: "That works for me. Thank you!",
+        type: "price_accepted",
+        timestamp: "2023-05-05T14:12:00",
+      },
+      {
+        id: "msg-108",
+        senderId: "system",
+        senderName: "System",
+        senderRole: "system",
+        content: "Service status updated to: COMPLETED",
+        type: "status_update",
+        timestamp: "2023-05-05T15:30:00",
+      },
+      {
+        id: "msg-109",
+        senderId: "company-002",
+        senderName: "Quick Roadside Help",
+        senderRole: "company",
+        content: "Your invoice has been generated. Please check your email.",
+        type: "text",
+        timestamp: "2023-05-05T15:35:00",
+      },
+    ],
   },
-  {
-    id: "chat-003",
-    requestId: "req-003",
-    companyId: "company-003",
-    companyName: "RoadHeroes Assistance",
-    lastMessage: "We need to update the price to $95 due to additional parts needed.",
-    timestamp: "2023-05-05T16:20:00",
-    unread: 0,
-    status: "PRICE_NEGOTIATION",
-  },
-  {
-    id: "chat-004",
-    requestId: "req-004",
-    companyId: "company-001",
-    companyName: "FastFix Roadside",
-    lastMessage: "Thank you for using our service!",
-    timestamp: "2023-05-02T09:15:00",
-    unread: 0,
-    status: "CLOSED",
-  },
-]
+}
 
-export default function UserChats() {
+export default function UserChatDetail() {
   const { user } = useAuth()
-  const [chats, setChats] = useState(mockChats)
-  const [searchTerm, setSearchTerm] = useState("")
+  const { chatId } = useParams<{ chatId: string }>()
+  const [chat, setChat] = useState<any>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
-  // Filter chats based on search term
-  const filteredChats = chats.filter(
-    (chat) =>
-      chat.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  useEffect(() => {
+    // Simulate loading chat data
+    setIsLoading(true)
+    setTimeout(() => {
+      if (chatId && mockChatData[chatId as keyof typeof mockChatData]) {
+        const chatData = mockChatData[chatId as keyof typeof mockChatData]
+        setChat(chatData)
+        setMessages(chatData.messages)
+      }
+      setIsLoading(false)
+    }, 500)
+  }, [chatId])
 
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 260,
-        damping: 20,
-      },
-    },
-  }
-
-  // Helper function to format date
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-
-    if (diffDays === 0) {
-      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    } else if (diffDays === 1) {
-      return "Yesterday"
-    } else if (diffDays < 7) {
-      return date.toLocaleDateString([], { weekday: "short" })
-    } else {
-      return date.toLocaleDateString([], { month: "short", day: "numeric" })
+  const handleSendMessage = (message: Omit<Message, "id" | "timestamp">) => {
+    const newMessage: Message = {
+      ...message,
+      id: `msg-${Date.now()}`,
+      timestamp: new Date().toISOString(),
     }
+
+    setMessages((prev) => [...prev, newMessage])
   }
 
-  // Helper function to get status badge
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return <Badge variant="default">Active</Badge>
-      case "COMPLETED":
-        return <Badge variant="success">Completed</Badge>
-      case "PRICE_NEGOTIATION":
-        return <Badge variant="outline">Price Negotiation</Badge>
-      case "CLOSED":
-        return <Badge variant="secondary">Closed</Badge>
-      default:
-        return <Badge variant="outline">{status}</Badge>
+  const handlePriceResponse = (accepted: boolean, reason?: string) => {
+    const newMessage: Message = {
+      id: `msg-${Date.now()}`,
+      senderId: user?.id || "user-001",
+      senderName: "You",
+      senderRole: "user",
+      content: accepted ? "I accept the price offer." : "I decline the price offer.",
+      type: accepted ? "price_accepted" : "price_rejected",
+      timestamp: new Date().toISOString(),
+      metadata: accepted ? undefined : { reason },
     }
+
+    setMessages((prev) => [...prev, newMessage])
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p>Loading chat...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!chat) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold mb-2">Chat not found</h2>
+              <p className="text-muted-foreground mb-4">
+                The chat you're looking for doesn't exist or has been deleted.
+              </p>
+              <Button asChild>
+                <Link to="/user/chats">Back to Chats</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
     <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="container mx-auto max-w-4xl space-y-6 p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="container mx-auto h-[calc(100vh-10rem)] max-w-4xl"
     >
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">My Chats</h1>
-      </motion.div>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button asChild variant="ghost" size="icon">
+            <Link to="/user/chats">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-bold">Chat with {chat.companyName}</h1>
+        </div>
+        <Badge>{chat.status.replace(/_/g, " ")}</Badge>
+      </div>
 
-      <motion.div variants={itemVariants}>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>Conversations</CardTitle>
-            <CardDescription>Chat with roadside assistance providers</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="relative mb-4">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search conversations..."
-                className="pl-8"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-3">
-              {filteredChats.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
-                  <MessageSquare className="mb-2 h-10 w-10 text-muted-foreground" />
-                  <h3 className="mb-1 text-lg font-medium">No conversations found</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {searchTerm ? "Try adjusting your search term" : "You don't have any active conversations yet"}
-                  </p>
-                </div>
-              ) : (
-                filteredChats.map((chat) => (
-                  <motion.div
-                    key={chat.id}
-                    variants={itemVariants}
-                    className={`relative rounded-lg border p-4 transition-colors hover:bg-accent/50 ${
-                      chat.unread > 0 ? "border-primary/50 bg-primary/5" : ""
-                    }`}
-                  >
-                    <Link to={`/user/chat/${chat.id}`} className="block">
-                      <div className="flex items-start gap-4">
-                        <Avatar>
-                          <AvatarImage src={`https://avatar.vercel.sh/${chat.companyName}`} />
-                          <AvatarFallback>{chat.companyName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-medium">{chat.companyName}</h4>
-                            <span className="text-xs text-muted-foreground">{formatDate(chat.timestamp)}</span>
-                          </div>
-                          <p className="line-clamp-1 text-sm text-muted-foreground">{chat.lastMessage}</p>
-                          <div className="flex items-center justify-between pt-1">
-                            <div>{getStatusBadge(chat.status)}</div>
-                            {chat.unread > 0 && (
-                              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                                {chat.unread}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  </motion.div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+      <Card className="h-[calc(100%-3rem)]">
+        <CardHeader className="border-b p-4">
+          <CardTitle className="text-lg">
+            {chat.service} - Request #{chat.requestId}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <ChatInterface
+            requestId={chat.requestId}
+            currentUserId={user?.id || "user-001"}
+            currentUserRole="user"
+            otherPartyName={chat.companyName}
+            initialMessages={messages}
+            onSendMessage={handleSendMessage}
+            onPriceResponse={handlePriceResponse}
+            isLoading={isLoading}
+            requestStatus={chat.status}
+          />
+        </CardContent>
+      </Card>
     </motion.div>
   )
 }

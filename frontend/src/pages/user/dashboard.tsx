@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Car, FileText, Clock, CheckCircle2, PlusCircle, Wrench } from "lucide-react"
+import { Car, FileText, Clock, CheckCircle2, PlusCircle, Wrench, MessageSquare } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 // Mock data
 const mockRequests = [
@@ -58,6 +59,28 @@ const mockInvoices = [
   },
 ]
 
+// Mock chats data
+const mockChats = [
+  {
+    id: "chat-001",
+    requestId: "req-001",
+    companyId: "company-001",
+    companyName: "FastFix Roadside",
+    lastMessage: "We'll be there in about 15 minutes.",
+    timestamp: "2023-05-07T14:30:00",
+    unread: 2,
+  },
+  {
+    id: "chat-002",
+    requestId: "req-002",
+    companyId: "company-002",
+    companyName: "QuickHelp Auto",
+    lastMessage: "Your invoice has been generated. Please check your email.",
+    timestamp: "2023-05-06T11:45:00",
+    unread: 0,
+  },
+]
+
 export default function UserDashboard() {
   const { user } = useAuth()
   const { scrollYProgress } = useScroll()
@@ -67,6 +90,7 @@ export default function UserDashboard() {
   const [activeRequests, setActiveRequests] = useState(0)
   const [completedRequests, setCompletedRequests] = useState(0)
   const [pendingInvoices, setPendingInvoices] = useState(0)
+  const [unreadMessages, setUnreadMessages] = useState(0)
 
   useEffect(() => {
     // Calculate dashboard stats
@@ -87,6 +111,8 @@ export default function UserDashboard() {
     setCompletedRequests(mockRequests.filter((req) => ["COMPLETED", "INVOICED", "PAID"].includes(req.status)).length)
 
     setPendingInvoices(mockInvoices.filter((inv) => inv.status === "PENDING").length)
+
+    setUnreadMessages(mockChats.reduce((total, chat) => total + chat.unread, 0))
   }, [])
 
   // Animation variants
@@ -129,7 +155,7 @@ export default function UserDashboard() {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+        className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
       >
         <motion.div variants={itemVariants}>
           <Card className="border-l-4 border-l-blue-500">
@@ -172,12 +198,27 @@ export default function UserDashboard() {
             </CardContent>
           </Card>
         </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card className="border-l-4 border-l-purple-500">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Unread Messages</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="text-2xl font-bold">{unreadMessages}</div>
+                <MessageSquare className="h-5 w-5 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </motion.div>
 
       <Tabs defaultValue="recent" className="space-y-4">
         <TabsList>
           <TabsTrigger value="recent">Recent Requests</TabsTrigger>
           <TabsTrigger value="invoices">Recent Invoices</TabsTrigger>
+          <TabsTrigger value="chats">Recent Chats</TabsTrigger>
         </TabsList>
 
         <TabsContent value="recent" className="space-y-4">
@@ -271,6 +312,49 @@ export default function UserDashboard() {
             </Button>
           </div>
         </TabsContent>
+
+        <TabsContent value="chats" className="space-y-4">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="grid gap-4 md:grid-cols-2"
+          >
+            {mockChats.map((chat, index) => (
+              <motion.div key={chat.id} variants={itemVariants}>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">{chat.companyName}</CardTitle>
+                      {chat.unread > 0 && (
+                        <Badge variant="default">
+                          {chat.unread} new {chat.unread === 1 ? "message" : "messages"}
+                        </Badge>
+                      )}
+                    </div>
+                    <CardDescription>
+                      {new Date(chat.timestamp).toLocaleDateString()} • Request #{chat.requestId}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <div className="line-clamp-1 text-sm text-muted-foreground">{chat.lastMessage}</div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button asChild variant="ghost" size="sm" className="w-full">
+                      <Link to={`/user/chat/${chat.id}`}>View Conversation</Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          <div className="flex justify-center">
+            <Button asChild variant="outline">
+              <Link to="/user/chats">View All Conversations</Link>
+            </Button>
+          </div>
+        </TabsContent>
       </Tabs>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
@@ -279,7 +363,7 @@ export default function UserDashboard() {
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-4">
               <Button asChild variant="outline" className="h-24 flex-col">
                 <Link to="/user/requests/new">
                   <PlusCircle className="mb-2 h-6 w-6" />
@@ -293,11 +377,44 @@ export default function UserDashboard() {
                 </Link>
               </Button>
               <Button asChild variant="outline" className="h-24 flex-col">
+                <Link to="/user/chats">
+                  <MessageSquare className="mb-2 h-6 w-6" />
+                  <span>View Chats</span>
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="h-24 flex-col">
                 <Link to="/user/invoices">
                   <FileText className="mb-2 h-6 w-6" />
                   <span>View Invoices</span>
                 </Link>
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
+        <Card>
+          <CardHeader>
+            <CardTitle>My Profile</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start space-x-4">
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={`https://avatar.vercel.sh/${user?.name || "user"}`} />
+                <AvatarFallback>{user?.name?.substring(0, 2).toUpperCase() || "U"}</AvatarFallback>
+              </Avatar>
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium">{user?.name || "John Doe"}</h3>
+                <p className="text-sm text-muted-foreground">User • Member since {new Date().getFullYear()}</p>
+                <div className="flex space-x-2">
+                  <Badge variant="outline">3 Active Requests</Badge>
+                  <Badge variant="outline">{completedRequests} Completed</Badge>
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/user/profile">Edit Profile</Link>
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

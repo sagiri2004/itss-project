@@ -28,7 +28,7 @@ import {
 // Mock data for a request
 const mockRequest = {
   id: "req-001",
-  status: "RESCUE_VEHICLE_DISPATCHED",
+  status: "RESCUE_VEHICLE_ARRIVED",
   location: "123 Main St, New York, NY 10001",
   serviceType: "Flat Tire Replacement",
   description: "Left rear tire is flat. I have a spare but need help changing it.",
@@ -68,7 +68,12 @@ const mockRequest = {
       status: "RESCUE_VEHICLE_DISPATCHED",
       timestamp: "2023-06-15T14:40:00Z",
     },
+    {
+      status: "RESCUE_VEHICLE_ARRIVED",
+      timestamp: "2023-06-15T14:55:00Z",
+    },
   ],
+  hasChat: true,
 }
 
 export default function RequestDetails() {
@@ -107,6 +112,10 @@ export default function RequestDetails() {
       "ACCEPTED_BY_COMPANY",
       "RESCUE_VEHICLE_DISPATCHED",
       "RESCUE_VEHICLE_ARRIVED",
+      "INSPECTION_DONE",
+      "PRICE_UPDATED",
+      "WAITING",
+      "PRICE_CONFIRMED",
       "IN_PROGRESS",
       "COMPLETED",
       "INVOICED",
@@ -194,10 +203,12 @@ export default function RequestDetails() {
               <Map className="mr-2 h-4 w-4" />
               Track on Map
             </Button>
-            <Button variant="outline">
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Contact Support
-            </Button>
+            {request.hasChat && (
+              <Button onClick={() => navigate(`/user/requests/${id}/chat`)}>
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Chat with Provider
+              </Button>
+            )}
           </CardFooter>
         </Card>
       </motion.div>

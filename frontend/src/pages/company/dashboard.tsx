@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Car, Clock, AlertCircle, PlusCircle, Wrench, Truck, DollarSign } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 // Mock data
 const mockRequests = [
@@ -219,6 +220,7 @@ export default function CompanyDashboard() {
           <TabsTrigger value="pending">Pending Requests</TabsTrigger>
           <TabsTrigger value="active">Active Requests</TabsTrigger>
           <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
+          <TabsTrigger value="chats">Recent Chats</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="space-y-4">
@@ -360,6 +362,66 @@ export default function CompanyDashboard() {
             </Button>
           </div>
         </TabsContent>
+
+        <TabsContent value="chats" className="space-y-4">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="grid gap-4 md:grid-cols-2"
+          >
+            {[
+              {
+                id: "chat-001",
+                userName: "John Doe",
+                service: "Flat Tire Replacement",
+                lastMessage: "We'll be there in about 15 minutes.",
+                timestamp: new Date().toISOString(),
+                unread: 2,
+              },
+              {
+                id: "chat-002",
+                userName: "Jane Smith",
+                service: "Battery Jump Start",
+                lastMessage: "Your invoice has been generated. Please check your email.",
+                timestamp: new Date(Date.now() - 3600000).toISOString(),
+                unread: 0,
+              },
+            ].map((chat) => (
+              <motion.div key={chat.id} variants={itemVariants}>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">{chat.userName}</CardTitle>
+                      {chat.unread > 0 && (
+                        <Badge variant="default">
+                          {chat.unread} new {chat.unread === 1 ? "message" : "messages"}
+                        </Badge>
+                      )}
+                    </div>
+                    <CardDescription>
+                      {new Date(chat.timestamp).toLocaleDateString()} • {chat.service}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <div className="line-clamp-1 text-sm text-muted-foreground">{chat.lastMessage}</div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button asChild variant="ghost" size="sm" className="w-full">
+                      <Link to={`/company/chat/${chat.id}`}>View Conversation</Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          <div className="flex justify-center">
+            <Button asChild variant="outline">
+              <Link to="/company/chats">View All Conversations</Link>
+            </Button>
+          </div>
+        </TabsContent>
       </Tabs>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
@@ -387,6 +449,34 @@ export default function CompanyDashboard() {
                   <span>View All Requests</span>
                 </Link>
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Company Profile</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start gap-4">
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={`https://avatar.vercel.sh/company`} />
+                <AvatarFallback>CO</AvatarFallback>
+              </Avatar>
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium">Your Company</h3>
+                <p className="text-sm text-muted-foreground">Roadside Assistance Provider</p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline">Towing</Badge>
+                  <Badge variant="outline">Battery Service</Badge>
+                  <Badge variant="outline">Tire Change</Badge>
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/company/profile">Edit Profile</Link>
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
