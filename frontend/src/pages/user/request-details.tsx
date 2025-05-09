@@ -4,85 +4,26 @@ import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
+import { MapView } from "@/components/map/map-view"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Progress } from "@/components/ui/progress"
-import { formatCurrency, getStatusVariant, formatStatus } from "@/lib/utils"
+import { formatStatus, getStatusVariant } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
-import {
-  ArrowLeft,
-  Clock,
-  MapPin,
-  Phone,
-  Car,
-  Building,
-  CreditCard,
-  MessageSquare,
-  Map,
-  CheckCircle,
-  AlertTriangle,
-} from "lucide-react"
+import { ArrowLeft, Clock, MapPin, Phone, Car, Info } from "lucide-react"
 
-// Mock data for a request
-const mockRequest = {
-  id: "req-001",
-  status: "RESCUE_VEHICLE_ARRIVED",
-  location: "123 Main St, New York, NY 10001",
-  serviceType: "Flat Tire Replacement",
-  description: "Left rear tire is flat. I have a spare but need help changing it.",
-  createdAt: "2023-06-15T14:30:00Z",
-  estimatedArrival: "2023-06-15T15:00:00Z",
-  vehicle: {
-    make: "Toyota",
-    model: "Camry",
-    year: "2020",
-  },
-  company: {
-    id: "comp-001",
-    name: "FastFix Roadside",
-    phone: "+1 (555) 123-4567",
-  },
-  assignedVehicle: {
-    id: "veh-001",
-    name: "Tow Truck #1",
-    driver: {
-      name: "John Smith",
-      phone: "+1 (555) 987-6543",
-    },
-  },
-  price: 75.0,
-  additionalFees: 15.0,
-  total: 90.0,
-  timeline: [
-    {
-      status: "CREATED",
-      timestamp: "2023-06-15T14:30:00Z",
-    },
-    {
-      status: "ACCEPTED_BY_COMPANY",
-      timestamp: "2023-06-15T14:35:00Z",
-    },
-    {
-      status: "RESCUE_VEHICLE_DISPATCHED",
-      timestamp: "2023-06-15T14:40:00Z",
-    },
-    {
-      status: "RESCUE_VEHICLE_ARRIVED",
-      timestamp: "2023-06-15T14:55:00Z",
-    },
-  ],
-  hasChat: true,
-}
+// Replace the mock data imports
+import { mockRequestMap } from "@/data/mock-data"
 
-export default function RequestDetails() {
+export default function RequestMap() {
   const { user } = useAuth()
   const { id } = useParams()
   const navigate = useNavigate()
   const { toast } = useToast()
-  const [request, setRequest] = useState(mockRequest)
+  const [request, setRequest] = useState(mockRequestMap)
   const [isLoading, setIsLoading] = useState(true)
+  const [mapCenter, setMapCenter] = useState<[number, number]>([40.7128, -74.006])
+  const [mapZoom, setMapZoom] = useState(13)
 
   // Simulate fetching request data
   useEffect(() => {
@@ -90,7 +31,8 @@ export default function RequestDetails() {
       try {
         // In a real app, fetch from API
         await new Promise((resolve) => setTimeout(resolve, 1000))
-        setRequest(mockRequest)
+        setRequest(mockRequestMap)
+        setMapCenter(mockRequestMap.location.coordinates)
         setIsLoading(false)
       } catch (error) {
         toast({
@@ -105,25 +47,89 @@ export default function RequestDetails() {
     fetchRequest()
   }, [id, toast])
 
-  // Calculate progress percentage based on status
-  const getProgressPercentage = () => {
-    const statuses = [
-      "CREATED",
-      "ACCEPTED_BY_COMPANY",
-      "RESCUE_VEHICLE_DISPATCHED",
-      "RESCUE_VEHICLE_ARRIVED",
-      "INSPECTION_DONE",
-      "PRICE_UPDATED",
-      "WAITING",
-      "PRICE_CONFIRMED",
-      "IN_PROGRESS",
-      "COMPLETED",
-      "INVOICED",
-      "PAID",
-    ]
-    const currentIndex = statuses.indexOf(request.status)
-    if (currentIndex === -1) return 0
-    return Math.round((currentIndex / (statuses.length - 1)) * 100)
+  // Simulate vehicle movement (for demo purposes)
+  useEffect(() => {
+    if (!isLoading && request.status === "RESCUE_VEHICLE_DISPATCHED") {
+      const interval = setInterval(() => {
+        setRequest((prev) => {
+          // Move vehicle slightly closer to the request location
+          const vehicleLat = prev.vehicle.location.coordinates[0]
+          const vehicleLng = prev.vehicle.location.coordinates[1]
+          const requestLat = prev.location.coordinates[0]
+          const requestLng = prev.location.coordinates[1]
+
+          const newLat = vehicleLat + (requestLat - vehicleLat) * 0.1
+          const newLng = vehicleLng + (requestLng - vehicleLng) * 0.1
+
+          // Check if vehicle has arrived (close enough to request)
+          const distance = Math.sqrt(Math.pow(newLat - requestLat, 2) + Math.pow(newLng - requestLng, 2))
+
+          if (distance < 0.001) {
+            clearInterval(interval)
+            return {
+              ...prev,
+              status: "RESCUE_VEHICLE_ARRIVED",
+              vehicle: {
+                ...prev.vehicle,
+                location: {
+                  ...prev.vehicle.location,
+                  coordinates: [requestLat, requestLng],
+                  lastUpdated: new Date().toISOString(),
+                },
+              },
+            }
+          }
+
+          return {
+            ...prev,
+            vehicle: {
+              ...prev.vehicle,
+              location: {
+                ...prev.vehicle.location,
+                coordinates: [newLat, newLng],
+                lastUpdated: new Date().toISOString(),
+              },
+            },
+          }
+        })
+      }, 3000)
+
+      return () => clearInterval(interval)
+    }
+  }, [isLoading, request.status])
+
+  // Prepare map markers
+  const mapMarkers = [
+    {
+      id: "user-location",
+      position: request.location.coordinates,
+      type: "user" as const,
+      label: "Your Location",
+    },
+    {
+      id: request.vehicle.id,
+      position: request.vehicle.location.coordinates,
+      type: "vehicle" as const,
+      label: `${request.vehicle.name} (${request.vehicle.driver.name})`,
+      status: "IN_USE",
+    },
+  ]
+
+  // Calculate ETA
+  const calculateETA = () => {
+    if (request.status === "RESCUE_VEHICLE_ARRIVED") {
+      return "Vehicle has arrived"
+    }
+
+    const now = new Date()
+    const eta = new Date(request.estimatedArrival)
+    const diffMinutes = Math.round((eta.getTime() - now.getTime()) / 60000)
+
+    if (diffMinutes <= 0) {
+      return "Arriving any moment"
+    }
+
+    return `${diffMinutes} minutes`
   }
 
   // Animation variants
@@ -154,82 +160,36 @@ export default function RequestDetails() {
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => navigate("/user/requests")}>
+          <Button variant="outline" size="icon" onClick={() => navigate(`/user/requests/${id}`)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Request Details</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Track Your Rescue</h1>
         </div>
         <Badge variant={getStatusVariant(request.status) || "outline"}>{formatStatus(request.status)}</Badge>
       </motion.div>
 
-      <motion.div variants={itemVariants}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Request Progress</CardTitle>
-            <CardDescription>Track the status of your roadside assistance request</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Progress value={getProgressPercentage()} className="h-2" />
-            <div className="mt-4 space-y-4">
-              {request.timeline.map((event, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-primary">
-                    <CheckCircle className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium">{formatStatus(event.status)}</div>
-                    <div className="text-sm text-muted-foreground">{new Date(event.timestamp).toLocaleString()}</div>
-                  </div>
-                </div>
-              ))}
+      <motion.div variants={itemVariants} className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2">
+          <MapView markers={mapMarkers} center={mapCenter} zoom={mapZoom} height="500px" />
+        </div>
 
-              {request.status !== "RESCUE_VEHICLE_ARRIVED" && (
-                <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium">Vehicle Arrival</div>
-                    <div className="text-sm text-muted-foreground">
-                      Estimated: {new Date(request.estimatedArrival).toLocaleString()}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => navigate(`/user/requests/${id}/map`)}>
-              <Map className="mr-2 h-4 w-4" />
-              Track on Map
-            </Button>
-            {request.hasChat && (
-              <Button onClick={() => navigate(`/user/requests/${id}/chat`)}>
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Chat with Provider
-              </Button>
-            )}
-          </CardFooter>
-        </Card>
-      </motion.div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <motion.div variants={itemVariants}>
+        <div className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Service Information</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle>Rescue Details</CardTitle>
+              <CardDescription>Track your roadside assistance</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-start gap-2">
                 <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground" />
                 <div>
-                  <div className="font-medium">Location</div>
-                  <div className="text-sm text-muted-foreground">{request.location}</div>
+                  <div className="font-medium">Your Location</div>
+                  <div className="text-sm text-muted-foreground">{request.location.address}</div>
                 </div>
               </div>
 
               <div className="flex items-start gap-2">
-                <Car className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                <Info className="mt-0.5 h-4 w-4 text-muted-foreground" />
                 <div>
                   <div className="font-medium">Service Type</div>
                   <div className="text-sm text-muted-foreground">{request.serviceType}</div>
@@ -237,106 +197,46 @@ export default function RequestDetails() {
               </div>
 
               <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                <div>
-                  <div className="font-medium">Problem Description</div>
-                  <div className="text-sm text-muted-foreground">{request.description}</div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-start gap-2">
-                <Car className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                <div>
-                  <div className="font-medium">Your Vehicle</div>
-                  <div className="text-sm text-muted-foreground">
-                    {request.vehicle.year} {request.vehicle.make} {request.vehicle.model}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2">
                 <Clock className="mt-0.5 h-4 w-4 text-muted-foreground" />
                 <div>
-                  <div className="font-medium">Request Time</div>
-                  <div className="text-sm text-muted-foreground">{new Date(request.createdAt).toLocaleString()}</div>
+                  <div className="font-medium">Estimated Arrival</div>
+                  <div className="text-sm text-muted-foreground">{calculateETA()}</div>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </motion.div>
 
-        <motion.div variants={itemVariants}>
           <Card>
-            <CardHeader>
-              <CardTitle>Service Provider</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle>Rescue Vehicle</CardTitle>
+              <CardDescription>Information about your assigned vehicle</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-start gap-2">
-                <Building className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                <div>
-                  <div className="font-medium">Company</div>
-                  <div className="text-sm text-muted-foreground">{request.company.name}</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <Phone className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                <div>
-                  <div className="font-medium">Contact</div>
-                  <div className="text-sm text-muted-foreground">{request.company.phone}</div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-start gap-2">
                 <Car className="mt-0.5 h-4 w-4 text-muted-foreground" />
                 <div>
-                  <div className="font-medium">Assigned Vehicle</div>
-                  <div className="text-sm text-muted-foreground">{request.assignedVehicle.name}</div>
+                  <div className="font-medium">{request.vehicle.name}</div>
+                  <div className="text-sm text-muted-foreground">{request.vehicle.type}</div>
                 </div>
               </div>
 
               <div className="flex items-start gap-2">
                 <Phone className="mt-0.5 h-4 w-4 text-muted-foreground" />
                 <div>
-                  <div className="font-medium">Driver</div>
-                  <div className="text-sm text-muted-foreground">
-                    {request.assignedVehicle.driver.name} - {request.assignedVehicle.driver.phone}
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-start gap-2">
-                <CreditCard className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                <div>
-                  <div className="font-medium">Pricing</div>
-                  <div className="grid grid-cols-2 gap-1 text-sm">
-                    <span className="text-muted-foreground">Base Price:</span>
-                    <span>{formatCurrency(request.price)}</span>
-
-                    <span className="text-muted-foreground">Additional Fees:</span>
-                    <span>{formatCurrency(request.additionalFees)}</span>
-
-                    <span className="font-medium">Total:</span>
-                    <span className="font-medium">{formatCurrency(request.total)}</span>
-                  </div>
+                  <div className="font-medium">{request.vehicle.driver.name}</div>
+                  <div className="text-sm text-muted-foreground">{request.vehicle.driver.phone}</div>
                 </div>
               </div>
             </CardContent>
             <CardFooter>
-              <Button className="w-full" onClick={() => window.open(`tel:${request.assignedVehicle.driver.phone}`)}>
+              <Button className="w-full" onClick={() => window.open(`tel:${request.vehicle.driver.phone}`)}>
                 <Phone className="mr-2 h-4 w-4" />
                 Call Driver
               </Button>
             </CardFooter>
           </Card>
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
     </motion.div>
   )
 }

@@ -10,47 +10,15 @@ import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/components/ui/use-toast"
 import { StripePaymentForm } from "@/components/payment/stripe-payment-form"
 import { ArrowLeft, Shield } from "lucide-react"
-
-// Mock data for an invoice
-const mockInvoice: {
-  id: string;
-  requestId: string;
-  service: string;
-  company: string;
-  amount: number;
-  status: string;
-  paymentMethod: string | null;
-  date: string;
-  dueDate: string;
-  items: { description: string; amount: number }[];
-} = {
-  id: "inv-002",
-  requestId: "req-002",
-  service: "Battery Jump Start",
-  company: "QuickHelp Auto",
-  amount: 65.0,
-  status: "PENDING",
-  paymentMethod: null,
-  date: "2023-05-05T17:30:00",
-  dueDate: "2023-05-12T17:30:00",
-  items: [
-    {
-      description: "Battery Jump Start Service",
-      amount: 55.0,
-    },
-    {
-      description: "Service Fee",
-      amount: 10.0,
-    },
-  ],
-}
+import type { PaymentInvoice } from "@/data/mock-data"
+import { mockPaymentInvoice } from "@/data/mock-data"
 
 export default function UserPayment() {
   const { user } = useAuth()
   const { id: invoiceId } = useParams()
   const navigate = useNavigate()
   const { toast } = useToast()
-  const [invoice, setInvoice] = useState(mockInvoice)
+  const [invoice, setInvoice] = useState<PaymentInvoice>(mockPaymentInvoice)
   const [isLoading, setIsLoading] = useState(true)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
 
@@ -61,8 +29,8 @@ export default function UserPayment() {
         // In a real app, fetch from API
         await new Promise((resolve) => setTimeout(resolve, 1000))
         setInvoice({
-          ...mockInvoice,
-          id: invoiceId || mockInvoice.id,
+          ...mockPaymentInvoice,
+          id: invoiceId || mockPaymentInvoice.id,
         })
         setIsLoading(false)
       } catch (error) {

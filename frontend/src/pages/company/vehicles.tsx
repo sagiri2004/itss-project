@@ -22,64 +22,13 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { Plus, Search, Edit, Trash, Calendar, Wrench, CalendarCheck } from "lucide-react"
-
-// Mock data
-const mockVehicles = [
-  {
-    id: "veh-001",
-    name: "Tow Truck #1",
-    type: "Tow Truck",
-    licensePlate: "ABC-1234",
-    status: "AVAILABLE",
-    lastMaintenance: "2023-04-15",
-    assignedDriver: "John Smith",
-    capacity: "Small to medium vehicles",
-    nextMaintenanceDate: "2023-07-15",
-  },
-  {
-    id: "veh-002",
-    name: "Service Van #1",
-    type: "Service Van",
-    licensePlate: "DEF-5678",
-    status: "IN_USE",
-    lastMaintenance: "2023-04-20",
-    assignedDriver: "Emily Johnson",
-    capacity: "Carries equipment for on-site repairs",
-    nextMaintenanceDate: "2023-07-20",
-  },
-  {
-    id: "veh-003",
-    name: "Tow Truck #2",
-    type: "Tow Truck",
-    licensePlate: "GHI-9012",
-    status: "MAINTENANCE",
-    lastMaintenance: "2023-05-05",
-    assignedDriver: "Michael Brown",
-    capacity: "Large vehicles, trucks and SUVs",
-    nextMaintenanceDate: "2023-08-05",
-  },
-  {
-    id: "veh-004",
-    name: "Flatbed Truck #1",
-    type: "Flatbed Truck",
-    licensePlate: "JKL-3456",
-    status: "AVAILABLE",
-    lastMaintenance: "2023-05-01",
-    assignedDriver: "Sarah Davis",
-    capacity: "All vehicle types, complete transportation",
-    nextMaintenanceDate: "2023-08-01",
-  },
-]
-
-// Vehicle types and statuses for dropdowns
-const vehicleTypes = ["Tow Truck", "Service Van", "Flatbed Truck", "Wheel Lift Truck", "Motorcycle Trailer"]
-const vehicleStatuses = ["AVAILABLE", "IN_USE", "MAINTENANCE", "OUT_OF_SERVICE"]
+import { mockCompanyVehicles, vehicleTypes, vehicleStatuses } from "@/data/mock-data"
 
 export default function CompanyVehicles() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const [vehicles, setVehicles] = useState(mockVehicles)
+  const [vehicles, setVehicles] = useState(mockCompanyVehicles)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [currentVehicle, setCurrentVehicle] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)

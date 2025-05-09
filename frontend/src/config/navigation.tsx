@@ -1,4 +1,18 @@
-import { Home, FileText, Car, Settings, Users, Building, MessageSquare, Map, Wrench, Bell, CreditCard, User, Lock } from 'lucide-react'
+import {
+  Home,
+  FileText,
+  Car,
+  Settings,
+  Users,
+  Building,
+  MessageSquare,
+  Map,
+  Wrench,
+  Bell,
+  CreditCard,
+  User,
+  Lock,
+} from "lucide-react"
 
 // User navigation
 export const userNavItems = [

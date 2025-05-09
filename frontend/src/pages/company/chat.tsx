@@ -1,340 +1,243 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams, Link } from "react-router-dom"
+import { useParams, useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/components/ui/use-toast"
 import { ArrowLeft } from "lucide-react"
 import ChatInterface from "@/components/chat/chat-interface"
-import type { Message } from "@/types/chat"
+import type { Chat, Message, RequestDetails, MessageType } from "@/types/chat"
 
-// Mock data for a specific chat
-const mockChatData = {
-  "chat-001": {
-    id: "chat-001",
-    requestId: "req-001",
-    userId: "user-001",
-    userName: "John Doe",
-    service: "Flat Tire Replacement",
-    status: "ACCEPTED_BY_COMPANY",
-    messages: [
-      {
-        id: "msg-001",
-        senderId: "user-001",
-        senderName: "John Doe",
-        senderRole: "user",
-        content: "Hello, my car has a flat tire. Can you help?",
-        type: "text",
-        timestamp: "2023-05-07T10:15:00",
-      },
-      {
-        id: "msg-002",
-        senderId: "company-001",
-        senderName: "Your Company",
-        senderRole: "company",
-        content: "Hi John, we can definitely help. Can you share your location?",
-        type: "text",
-        timestamp: "2023-05-07T10:17:00",
-      },
-      {
-        id: "msg-003",
-        senderId: "user-001",
-        senderName: "John Doe",
-        senderRole: "user",
-        content: "I'm at 123 Main St, Anytown.",
-        type: "text",
-        timestamp: "2023-05-07T10:18:00",
-      },
-      {
-        id: "msg-004",
-        senderId: "company-001",
-        senderName: "Your Company",
-        senderRole: "company",
-        content: "Thank you. Based on our initial assessment, here's our price offer for the service.",
-        type: "price_offer",
-        timestamp: "2023-05-07T10:20:00",
-        metadata: {
-          price: 85.0,
-        },
-      },
-      {
-        id: "msg-005",
-        senderId: "user-001",
-        senderName: "John Doe",
-        senderRole: "user",
-        content: "I accept the price offer.",
-        type: "price_accepted",
-        timestamp: "2023-05-07T10:22:00",
-      },
-      {
-        id: "msg-006",
-        senderId: "company-001",
-        senderName: "Your Company",
-        senderRole: "company",
-        content: "Great! We'll dispatch a technician right away. They should arrive in about 30 minutes.",
-        type: "text",
-        timestamp: "2023-05-07T10:23:00",
-      },
-      {
-        id: "msg-007",
-        senderId: "system",
-        senderName: "System",
-        senderRole: "system",
-        content: "Service status updated to: RESCUE_VEHICLE_DISPATCHED",
-        type: "status_update",
-        timestamp: "2023-05-07T10:25:00",
-      },
-      {
-        id: "msg-008",
-        senderId: "company-001",
-        senderName: "Your Company",
-        senderRole: "company",
-        content: "Our technician is on the way. You can track their location in the app.",
-        type: "text",
-        timestamp: "2023-05-07T10:30:00",
-      },
-    ],
-  },
-  "chat-002": {
-    id: "chat-002",
-    requestId: "req-002",
-    userId: "user-002",
-    userName: "Jane Smith",
-    service: "Battery Jump Start",
-    status: "COMPLETED",
-    messages: [
-      {
-        id: "msg-101",
-        senderId: "user-002",
-        senderName: "Jane Smith",
-        senderRole: "user",
-        content: "My car won't start. I think it's the battery.",
-        type: "text",
-        timestamp: "2023-05-05T14:00:00",
-      },
-      {
-        id: "msg-102",
-        senderId: "company-001",
-        senderName: "Your Company",
-        senderRole: "company",
-        content: "Hi Jane, we can help with a jump start. What's your location?",
-        type: "text",
-        timestamp: "2023-05-05T14:02:00",
-      },
-      {
-        id: "msg-103",
-        senderId: "user-002",
-        senderName: "Jane Smith",
-        senderRole: "user",
-        content: "I'm at 456 Oak Ave, Somewhere.",
-        type: "text",
-        timestamp: "2023-05-05T14:03:00",
-      },
-      {
-        id: "msg-104",
-        senderId: "company-001",
-        senderName: "Your Company",
-        senderRole: "company",
-        content: "Here's our price offer for the battery jump start service.",
-        type: "price_offer",
-        timestamp: "2023-05-05T14:05:00",
-        metadata: {
-          price: 65.0,
-        },
-      },
-      {
-        id: "msg-105",
-        senderId: "user-002",
-        senderName: "Jane Smith",
-        senderRole: "user",
-        content: "That's a bit high. Can you do it for less?",
-        type: "price_rejected",
-        timestamp: "2023-05-05T14:07:00",
-        metadata: {
-          reason: "The price is higher than I expected.",
-        },
-      },
-      {
-        id: "msg-106",
-        senderId: "company-001",
-        senderName: "Your Company",
-        senderRole: "company",
-        content: "We can offer a discount. Here's our revised price.",
-        type: "price_offer",
-        timestamp: "2023-05-05T14:10:00",
-        metadata: {
-          price: 55.0,
-        },
-      },
-      {
-        id: "msg-107",
-        senderId: "user-002",
-        senderName: "Jane Smith",
-        senderRole: "user",
-        content: "That works for me. Thank you!",
-        type: "price_accepted",
-        timestamp: "2023-05-05T14:12:00",
-      },
-      {
-        id: "msg-108",
-        senderId: "system",
-        senderName: "System",
-        senderRole: "system",
-        content: "Service status updated to: COMPLETED",
-        type: "status_update",
-        timestamp: "2023-05-05T15:30:00",
-      },
-      {
-        id: "msg-109",
-        senderId: "company-001",
-        senderName: "Your Company",
-        senderRole: "company",
-        content: "Your invoice has been generated. Please check your email.",
-        type: "text",
-        timestamp: "2023-05-05T15:35:00",
-      },
-    ],
-  },
-}
+// Replace the mock data imports
+import { generateMockChat, mockChatRequestDetails } from "@/data/mock-data"
 
-export default function CompanyChatDetail() {
+// Remove the original mock data declarations
+// Replace:
+// const generateMockChat = (requestId: string, userId: string, companyId: string) => { ... }
+
+export default function CompanyChat() {
   const { user } = useAuth()
-  const { chatId } = useParams<{ chatId: string }>()
-  const [chat, setChat] = useState<any>(null)
-  const [messages, setMessages] = useState<Message[]>([])
+  const { id: requestId } = useParams()
+  const navigate = useNavigate()
+  const { toast } = useToast()
+
   const [isLoading, setIsLoading] = useState(false)
+  const [chat, setChat] = useState<Chat | null>(null)
+  const [requestDetails, setRequestDetails] = useState<RequestDetails | null>(null)
 
+  // Fetch chat data
   useEffect(() => {
-    // Simulate loading chat data
-    setIsLoading(true)
-    setTimeout(() => {
-      if (chatId && mockChatData[chatId as keyof typeof mockChatData]) {
-        const chatData = mockChatData[chatId as keyof typeof mockChatData]
-        setChat(chatData)
-        // Type assertion to ensure the messages match the expected type
-        setMessages(chatData.messages as Message[])
-      }
-      setIsLoading(false)
-    }, 500)
-  }, [chatId])
+    const fetchChatData = async () => {
+      setIsLoading(true)
+      try {
+        // In a real app, fetch from API
+        await new Promise((resolve) => setTimeout(resolve, 1000))
 
-  const handleSendMessage = (message: Omit<Message, "id" | "timestamp">) => {
-    const newMessage: Message = {
-      ...message,
-      id: `msg-${Date.now()}`,
-      timestamp: new Date().toISOString(),
+        // Mock data
+        if (user) {
+          const mockChat = generateMockChat(requestId || "unknown", "user-001", user.id) as Chat
+          setChat(mockChat)
+
+          setRequestDetails(mockChatRequestDetails)
+        }
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error loading chat",
+          description: "Could not load the chat. Please try again.",
+        })
+      } finally {
+        setIsLoading(false)
+      }
     }
 
-    setMessages((prev) => [...prev, newMessage])
+    if (requestId) {
+      fetchChatData()
+    }
+  }, [requestId, user, toast])
+
+  const handleSendMessage = (message: Omit<Message, "id" | "timestamp">) => {
+    setIsLoading(true)
+
+    // In a real app, send to API
+    setTimeout(() => {
+      const newMessage = {
+        ...message,
+        id: `msg-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+      }
+
+      setChat((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          messages: [...prev.messages, newMessage],
+          lastUpdated: new Date().toISOString(),
+        }
+      })
+
+      setIsLoading(false)
+    }, 500)
   }
 
   const handlePriceOffer = (price: number) => {
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      senderId: user?.id || "company-001",
-      senderName: "Your Company",
-      senderRole: "company",
-      content: "Here's our price offer for the service.",
-      type: "price_offer",
-      timestamp: new Date().toISOString(),
-      metadata: {
-        price,
-      },
-    }
+    setIsLoading(true)
 
-    setMessages((prev) => [...prev, newMessage])
+    // In a real app, send to API
+    setTimeout(() => {
+      const newMessage = {
+        id: `msg-${Date.now()}`,
+        senderId: user?.id || "",
+        senderName: "Your Company",
+        senderRole: "company" as const,
+        content: `We're offering a price of $${price.toFixed(2)} for this service based on the details provided.`,
+        timestamp: new Date().toISOString(),
+        type: "price_offer" as const,
+        metadata: { price },
+      }
+
+      setChat((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          messages: [...prev.messages, newMessage],
+          lastUpdated: new Date().toISOString(),
+        };
+      })
+
+      setIsLoading(false)
+
+      toast({
+        title: "Price offer sent",
+        description: `You've sent a price offer of $${price.toFixed(2)} to the customer.`,
+      })
+    }, 800)
   }
 
   const handlePriceResponse = (accepted: boolean, reason?: string) => {
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      senderId: user?.id || "company-001",
-      senderName: "Your Company",
-      senderRole: "company",
-      content: accepted ? "We've accepted the price offer." : "We've declined the price offer.",
-      type: accepted ? "price_accepted" : "price_rejected",
-      timestamp: new Date().toISOString(),
-      metadata: accepted ? undefined : { reason },
-    }
+    setIsLoading(true)
 
-    setMessages((prev) => [...prev, newMessage])
+    // In a real app, send to API
+    setTimeout(() => {
+      const responseType = accepted ? ("price_accepted" as MessageType) : ("price_rejected" as MessageType)
+      const responseContent = accepted
+        ? "I accept the price offer from the customer."
+        : "I cannot accept this price from the customer."
+
+      const newMessage = {
+        id: `msg-${Date.now()}`,
+        senderId: user?.id || "",
+        senderName: "Your Company",
+        senderRole: "company" as const,
+        content: responseContent,
+        timestamp: new Date().toISOString(),
+        type: responseType,
+        metadata: accepted ? undefined : { reason },
+      }
+
+      setChat((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          messages: [...prev.messages, newMessage],
+          lastUpdated: new Date().toISOString(),
+        };
+      })
+
+      // If rejected, add a system message about chat ending
+      if (!accepted) {
+        const systemMessage = {
+          id: `msg-${Date.now() + 1}`,
+          senderId: "system",
+          senderName: "System",
+          senderRole: "system" as const,
+          content: "Price was rejected. This conversation will be archived.",
+          timestamp: new Date().toISOString(),
+          type: "system" as MessageType,
+        }
+
+        setChat((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            messages: [...prev.messages, systemMessage],
+            status: "CLOSED",
+            lastUpdated: new Date().toISOString(),
+          };
+        });
+
+        // Show toast notification
+        toast({
+          title: "Price rejected",
+          description: "You have rejected the customer's price. This conversation will be archived.",
+        })
+      }
+
+      setIsLoading(false)
+    }, 800)
   }
 
-  if (isLoading) {
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  }
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 260,
+        damping: 20,
+      },
+    },
+  }
+
+  if (!chat || !requestDetails) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
         <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p>Loading chat...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading chat...</p>
         </div>
-      </div>
-    )
-  }
-
-  if (!chat) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <h2 className="text-xl font-semibold mb-2">Chat not found</h2>
-              <p className="text-muted-foreground mb-4">
-                The chat you're looking for doesn't exist or has been deleted.
-              </p>
-              <Button asChild>
-                <Link to="/company/chats">Back to Chats</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     )
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="container mx-auto h-[calc(100vh-10rem)] max-w-4xl"
-    >
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="icon">
-            <Link to="/company/chats">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold">Chat with {chat.userName}</h1>
-        </div>
-        <Badge>{chat.status.replace(/_/g, " ")}</Badge>
-      </div>
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="h-[calc(100vh-12rem)]">
+      <motion.div variants={itemVariants} className="flex items-center mb-4">
+        <Button variant="outline" size="icon" onClick={() => navigate(`/company/requests/${requestId}`)}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-2xl font-bold ml-2">Chat with Customer</h1>
+      </motion.div>
 
-      <Card className="h-[calc(100%-3rem)]">
-        <CardHeader className="border-b p-4">
-          <CardTitle className="text-lg">
-            {chat.service} - Request #{chat.requestId}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ChatInterface
-            requestId={chat.requestId}
-            currentUserId={user?.id || "company-001"}
-            currentUserRole="company"
-            otherPartyName={chat.userName}
-            initialMessages={messages}
-            onSendMessage={handleSendMessage}
-            onPriceOffer={handlePriceOffer}
-            onPriceResponse={handlePriceResponse}
-            isLoading={isLoading}
-            currentPrice={85}
-            requestStatus={chat.status}
-          />
-        </CardContent>
-      </Card>
+      <motion.div variants={itemVariants} className="h-[calc(100%-3rem)]">
+        <ChatInterface
+          requestId={requestId || ""}
+          currentUserId={user?.id || ""}
+          currentUserRole="company"
+          otherPartyName={chat.participants.find((p: any) => p.role === "user")?.name || "Customer"}
+          initialMessages={chat.messages}
+          onSendMessage={handleSendMessage}
+          onPriceOffer={handlePriceOffer}
+          onPriceResponse={handlePriceResponse}
+          isLoading={isLoading}
+          currentPrice={requestDetails.currentPrice}
+          requestStatus={requestDetails.status}
+        />
+      </motion.div>
     </motion.div>
   )
 }

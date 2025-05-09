@@ -13,78 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { formatDate } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { Search, Filter, FileText, Clock, User, Download, Send, DollarSign } from "lucide-react"
-
-// Mock data
-const mockInvoices = [
-  {
-    id: "inv-001",
-    requestId: "req-001",
-    service: "Flat Tire Replacement",
-    user: {
-      id: "user-001",
-      name: "John Doe",
-      email: "john@example.com",
-    },
-    amount: 85.0,
-    status: "PAID",
-    paymentMethod: "Credit Card",
-    date: "2023-05-01T16:45:00",
-    dueDate: "2023-05-08T16:45:00",
-    sentDate: "2023-05-01T16:50:00",
-    paidDate: "2023-05-02T09:15:00",
-  },
-  {
-    id: "inv-002",
-    requestId: "req-002",
-    service: "Battery Jump Start",
-    user: {
-      id: "user-002",
-      name: "Jane Smith",
-      email: "jane@example.com",
-    },
-    amount: 65.0,
-    status: "SENT",
-    paymentMethod: null,
-    date: "2023-05-05T17:30:00",
-    dueDate: "2023-05-12T17:30:00",
-    sentDate: "2023-05-05T17:35:00",
-    paidDate: null,
-  },
-  {
-    id: "inv-003",
-    requestId: "req-005",
-    service: "Lockout Service",
-    user: {
-      id: "user-005",
-      name: "Charlie Wilson",
-      email: "charlie@example.com",
-    },
-    amount: 70.0,
-    status: "DRAFT",
-    paymentMethod: null,
-    date: "2023-05-06T17:00:00",
-    dueDate: "2023-05-13T17:00:00",
-    sentDate: null,
-    paidDate: null,
-  },
-  {
-    id: "inv-004",
-    requestId: "req-004",
-    service: "Fuel Delivery",
-    user: {
-      id: "user-004",
-      name: "Alice Brown",
-      email: "alice@example.com",
-    },
-    amount: 75.0,
-    status: "OVERDUE",
-    paymentMethod: null,
-    date: "2023-04-15T09:30:00",
-    dueDate: "2023-04-22T09:30:00",
-    sentDate: "2023-04-15T09:35:00",
-    paidDate: null,
-  },
-]
+import { mockInvoices } from "@/data/mock-data"
 
 export default function CompanyInvoices() {
   const { user } = useAuth()

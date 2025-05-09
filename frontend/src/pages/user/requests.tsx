@@ -13,71 +13,23 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getStatusVariant, formatDate } from "@/lib/utils"
 import { PlusCircle, Search, Filter, Car, Clock, MapPin } from "lucide-react"
-
-// Mock data
-const mockRequests = [
-  {
-    id: "req-001",
-    service: "Flat Tire Replacement",
-    status: "COMPLETED",
-    date: "2023-05-01T10:30:00",
-    company: "FastFix Roadside",
-    location: "123 Main St, Anytown",
-    price: 85.0,
-  },
-  {
-    id: "req-002",
-    service: "Battery Jump Start",
-    status: "IN_PROGRESS",
-    date: "2023-05-05T14:15:00",
-    company: "QuickHelp Auto",
-    location: "456 Oak Ave, Somewhere",
-    price: 65.0,
-  },
-  {
-    id: "req-003",
-    service: "Vehicle Towing",
-    status: "CREATED",
-    date: "2023-05-07T09:00:00",
-    company: null,
-    location: "789 Pine Rd, Nowhere",
-    price: null,
-  },
-  {
-    id: "req-004",
-    service: "Fuel Delivery",
-    status: "CANCELLED_BY_USER",
-    date: "2023-04-29T11:30:00",
-    company: null,
-    location: "321 Cedar St, Anytown",
-    price: null,
-  },
-  {
-    id: "req-005",
-    service: "Lockout Service",
-    status: "ACCEPTED_BY_COMPANY",
-    date: "2023-05-06T16:45:00",
-    company: "FastFix Roadside",
-    location: "555 Maple Ave, Somewhere",
-    price: 70.0,
-  },
-]
+import { mockUserRequests } from "@/data/mock-data"
 
 export default function UserRequests() {
   const { user } = useAuth()
   const [searchTerm, setSearchTerm] = useState("")
-  const [filteredRequests, setFilteredRequests] = useState(mockRequests)
+  const [filteredRequests, setFilteredRequests] = useState(mockUserRequests)
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value.toLowerCase()
     setSearchTerm(term)
 
     if (!term.trim()) {
-      setFilteredRequests(mockRequests)
+      setFilteredRequests(mockUserRequests)
       return
     }
 
-    const filtered = mockRequests.filter(
+    const filtered = mockUserRequests.filter(
       (request) =>
         request.service.toLowerCase().includes(term) ||
         request.location.toLowerCase().includes(term) ||

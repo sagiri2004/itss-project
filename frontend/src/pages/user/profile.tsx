@@ -14,31 +14,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, User, Mail, Phone, Calendar, MapPin, Car, Shield } from "lucide-react"
 
-// Mock user data
-const mockUserDetails = {
-  id: "user-123",
-  name: "John Doe",
-  email: "john@example.com",
-  phone: "+1 (555) 123-4567",
-  address: "123 Main St, Anytown, USA",
-  joinDate: "2023-01-15",
-  vehicles: [
-    {
-      id: "veh-001",
-      make: "Toyota",
-      model: "Camry",
-      year: 2020,
-      licensePlate: "ABC-1234",
-    },
-    {
-      id: "veh-002",
-      make: "Honda",
-      model: "Civic",
-      year: 2018,
-      licensePlate: "XYZ-5678",
-    },
-  ],
-}
+// Replace the mock data imports
+import { mockUserDetails } from "@/data/mock-data"
 
 export default function UserProfile() {
   const { user } = useAuth()

@@ -3,32 +3,35 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
-import { motion } from "framer-motion"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Send, DollarSign, ThumbsUp, ThumbsDown } from "lucide-react"
 import type { Message } from "@/types/chat"
+import { motion } from "framer-motion"
 
-export type MessageType = "text" | "system" | "price_offer" | "price_accepted" | "price_rejected" | "status_update"
-
-interface ChatInterfaceProps {
+export interface ChatInterfaceProps {
   requestId: string
   currentUserId: string
-  currentUserRole: "user" | "company" | "admin"
+  currentUserRole: "user" | "company"
   otherPartyName: string
   initialMessages: Message[]
   onSendMessage: (message: Omit<Message, "id" | "timestamp">) => void
   onPriceOffer?: (price: number) => void
-  onPriceResponse?: (accepted: boolean, reason?: string) => void
+  onPriceResponse: (accepted: boolean, reason?: string) => void
   isLoading: boolean
-  currentPrice?: number
-  requestStatus?: string
+  currentPrice: number
+  requestStatus: string
 }
 
 export default function ChatInterface({
@@ -47,9 +50,10 @@ export default function ChatInterface({
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [newMessage, setNewMessage] = useState("")
   const [isPriceDialogOpen, setIsPriceDialogOpen] = useState(false)
-  const [priceOfferAmount, setPriceOfferAmount] = useState(currentPrice || 0)
+  const [priceOffer, setPriceOffer] = useState(currentPrice.toString())
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState("")
+  const [lastPriceOffer, setLastPriceOffer] = useState<Message | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Update messages when initialMessages changes
@@ -57,18 +61,29 @@ export default function ChatInterface({
     setMessages(initialMessages)
   }, [initialMessages])
 
+  // Find the last price offer message
+  useEffect(() => {
+    const lastOffer = [...messages]
+      .reverse()
+      .find((msg) => msg.type === "price_offer" && msg.senderRole !== currentUserRole)
+
+    if (lastOffer) {
+      setLastPriceOffer(lastOffer)
+    }
+  }, [messages, currentUserRole])
+
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
   const handleSendMessage = () => {
-    if (newMessage.trim() === "") return
+    if (!newMessage.trim()) return
 
     onSendMessage({
       senderId: currentUserId,
       senderName: currentUserRole === "user" ? "You" : "Your Company",
-      senderRole: currentUserRole === "admin" ? "system" : currentUserRole,
+      senderRole: currentUserRole,
       content: newMessage,
       type: "text",
     })
@@ -83,311 +98,170 @@ export default function ChatInterface({
     }
   }
 
-  // Update the price offer handling to match the new status flow
-  const handlePriceOffer = () => {
-    if (onPriceOffer) {
-      onPriceOffer(priceOfferAmount)
-      setIsPriceDialogOpen(false)
+  const handlePriceOfferSubmit = () => {
+    const price = Number.parseFloat(priceOffer)
+    if (isNaN(price) || price <= 0) return
 
-      // Update the request status to WAITING after sending a price offer
-      if (requestStatus === "PRICE_UPDATED") {
-        // This would typically be handled by the parent component
-        // but we're adding this comment to clarify the flow
-      }
+    onPriceOffer?.(price)
+    setIsPriceDialogOpen(false)
+    setPriceOffer("")
+  }
+
+  const handleRejectSubmit = () => {
+    onPriceResponse(false, rejectReason)
+    setIsRejectDialogOpen(false)
+    setRejectReason("")
+  }
+
+  const renderMessage = (message: Message, index: number) => {
+    const isCurrentUser = message.senderRole === currentUserRole
+    const isSystem = message.senderRole === "system"
+
+    // Determine message style based on type and sender
+    let messageClass = "p-3 rounded-lg max-w-[80%] break-words"
+    if (isSystem) {
+      messageClass += " bg-muted text-muted-foreground text-sm italic mx-auto text-center"
+    } else if (isCurrentUser) {
+      messageClass += " bg-primary text-primary-foreground ml-auto"
+    } else {
+      messageClass += " bg-secondary text-secondary-foreground"
     }
-  }
 
-  const handlePriceResponse = (accepted: boolean) => {
-    if (onPriceResponse) {
-      if (accepted) {
-        onPriceResponse(true)
-        // This would update the status to PRICE_CONFIRMED
-      } else {
-        setIsRejectDialogOpen(true)
-        // This would eventually update the status to REJECTED_BY_USER
-      }
+    // Special styling for price offers and responses
+    if (message.type === "price_offer") {
+      messageClass += " border-2 border-yellow-400 bg-yellow-50 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
+    } else if (message.type === "price_accepted") {
+      messageClass += " border-2 border-green-400 bg-green-50 text-green-800 dark:bg-green-900 dark:text-green-100"
+    } else if (message.type === "price_rejected") {
+      messageClass += " border-2 border-red-400 bg-red-50 text-red-800 dark:bg-red-900 dark:text-red-100"
     }
-  }
 
-  const confirmReject = () => {
-    if (onPriceResponse) {
-      onPriceResponse(false, rejectReason)
-      setIsRejectDialogOpen(false)
-    }
-  }
+    return (
+      <motion.div
+        key={message.id}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`flex flex-col mb-4 ${isSystem ? "w-full" : ""}`}
+      >
+        {!isSystem && !isCurrentUser && (
+          <span className="text-xs text-muted-foreground mb-1">{message.senderName}</span>
+        )}
+        <div className={messageClass}>
+          {message.content}
 
-  // Helper function to format date
-  const formatMessageTime = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  }
+          {message.type === "price_offer" && message.metadata?.price && (
+            <div className="mt-2 font-bold flex items-center">
+              <DollarSign className="h-4 w-4 mr-1" />
+              Price: ${message.metadata.price.toFixed(2)}
+            </div>
+          )}
 
-  // Helper function to group messages by date
-  const groupMessagesByDate = (messages: Message[]) => {
-    const groups: { [key: string]: Message[] } = {}
+          {message.type === "price_rejected" && message.metadata?.reason && (
+            <div className="mt-2 text-sm italic">Reason: {message.metadata.reason}</div>
+          )}
 
-    messages.forEach((message) => {
-      const date = new Date(message.timestamp)
-      const dateKey = date.toLocaleDateString()
-
-      if (!groups[dateKey]) {
-        groups[dateKey] = []
-      }
-
-      groups[dateKey].push(message)
-    })
-
-    return Object.entries(groups)
-  }
-
-  // Check if there's a pending price offer
-  const hasPendingPriceOffer = messages.some(
-    (msg) =>
-      msg.type === "price_offer" &&
-      !messages.some(
-        (m) =>
-          (m.type === "price_accepted" || m.type === "price_rejected") &&
-          new Date(m.timestamp) > new Date(msg.timestamp),
-      ),
-  )
-
-  // Get the last price offer
-  const lastPriceOffer = [...messages].reverse().find((msg) => msg.type === "price_offer")
-
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.05,
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 260,
-        damping: 20,
-      },
-    },
+          {/* Price response buttons for the non-sender of the price offer */}
+          {message.type === "price_offer" &&
+            message.senderRole !== currentUserRole &&
+            !messages.some(
+              (m) => (m.type === "price_accepted" || m.type === "price_rejected") && m.timestamp > message.timestamp,
+            ) && (
+              <div className="mt-3 flex space-x-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
+                  onClick={() => onPriceResponse(true)}
+                  disabled={isLoading}
+                >
+                  <ThumbsUp className="h-4 w-4 mr-1" /> Accept
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-red-100 hover:bg-red-200 text-red-800 border-red-300"
+                  onClick={() => setIsRejectDialogOpen(true)}
+                  disabled={isLoading}
+                >
+                  <ThumbsDown className="h-4 w-4 mr-1" /> Reject
+                </Button>
+              </div>
+            )}
+        </div>
+        <span className="text-xs text-muted-foreground mt-1 self-end">
+          {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        </span>
+      </motion.div>
+    )
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <Card className="flex h-full flex-col">
-        <CardHeader className="border-b p-4">
-          <div className="flex items-center space-x-4">
-            <Avatar>
-              <AvatarImage src={`https://avatar.vercel.sh/${otherPartyName}`} />
-              <AvatarFallback>{otherPartyName.substring(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <div>
-              <h3 className="font-semibold">{otherPartyName}</h3>
-              <p className="text-sm text-muted-foreground">
-                Request #{requestId} • {requestStatus?.replace(/_/g, " ")}
-              </p>
+    <Card className="flex flex-col h-full">
+      <CardContent className="flex flex-col h-full p-4">
+        <div className="flex-1 overflow-y-auto mb-4 pr-2">
+          {messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted-foreground">No messages yet. Start the conversation!</p>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto p-4">
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-            {groupMessagesByDate(messages).map(([dateKey, dateMessages]) => (
-              <div key={dateKey} className="space-y-4">
-                <div className="relative flex items-center py-2">
-                  <div className="flex-grow border-t"></div>
-                  <span className="mx-4 flex-shrink text-xs text-muted-foreground">{dateKey}</span>
-                  <div className="flex-grow border-t"></div>
-                </div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map(renderMessage)}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
 
-                {dateMessages.map((message) => (
-                  <motion.div
-                    key={message.id}
-                    variants={itemVariants}
-                    className={`flex ${
-                      message.senderRole === "system"
-                        ? "justify-center"
-                        : message.senderRole === currentUserRole
-                          ? "justify-end"
-                          : "justify-start"
-                    }`}
-                  >
-                    {message.senderRole === "system" ? (
-                      <div className="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-                        {message.content}
-                      </div>
-                    ) : message.senderRole !== currentUserRole ? (
-                      <div className="flex max-w-[80%] items-start space-x-2">
-                        <Avatar className="mt-1 h-8 w-8">
-                          <AvatarImage src={`https://avatar.vercel.sh/${message.senderName}`} />
-                          <AvatarFallback>{message.senderName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="rounded-lg bg-accent p-3">
-                            {message.type === "price_offer" ? (
-                              <div className="space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  <DollarSign className="h-5 w-5 text-primary" />
-                                  <span className="font-medium">Price Offer</span>
-                                </div>
-                                <p>{message.content}</p>
-                                <div className="rounded-md bg-primary/10 p-2 text-center">
-                                  <span className="text-lg font-bold text-primary">
-                                    ${(message.metadata?.price ?? 0).toFixed(2)}
-                                  </span>
-                                </div>
-                                {currentUserRole === "user" &&
-                                  hasPendingPriceOffer &&
-                                  message.id === lastPriceOffer?.id && (
-                                    <div className="mt-2 flex space-x-2">
-                                      <Button size="sm" className="w-full" onClick={() => handlePriceResponse(true)}>
-                                        <ThumbsUp className="mr-1 h-4 w-4" />
-                                        Accept
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="w-full"
-                                        onClick={() => handlePriceResponse(false)}
-                                      >
-                                        <ThumbsDown className="mr-1 h-4 w-4" />
-                                        Reject
-                                      </Button>
-                                    </div>
-                                  )}
-                              </div>
-                            ) : message.type === "price_accepted" ? (
-                              <div className="space-y-2">
-                                <Badge variant="success">Price Accepted</Badge>
-                                <p>{message.content}</p>
-                              </div>
-                            ) : message.type === "price_rejected" ? (
-                              <div className="space-y-2">
-                                <Badge variant="destructive">Price Rejected</Badge>
-                                <p>{message.content}</p>
-                                {message.metadata?.reason && (
-                                  <div className="rounded-md bg-muted p-2 text-sm">
-                                    <span className="font-medium">Reason: </span>
-                                    {message.metadata.reason}
-                                  </div>
-                                )}
-                              </div>
-                            ) : message.type === "status_update" ? (
-                              <div className="space-y-2">
-                                <Badge>Status Update</Badge>
-                                <p>{message.content}</p>
-                              </div>
-                            ) : (
-                              <p>{message.content}</p>
-                            )}
-                          </div>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            {formatMessageTime(message.timestamp)}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex max-w-[80%] flex-col items-end">
-                        <div className="rounded-lg bg-primary p-3 text-primary-foreground">
-                          {message.type === "price_offer" ? (
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <DollarSign className="h-5 w-5" />
-                                <span className="font-medium">Price Offer</span>
-                              </div>
-                              <p>{message.content}</p>
-                              <div className="rounded-md bg-primary-foreground/20 p-2 text-center">
-                                <span className="text-lg font-bold">${(message.metadata?.price ?? 0).toFixed(2)}</span>
-                              </div>
-                            </div>
-                          ) : message.type === "price_accepted" ? (
-                            <div className="space-y-2">
-                              <Badge variant="success">Price Accepted</Badge>
-                              <p>{message.content}</p>
-                            </div>
-                          ) : message.type === "price_rejected" ? (
-                            <div className="space-y-2">
-                              <Badge variant="destructive">Price Rejected</Badge>
-                              <p>{message.content}</p>
-                              {message.metadata?.reason && (
-                                <div className="rounded-md bg-primary-foreground/20 p-2 text-sm">
-                                  <span className="font-medium">Reason: </span>
-                                  {message.metadata.reason}
-                                </div>
-                              )}
-                            </div>
-                          ) : message.type === "status_update" ? (
-                            <div className="space-y-2">
-                              <Badge>Status Update</Badge>
-                              <p>{message.content}</p>
-                            </div>
-                          ) : (
-                            <p>{message.content}</p>
-                          )}
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground">{formatMessageTime(message.timestamp)}</div>
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </motion.div>
-        </CardContent>
-        <CardFooter className="border-t p-4">
-          <div className="flex w-full items-end space-x-2">
-            <div className="flex-1">
-              <Textarea
-                placeholder="Type your message..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="min-h-[80px] resize-none"
-                disabled={isLoading}
-              />
-            </div>
-            <div className="flex flex-col space-y-2">
-              {currentUserRole === "company" && onPriceOffer && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setIsPriceDialogOpen(true)}
-                  disabled={isLoading}
-                  title="Send price offer"
-                >
-                  <DollarSign className="h-5 w-5" />
-                </Button>
-              )}
-              <Button size="icon" onClick={handleSendMessage} disabled={isLoading || newMessage.trim() === ""}>
-                <Send className="h-5 w-5" />
-              </Button>
-            </div>
+        {/* Price offer button for company */}
+        {currentUserRole === "company" && (
+          <div className="mb-4">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setIsPriceDialogOpen(true)}
+              disabled={isLoading}
+            >
+              <DollarSign className="h-4 w-4 mr-2" /> Make Price Offer
+            </Button>
           </div>
-        </CardFooter>
-      </Card>
+        )}
 
-      {/* Price Offer Dialog */}
+        {/* Message input */}
+        <div className="flex space-x-2">
+          <Input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={`Message ${otherPartyName}...`}
+            disabled={isLoading}
+            className="flex-1"
+          />
+          <Button onClick={handleSendMessage} disabled={!newMessage.trim() || isLoading}>
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+
+      {/* Price offer dialog */}
       <Dialog open={isPriceDialogOpen} onOpenChange={setIsPriceDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send Price Offer</DialogTitle>
+            <DialogTitle>Make a Price Offer</DialogTitle>
+            <DialogDescription>Enter the price you want to offer for this service.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="price">Price Amount ($)</Label>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="price" className="text-right">
+                Price ($)
+              </Label>
               <Input
                 id="price"
                 type="number"
                 min="0"
                 step="0.01"
-                value={priceOfferAmount}
-                onChange={(e) => setPriceOfferAmount(Number.parseFloat(e.target.value))}
+                value={priceOffer}
+                onChange={(e) => setPriceOffer(e.target.value)}
+                className="col-span-3"
               />
             </div>
           </div>
@@ -395,27 +269,29 @@ export default function ChatInterface({
             <Button variant="outline" onClick={() => setIsPriceDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handlePriceOffer} disabled={priceOfferAmount <= 0}>
-              Send Offer
-            </Button>
+            <Button onClick={handlePriceOfferSubmit}>Send Offer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Reject Reason Dialog */}
+      {/* Reject price dialog */}
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reject Price Offer</DialogTitle>
+            <DialogDescription>Please provide a reason for rejecting the price offer.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="reason">Reason for rejection (optional)</Label>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="reason" className="text-right">
+                Reason
+              </Label>
               <Textarea
                 id="reason"
-                placeholder="Please provide a reason for rejecting the price offer..."
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="The price is too high..."
+                className="col-span-3"
               />
             </div>
           </div>
@@ -423,12 +299,12 @@ export default function ChatInterface({
             <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={confirmReject}>
-              Confirm Rejection
+            <Button variant="destructive" onClick={handleRejectSubmit}>
+              Reject Offer
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </Card>
   )
 }

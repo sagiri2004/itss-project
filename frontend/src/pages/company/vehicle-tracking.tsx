@@ -15,125 +15,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
 import { Search, Car, MapPin, Clock, User, Phone, Calendar, RefreshCw } from "lucide-react"
 
-// Mock data for vehicles
-const mockVehicles = [
-  {
-    id: "veh-001",
-    name: "Tow Truck #1",
-    type: "Tow Truck",
-    licensePlate: "ABC-1234",
-    status: "IN_USE",
-    driver: {
-      name: "John Smith",
-      phone: "+1 (555) 123-4567",
-    },
-    location: {
-      coordinates: [40.72, -74.01] as [number, number],
-      lastUpdated: "2023-06-15T14:45:00Z",
-    },
-    currentRequest: {
-      id: "req-001",
-      customerName: "Michael Johnson",
-      serviceType: "Flat Tire Replacement",
-      location: {
-        address: "123 Main St, New York, NY 10001",
-        coordinates: [40.7128, -74.006] as [number, number],
-      },
-      status: "RESCUE_VEHICLE_DISPATCHED",
-    },
-  },
-  {
-    id: "veh-002",
-    name: "Service Van #1",
-    type: "Service Van",
-    licensePlate: "DEF-5678",
-    status: "AVAILABLE",
-    driver: {
-      name: "Emily Johnson",
-      phone: "+1 (555) 987-6543",
-    },
-    location: {
-      coordinates: [40.73, -73.995] as [number, number],
-      lastUpdated: "2023-06-15T14:40:00Z",
-    },
-    currentRequest: null,
-  },
-  {
-    id: "veh-003",
-    name: "Tow Truck #2",
-    type: "Tow Truck",
-    licensePlate: "GHI-9012",
-    status: "MAINTENANCE",
-    driver: {
-      name: "Michael Brown",
-      phone: "+1 (555) 456-7890",
-    },
-    location: {
-      coordinates: [40.715, -74.02] as [number, number],
-      lastUpdated: "2023-06-15T13:30:00Z",
-    },
-    currentRequest: null,
-  },
-  {
-    id: "veh-004",
-    name: "Flatbed Truck #1",
-    type: "Flatbed Truck",
-    licensePlate: "JKL-3456",
-    status: "IN_USE",
-    driver: {
-      name: "Sarah Davis",
-      phone: "+1 (555) 234-5678",
-    },
-    location: {
-      coordinates: [40.705, -73.99] as [number, number],
-      lastUpdated: "2023-06-15T14:30:00Z",
-    },
-    currentRequest: {
-      id: "req-002",
-      customerName: "Jennifer Wilson",
-      serviceType: "Vehicle Towing",
-      location: {
-        address: "456 Park Ave, New York, NY 10022",
-        coordinates: [40.7, -73.985] as [number, number],
-      },
-      status: "IN_PROGRESS",
-    },
-  },
-]
-
-// Mock data for pending requests
-const mockPendingRequests = [
-  {
-    id: "req-003",
-    customerName: "Robert Thompson",
-    serviceType: "Battery Jump Start",
-    location: {
-      address: "789 Broadway, New York, NY 10003",
-      coordinates: [40.735, -73.99] as [number, number],
-    },
-    status: "CREATED",
-    createdAt: "2023-06-15T14:50:00Z",
-  },
-  {
-    id: "req-004",
-    customerName: "Lisa Anderson",
-    serviceType: "Lockout Service",
-    location: {
-      address: "321 5th Ave, New York, NY 10016",
-      coordinates: [40.745, -73.985] as [number, number],
-    },
-    status: "CREATED",
-    createdAt: "2023-06-15T14:55:00Z",
-  },
-]
+// Replace the mock data imports
+import { mockTrackingVehicles, mockPendingTrackingRequests } from "@/data/mock-data"
 
 export default function VehicleTracking() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
-  const [vehicles, setVehicles] = useState(mockVehicles)
-  const [pendingRequests, setPendingRequests] = useState(mockPendingRequests)
+  const [vehicles, setVehicles] = useState(mockTrackingVehicles)
+  const [pendingRequests, setPendingRequests] = useState(mockPendingTrackingRequests)
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null)
   const [mapCenter, setMapCenter] = useState<[number, number]>([40.7128, -74.006])
   const [mapZoom, setMapZoom] = useState(12)
@@ -399,4 +290,3 @@ export default function VehicleTracking() {
     </motion.div>
   )
 }
-    

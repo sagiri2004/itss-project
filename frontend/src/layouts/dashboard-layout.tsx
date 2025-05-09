@@ -70,7 +70,7 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
               transition={{ duration: 0.5 }}
               className="flex items-center gap-2"
             >
-              <div className="rounded-md bg-purple-600 p-1">
+              <div className="rounded-md bg-primary p-1">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -79,25 +79,25 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-6 w-6 text-white"
+                  className="h-6 w-6 text-primary-foreground"
                 >
                   <circle cx="12" cy="12" r="10" />
                   <path d="M12 6v6l4 2" />
                 </svg>
               </div>
-              <span className="text-xl font-bold text-foreground">Roadside</span>
+              <span className="text-xl font-bold">Roadside</span>
             </motion.div>
           </SidebarHeader>
 
           <SidebarContent>
             {navItems.map((group, index) => (
               <SidebarGroup key={index}>
-                <SidebarGroupLabel className="text-foreground">{group.title}</SidebarGroupLabel>
+                <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {group.items.map((item) => (
                       <SidebarMenuItem key={item.href}>
-                        <SidebarMenuButton asChild isActive={location.pathname === item.href}>
+                        <SidebarMenuButton asChild isActive={location.pathname === item.href} tooltip={item.title}>
                           <motion.a
                             href={item.href}
                             whileHover={{ scale: 1.03 }}
@@ -105,7 +105,7 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
                             className="flex items-center gap-2"
                           >
                             <item.icon className="h-5 w-5" />
-                            <span className="text-sm">{item.title}</span>
+                            <span>{item.title}</span>
                           </motion.a>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -120,12 +120,12 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Avatar>
-                  <AvatarImage src={`https://avatar.vercel.sh/${user?.name || "user"}`} />
-                  <AvatarFallback>{user?.name ? user.name.substring(0, 2).toUpperCase() : "U"}</AvatarFallback>
+                  <AvatarImage src={`https://avatar.vercel.sh/${user?.name}`} />
+                  <AvatarFallback>{user?.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium">{user?.name || "User"}</span>
-                  <span className="text-xs text-muted-foreground">{user?.role || "guest"}</span>
+                  <span className="text-sm font-medium">{user?.name}</span>
+                  <span className="text-xs text-muted-foreground">{user?.role}</span>
                 </div>
               </div>
               <div className="flex items-center gap-2">

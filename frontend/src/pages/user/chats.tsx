@@ -8,66 +8,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, MessageSquare } from "lucide-react"
-
-// Mock chat data
-const mockChats = [
-  {
-    id: "chat-001",
-    requestId: "req-001",
-    companyId: "company-001",
-    companyName: "Roadside Assistance Co.",
-    service: "Flat Tire Replacement",
-    lastMessage: "Our technician is on the way. You can track their location in the app.",
-    timestamp: "2023-05-07T14:30:00",
-    unread: 0,
-    status: "ACTIVE",
-  },
-  {
-    id: "chat-002",
-    requestId: "req-002",
-    companyId: "company-002",
-    companyName: "Quick Roadside Help",
-    service: "Battery Jump Start",
-    lastMessage: "Your invoice has been generated. Please check your email.",
-    timestamp: "2023-05-06T11:45:00",
-    unread: 1,
-    status: "COMPLETED",
-  },
-  {
-    id: "chat-003",
-    requestId: "req-003",
-    companyId: "company-003",
-    companyName: "Tow Truck Experts",
-    service: "Vehicle Towing",
-    lastMessage: "We need to update the price to $95 due to additional distance.",
-    timestamp: "2023-05-05T16:20:00",
-    unread: 0,
-    status: "PRICE_NEGOTIATION",
-  },
-]
+import { mockUserChats } from "@/data/mock-data"
 
 export default function UserChats() {
   const { user } = useAuth()
-  const [chats, setChats] = useState(mockChats)
+  const [chats, setChats] = useState(mockUserChats)
   const [searchTerm, setSearchTerm] = useState("")
-  const [activeTab, setActiveTab] = useState("all")
 
-  // Filter chats based on search term and active tab
-  const filteredChats = chats.filter((chat) => {
-    const matchesSearch =
+  // Filter chats based on search term
+  const filteredChats = chats.filter(
+    (chat) =>
       chat.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      chat.service.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase())
-
-    if (activeTab === "all") return matchesSearch
-    if (activeTab === "active") return matchesSearch && chat.status === "ACTIVE"
-    if (activeTab === "negotiation") return matchesSearch && chat.status === "PRICE_NEGOTIATION"
-    if (activeTab === "completed") return matchesSearch && (chat.status === "COMPLETED" || chat.status === "CLOSED")
-
-    return matchesSearch
-  })
+      chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
 
   // Animation variants
   const containerVariants = {
@@ -134,14 +88,14 @@ export default function UserChats() {
       className="container mx-auto max-w-4xl space-y-6 p-4"
     >
       <motion.div variants={itemVariants} className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">My Conversations</h1>
+        <h1 className="text-3xl font-bold tracking-tight">My Chats</h1>
       </motion.div>
 
       <motion.div variants={itemVariants}>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle>Service Provider Chats</CardTitle>
-            <CardDescription>Chat with service providers about your roadside assistance requests</CardDescription>
+            <CardTitle>Conversations</CardTitle>
+            <CardDescription>Chat with roadside assistance providers</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="relative mb-4">
@@ -154,15 +108,6 @@ export default function UserChats() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-
-            <Tabs defaultValue="all" className="mb-4" onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="active">Active</TabsTrigger>
-                <TabsTrigger value="negotiation">Negotiation</TabsTrigger>
-                <TabsTrigger value="completed">Completed</TabsTrigger>
-              </TabsList>
-            </Tabs>
 
             <div className="space-y-3">
               {filteredChats.length === 0 ? (
@@ -193,8 +138,7 @@ export default function UserChats() {
                             <h4 className="font-medium">{chat.companyName}</h4>
                             <span className="text-xs text-muted-foreground">{formatDate(chat.timestamp)}</span>
                           </div>
-                          <p className="text-xs text-muted-foreground">{chat.service}</p>
-                          <p className="line-clamp-1 text-sm">{chat.lastMessage}</p>
+                          <p className="line-clamp-1 text-sm text-muted-foreground">{chat.lastMessage}</p>
                           <div className="flex items-center justify-between pt-1">
                             <div>{getStatusBadge(chat.status)}</div>
                             {chat.unread > 0 && (

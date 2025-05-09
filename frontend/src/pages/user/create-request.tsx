@@ -10,21 +10,17 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea" 
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, MapPin, AlertTriangle } from "lucide-react"
 
-// Mock data
-const serviceTypes = [
-  { id: "flat-tire", name: "Flat Tire Replacement" },
-  { id: "battery", name: "Battery Jump Start" },
-  { id: "towing", name: "Vehicle Towing" },
-  { id: "fuel", name: "Fuel Delivery" },
-  { id: "lockout", name: "Lockout Service" },
-  { id: "winching", name: "Winching" },
-  { id: "other", name: "Other" },
-]
+// Replace the mock data imports
+import { serviceTypes } from "@/data/mock-data"
+
+// Remove the original mock data declarations
+// Replace:
+// const serviceTypes = [ ... ]
 
 export default function CreateRequest() {
   const { user } = useAuth()

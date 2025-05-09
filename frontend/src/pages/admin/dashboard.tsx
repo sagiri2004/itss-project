@@ -5,70 +5,14 @@ import { useAuth } from "@/context/auth-context"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { FileText, PlusCircle, Wrench, Truck, DollarSign, Users, Building2, ShieldAlert } from "lucide-react"
+import { FileText, PlusCircle, Wrench, Truck, DollarSign, Users, Building2, ShieldAlert } from 'lucide-react'
 
-// Mock data
-const mockStats = {
-  totalRequests: 156,
-  activeRequests: 42,
-  totalCompanies: 15,
-  totalVehicles: 78,
-  totalUsers: 320,
-  totalRevenue: 12450.75,
-}
-
-const mockRequestsByStatus = [
-  { status: "CREATED", count: 18 },
-  { status: "ACCEPTED_BY_COMPANY", count: 12 },
-  { status: "RESCUE_VEHICLE_DISPATCHED", count: 8 },
-  { status: "RESCUE_VEHICLE_ARRIVED", count: 6 },
-  { status: "INSPECTION_DONE", count: 4 },
-  { status: "PRICE_UPDATED", count: 3 },
-  { status: "IN_PROGRESS", count: 9 },
-  { status: "COMPLETED", count: 25 },
-  { status: "INVOICED", count: 15 },
-  { status: "PAID", count: 45 },
-  { status: "CANCELLED_BY_USER", count: 7 },
-  { status: "CANCELLED_BY_COMPANY", count: 4 },
-]
-
-const mockRecentActivity = [
-  {
-    id: "act-001",
-    type: "request_created",
-    user: "John Doe",
-    details: "Created a new rescue request for Flat Tire Replacement",
-    date: "2023-05-07T09:30:00",
-  },
-  {
-    id: "act-002",
-    type: "request_accepted",
-    company: "FastFix Roadside",
-    details: "Accepted rescue request #req-003",
-    date: "2023-05-07T09:45:00",
-  },
-  {
-    id: "act-003",
-    type: "vehicle_dispatched",
-    company: "QuickHelp Auto",
-    details: "Dispatched vehicle 'Tow Truck #2' for request #req-002",
-    date: "2023-05-07T10:15:00",
-  },
-  {
-    id: "act-004",
-    type: "invoice_paid",
-    user: "Alice Brown",
-    details: "Paid invoice #inv-001 for $85.00",
-    date: "2023-05-07T11:20:00",
-  },
-  {
-    id: "act-005",
-    type: "company_registered",
-    company: "RoadHeroes Assistance",
-    details: "New company registered",
-    date: "2023-05-07T12:05:00",
-  },
-]
+// Replace the mock data imports
+import { 
+  mockAdminStats, 
+  mockRequestsByStatus, 
+  mockRecentActivity 
+} from "@/data/mock-data"
 
 export default function AdminDashboard() {
   const { user } = useAuth()
@@ -133,10 +77,10 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{mockStats.totalRequests}</div>
+                <div className="text-2xl font-bold">{mockAdminStats.totalRequests}</div>
                 <Wrench className="h-5 w-5 text-blue-500" />
               </div>
-              <p className="text-xs text-muted-foreground">{mockStats.activeRequests} active requests</p>
+              <p className="text-xs text-muted-foreground">{mockAdminStats.activeRequests} active requests</p>
             </CardContent>
           </Card>
         </motion.div>
@@ -148,10 +92,10 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{mockStats.totalCompanies}</div>
+                <div className="text-2xl font-bold">{mockAdminStats.totalCompanies}</div>
                 <Building2 className="h-5 w-5 text-amber-500" />
               </div>
-              <p className="text-xs text-muted-foreground">{mockStats.totalVehicles} registered vehicles</p>
+              <p className="text-xs text-muted-foreground">{mockAdminStats.totalVehicles} registered vehicles</p>
             </CardContent>
           </Card>
         </motion.div>
@@ -163,7 +107,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{mockStats.totalUsers}</div>
+                <div className="text-2xl font-bold">{mockAdminStats.totalUsers}</div>
                 <Users className="h-5 w-5 text-green-500" />
               </div>
               <p className="text-xs text-muted-foreground">+24 new users this week</p>
@@ -178,7 +122,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">${mockStats.totalRevenue.toFixed(2)}</div>
+                <div className="text-2xl font-bold">${mockAdminStats.totalRevenue.toFixed(2)}</div>
                 <DollarSign className="h-5 w-5 text-purple-500" />
               </div>
               <p className="text-xs text-muted-foreground">+$1,245.50 this week</p>
@@ -200,7 +144,7 @@ export default function AdminDashboard() {
                       <div>{item.status.replace(/_/g, " ")}</div>
                       <div className="font-medium">{item.count}</div>
                     </div>
-                    <Progress value={(item.count / mockStats.totalRequests) * 100} className="h-2" />
+                    <Progress value={(item.count / mockAdminStats.totalRequests) * 100} className="h-2" />
                   </div>
                 ))}
               </div>
