@@ -2,9 +2,11 @@ package com.example.backend.service.impl;
 
 import com.example.backend.dto.request.InvoiceCreateRequest;
 import com.example.backend.dto.request.InvoiceUpdateRequest;
+import com.example.backend.dto.request.UserConfirmPaymentRequest;
 import com.example.backend.dto.response.InvoiceResponse;
 import com.example.backend.event.NotificationEvent;
 import com.example.backend.event.enums.NotificationType;
+import com.example.backend.exception.GlobalExceptionHandler;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.kafka.NotificationEventProducer;
 import com.example.backend.model.Invoice;
@@ -17,6 +19,9 @@ import com.example.backend.repository.RescueCompanyRepository;
 import com.example.backend.repository.RescueRequestRepository;
 import com.example.backend.service.InvoiceService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -37,6 +42,7 @@ public class InvoiceServiceImpl implements InvoiceService {
 	private final RescueRequestRepository rescueRequestRepository;
 	private final RescueCompanyRepository rescueCompanyRepository;
 	private final NotificationEventProducer notificationEventProducer;
+	private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
 	/**
 	 * {@inheritDoc}
@@ -207,8 +213,8 @@ public class InvoiceServiceImpl implements InvoiceService {
 				.recipientId(rescueRequest.getUser().getId())
 				.title("Hóa đơn mới")
 				.content("Một hóa đơn mới đã được tạo cho dịch vụ cứu hộ của bạn. Vui lòng kiểm tra và thanh toán.")
-				.type(NotificationType.INVOICE_CREATED)  // Sử dụng enum INVOICE_CREATED
-				.sentAt(LocalDateTime.now())  // Thời gian gửi thông báo
+				.type(NotificationType.INVOICE_CREATED)
+				.sentAt(LocalDateTime.now())
 				.build());
 
 		return toResponse(savedInvoice);
@@ -249,7 +255,7 @@ public class InvoiceServiceImpl implements InvoiceService {
 						.recipientId(rescueRequest.getUser().getId())
 						.title("Hóa đơn đã được thanh toán")
 						.content("Hóa đơn của bạn đã được đánh dấu là đã thanh toán. Cảm ơn bạn đã sử dụng dịch vụ.")
-						.type(NotificationType.INVOICE_PAID)  // Sử dụng enum INVOICE_PAID
+						.type(NotificationType.INVOICE_PAID)
 						.sentAt(LocalDateTime.now())
 						.build());
 			}
@@ -301,7 +307,57 @@ public class InvoiceServiceImpl implements InvoiceService {
 				.recipientId(rescueRequest.getUser().getId())
 				.title("Hóa đơn đã được thanh toán")
 				.content("Hóa đơn của bạn đã được đánh dấu là đã thanh toán. Cảm ơn bạn đã sử dụng dịch vụ.")
-				.type(NotificationType.INVOICE_PAID)  // Sử dụng enum INVOICE_PAID
+				.type(NotificationType.INVOICE_PAID)
+				.sentAt(LocalDateTime.now())
+				.build());
+
+		// Save updated invoice
+		Invoice updatedInvoice = invoiceRepository.save(invoice);
+		return toResponse(updatedInvoice);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public InvoiceResponse confirmPayment(String id, String userId, UserConfirmPaymentRequest request) {
+		logger.info("Confirming payment for invoice id: {}, by user id: {}", id, userId);
+		// Find the invoice
+		Invoice invoice = invoiceRepository.findById(id)
+				.orElseThrow(() -> new ResourceNotFoundException("Invoice not found with id: " + id));
+
+		// Check if invoice is already paid
+		if (invoice.getStatus() == InvoiceStatus.PAID) {
+			throw new IllegalStateException("Invoice is already marked as paid");
+		}
+
+		// Verify that the user is authorized to pay this invoice
+		RescueRequest rescueRequest = invoice.getRescueRequest();
+		if (!rescueRequest.getUser().getId().equals(userId)) {
+			throw new AccessDeniedException("User is not authorized to confirm payment for this invoice");
+		}
+
+
+
+		// Update invoice status and payment date
+		invoice.setStatus(InvoiceStatus.PAID);
+		invoice.setPaidDate(LocalDateTime.now());
+
+		// Set payment method
+		if (request.getPaymentMethod() != null && !request.getPaymentMethod().trim().isEmpty()) {
+			invoice.setPaymentMethod(request.getPaymentMethod());
+		}
+
+		// Update rescue request status to PAID
+		rescueRequest.setStatus(RescueRequestStatus.PAID);
+		rescueRequestRepository.save(rescueRequest);
+
+		// Send notification about payment
+		notificationEventProducer.sendNotificationEvent(NotificationEvent.builder()
+				.recipientId(userId)
+				.title("Xác nhận thanh toán hóa đơn")
+				.content("Hóa đơn của bạn đã được xác nhận thanh toán. Cảm ơn bạn đã sử dụng dịch vụ.")
+				.type(NotificationType.INVOICE_PAID)
 				.sentAt(LocalDateTime.now())
 				.build());
 

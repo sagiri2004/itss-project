@@ -46,8 +46,13 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
     setIsMounted(true)
 
     // Redirect if not authenticated or wrong role
-    if (!loading && (!isAuthenticated || (user && user.role !== role))) {
-      navigate("/login")
+    if (!loading && (!isAuthenticated)) {
+      // console.log("Not authenticated or wrong role")
+      // console.log("Loading:", loading)
+      // console.log("Is authenticated:", isAuthenticated)
+      // console.log("User:", user)
+      // console.log("Role:", role)
+      // navigate("/login")
     }
   }, [loading, isAuthenticated, user, role, navigate])
 

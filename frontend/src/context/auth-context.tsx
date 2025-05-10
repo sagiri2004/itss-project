@@ -1,19 +1,22 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import api from "@/services/api"
 
 type User = {
   id: string
+  username: string
   name: string
   email: string
   role: "user" | "company" | "admin"
+  companyId: string | null
 }
 
 type AuthContextType = {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string, role: "user" | "company") => Promise<void>
+  login: (username: string, password: string) => Promise<void>
+  register: (username: string, name: string, email: string, password: string, role: "user" | "company") => Promise<void>
   logout: () => void
   isAuthenticated: boolean
 }
@@ -27,46 +30,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Check if user is logged in
     const storedUser = localStorage.getItem("roadside-user")
-    if (storedUser) {
+    const storedToken = localStorage.getItem("token")
+    if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser))
     }
     setLoading(false)
   }, [])
 
-  const login = async (email: string, password: string) => {
+  const login = async (username: string, password: string) => {
     setLoading(true)
     try {
-      // Mock login - replace with actual API call
-      const mockUser: User = {
-        id: "user-123",
-        name: "John Doe",
-        email,
-        role: email.includes("admin") ? "admin" : email.includes("company") ? "company" : "user",
+      const response = await api.auth.login({ username, password })
+      console.log("Login API response:", response)
+      const { token, userId, companyId } = response.data
+
+      // Store token in localStorage
+      localStorage.setItem("token", token)
+
+      const user: User = {
+        id: userId,
+        username,
+        name: username, // Using username as name since it's not provided in response
+        email: `${username}@example.com`, // Using default email since it's not provided in response
+        role: "user", // Default role since it's not provided in response
+        companyId: companyId,
       }
 
-      setUser(mockUser)
-      localStorage.setItem("roadside-user", JSON.stringify(mockUser))
-    } catch (error) {
-      console.error("Login failed:", error)
+      setUser(user)
+      localStorage.setItem("roadside-user", JSON.stringify(user))
+    } catch (error: any) {
+      console.error("Login error:", error)
+      if (error.response) {
+        console.error("Error response data:", error.response.data)
+      }
       throw error
     } finally {
       setLoading(false)
     }
   }
 
-  const register = async (name: string, email: string, password: string, role: "user" | "company") => {
+  const register = async (username: string, name: string, email: string, password: string, role: "user" | "company") => {
     setLoading(true)
     try {
-      // Mock registration - replace with actual API call
-      const mockUser: User = {
-        id: `${role}-${Date.now()}`,
+      const response = await api.auth.register({
+        username,
+        name,
+        email,
+        password,
+        roles: [role.toUpperCase()],
+      })
+
+      const { token, userId, companyId } = response.data
+
+      // Store token in localStorage
+      localStorage.setItem("token", token)
+
+      const user: User = {
+        id: userId,
+        username,
         name,
         email,
         role,
+        companyId: companyId,
       }
 
-      setUser(mockUser)
-      localStorage.setItem("roadside-user", JSON.stringify(mockUser))
+      setUser(user)
+      localStorage.setItem("roadside-user", JSON.stringify(user))
     } catch (error) {
       console.error("Registration failed:", error)
       throw error
@@ -78,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null)
     localStorage.removeItem("roadside-user")
+    localStorage.removeItem("token")
   }
 
   return (

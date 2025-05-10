@@ -5,7 +5,7 @@ spring:
   application:
     name: backend
   datasource:
-    url: jdbc:mysql://mysql:3306/booking_db?createDatabaseIfNotExist=true
+    url: jdbc:mysql://mysql:3306/itss_db?createDatabaseIfNotExist=true
     username: root
     password: root
   jpa:

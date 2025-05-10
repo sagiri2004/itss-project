@@ -2,6 +2,7 @@ package com.example.backend.controller;
 
 import com.example.backend.dto.request.InvoiceCreateRequest;
 import com.example.backend.dto.request.InvoiceUpdateRequest;
+import com.example.backend.dto.request.UserConfirmPaymentRequest;
 import com.example.backend.dto.response.InvoiceResponse;
 import com.example.backend.model.enums.InvoiceStatus;
 import com.example.backend.service.InvoiceService;
@@ -25,13 +26,13 @@ import java.util.List;
 
 /**
  * REST Controller quản lý hóa đơn trong hệ thống.
- * Cung cấp các endpoints để tạo, truy xuất, cập nhật và xóa hóa đơn.
+ * Cung cấp các endpoints để tạo, truy xuất, cập nhật, xóa và xác nhận thanh toán hóa đơn.
  * Quyền truy cập vào các endpoints này được kiểm soát bằng xác thực dựa trên vai trò.
  */
 @RestController
 @RequestMapping("/api/v1/invoices")
 @RequiredArgsConstructor
-@Tag(name = "Hóa đơn", description = "API quản lý hóa đơn trong hệ thống")
+@Tag(name = "H.trim", description = "API quản lý hóa đơn trong hệ thống")
 public class InvoiceController {
 
 	private final InvoiceService invoiceService;
@@ -120,7 +121,7 @@ public class InvoiceController {
 			security = @SecurityRequirement(name = "bearerAuth"))
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "200", description = "Lấy hóa đơn thành công",
-					content = @Content(mediaType = "application/json",
+					content = @Content(mediaType = "application:Jjson",
 							schema = @Schema(implementation = InvoiceResponse.class))),
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy hóa đơn")
 	})
@@ -325,6 +326,42 @@ public class InvoiceController {
 			@Parameter(description = "Phương thức thanh toán (ví dụ: tiền mặt, thẻ, chuyển khoản)")
 			@RequestParam(required = false) String paymentMethod) {
 		return ResponseEntity.ok(invoiceService.markInvoiceAsPaid(id, paymentMethod));
+	}
+
+	/**
+	 * Xác nhận thanh toán hóa đơn bởi người dùng.
+	 * Endpoint này chỉ dành cho người dùng đã xác thực.
+	 * Cho phép người dùng xác nhận thanh toán hóa đơn của họ và ghi lại phương thức thanh toán.
+	 *
+	 * @param id ID của hóa đơn cần xác nhận thanh toán
+	 * @param request Yêu cầu xác nhận thanh toán chứa thông tin phương thức thanh toán
+	 * @param token Token JWT xác thực từ header Authorization
+	 * @return Hóa đơn đã cập nhật được đóng gói trong ResponseEntity
+	 * @throws com.example.backend.exception.ResourceNotFoundException nếu hóa đơn không tồn tại
+	 * @throws IllegalStateException nếu hóa đơn đã được thanh toán hoặc người dùng không có quyền
+	 */
+	@PostMapping("/{id}/pay")
+	@PreAuthorize("hasRole('USER')")
+	@Operation(summary = "Xác nhận thanh toán hóa đơn",
+			description = "Cho phép người dùng xác nhận thanh toán hóa đơn và ghi lại phương thức thanh toán",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Xác nhận thanh toán thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = InvoiceResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Hóa đơn đã được thanh toán hoặc dữ liệu không hợp lệ"),
+			@ApiResponse(responseCode = "403", description = "Người dùng không có quyền xác nhận thanh toán cho hóa đơn này"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy hóa đơn")
+	})
+	public ResponseEntity<InvoiceResponse> confirmPayment(
+			@Parameter(description = "ID của hóa đơn cần xác nhận thanh toán", required = true)
+			@PathVariable String id,
+			@Parameter(description = "Thông tin xác nhận thanh toán", required = true)
+			@RequestBody UserConfirmPaymentRequest request,
+			@Parameter(description = "Token JWT với tiền tố 'Bearer '", hidden = true)
+			@RequestHeader("Authorization") String token) {
+		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
+		return ResponseEntity.ok(invoiceService.confirmPayment(id, userId, request));
 	}
 
 	/**

@@ -10,35 +10,76 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { formatStatus, getStatusVariant } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
-import { ArrowLeft, Clock, MapPin, Phone, Car, Info } from "lucide-react"
+import { ArrowLeft, Clock, MapPin, Phone, Car, Loader2 } from "lucide-react"
+import api from "@/services/api"
 
-// Replace the mock data imports
-import { mockRequestMap } from "@/data/mock-data"
+interface Request {
+  id: string
+  userId: string
+  serviceId: string
+  serviceName: string
+  companyId: string
+  companyName: string
+  latitude: number
+  longitude: number
+  description: string
+  estimatedPrice: number
+  finalPrice: number | null
+  status: string
+  createdAt: string
+  notes: string | null
+  rescueServiceDetails: {
+    id: string
+    name: string
+    description: string
+    price: number
+    type: string
+    companyId: string
+    companyName: string
+  } | null
+  vehicleLicensePlate: string | null
+  vehicleModel: string | null
+  vehicleEquipmentDetails: string[] | null
+  vehicleStatus: string | null
+}
 
 export default function RequestMap() {
   const { user } = useAuth()
-  const { id } = useParams()
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { toast } = useToast()
-  const [request, setRequest] = useState(mockRequestMap)
+  const [request, setRequest] = useState<Request | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [mapCenter, setMapCenter] = useState<[number, number]>([40.7128, -74.006])
   const [mapZoom, setMapZoom] = useState(13)
 
-  // Simulate fetching request data
   useEffect(() => {
     const fetchRequest = async () => {
-      try {
-        // In a real app, fetch from API
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-        setRequest(mockRequestMap)
-        setMapCenter(mockRequestMap.location.coordinates)
+      if (!id) {
+        toast({
+          variant: "destructive",
+          title: "Invalid Request",
+          description: "Request ID is missing.",
+        })
         setIsLoading(false)
-      } catch (error) {
+        return
+      }
+
+      try {
+        const response = await api.rescueRequests.getRequestById(id)
+        const requestData = response.data
+        if (requestData && requestData.latitude && requestData.longitude) {
+          setRequest(requestData)
+          setMapCenter([requestData.latitude, requestData.longitude])
+        } else {
+          throw new Error("Invalid request data")
+        }
+        setIsLoading(false)
+      } catch (error: any) {
         toast({
           variant: "destructive",
           title: "Error loading request",
-          description: "Could not load the request details. Please try again.",
+          description: error.response?.data?.message || "Could not load the request details. Please try again.",
         })
         setIsLoading(false)
       }
@@ -49,19 +90,18 @@ export default function RequestMap() {
 
   // Simulate vehicle movement (for demo purposes)
   useEffect(() => {
-    if (!isLoading && request.status === "RESCUE_VEHICLE_DISPATCHED") {
+    if (!isLoading && request?.status === "RESCUE_VEHICLE_DISPATCHED" && request.latitude && request.longitude) {
       const interval = setInterval(() => {
         setRequest((prev) => {
-          // Move vehicle slightly closer to the request location
-          const vehicleLat = prev.vehicle.location.coordinates[0]
-          const vehicleLng = prev.vehicle.location.coordinates[1]
-          const requestLat = prev.location.coordinates[0]
-          const requestLng = prev.location.coordinates[1]
+          if (!prev) return null
+          const vehicleLat = prev.latitude
+          const vehicleLng = prev.longitude
+          const requestLat = prev.latitude
+          const requestLng = prev.longitude
 
           const newLat = vehicleLat + (requestLat - vehicleLat) * 0.1
           const newLng = vehicleLng + (requestLng - vehicleLng) * 0.1
 
-          // Check if vehicle has arrived (close enough to request)
           const distance = Math.sqrt(Math.pow(newLat - requestLat, 2) + Math.pow(newLng - requestLng, 2))
 
           if (distance < 0.001) {
@@ -69,51 +109,38 @@ export default function RequestMap() {
             return {
               ...prev,
               status: "RESCUE_VEHICLE_ARRIVED",
-              vehicle: {
-                ...prev.vehicle,
-                location: {
-                  ...prev.vehicle.location,
-                  coordinates: [requestLat, requestLng],
-                  lastUpdated: new Date().toISOString(),
-                },
-              },
             }
           }
 
           return {
             ...prev,
-            vehicle: {
-              ...prev.vehicle,
-              location: {
-                ...prev.vehicle.location,
-                coordinates: [newLat, newLng],
-                lastUpdated: new Date().toISOString(),
-              },
-            },
+            latitude: newLat,
+            longitude: newLng,
           }
         })
       }, 3000)
 
       return () => clearInterval(interval)
     }
-  }, [isLoading, request.status])
+  }, [isLoading, request])
+
+  if (isLoading || !request) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
 
   // Prepare map markers
-  const mapMarkers = [
+  const mapMarkers = request.latitude && request.longitude ? [
     {
       id: "user-location",
-      position: request.location.coordinates,
+      position: [request.latitude, request.longitude] as [number, number],
       type: "user" as const,
       label: "Your Location",
     },
-    {
-      id: request.vehicle.id,
-      position: request.vehicle.location.coordinates,
-      type: "vehicle" as const,
-      label: `${request.vehicle.name} (${request.vehicle.driver.name})`,
-      status: "IN_USE",
-    },
-  ]
+  ] : []
 
   // Calculate ETA
   const calculateETA = () => {
@@ -121,15 +148,22 @@ export default function RequestMap() {
       return "Vehicle has arrived"
     }
 
-    const now = new Date()
-    const eta = new Date(request.estimatedArrival)
-    const diffMinutes = Math.round((eta.getTime() - now.getTime()) / 60000)
+    try {
+      const now = new Date()
+      const eta = new Date(request.createdAt)
+      if (isNaN(eta.getTime())) {
+        return "ETA unavailable"
+      }
+      const diffMinutes = Math.round((eta.getTime() - now.getTime()) / 60000)
 
-    if (diffMinutes <= 0) {
-      return "Arriving any moment"
+      if (diffMinutes <= 0) {
+        return "Arriving any moment"
+      }
+
+      return `${diffMinutes} minutes`
+    } catch {
+      return "ETA unavailable"
     }
-
-    return `${diffMinutes} minutes`
   }
 
   // Animation variants
@@ -184,23 +218,51 @@ export default function RequestMap() {
                 <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground" />
                 <div>
                   <div className="font-medium">Your Location</div>
-                  <div className="text-sm text-muted-foreground">{request.location.address}</div>
+                  <div className="text-sm text-muted-foreground">{request.description || "N/A"}</div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-2">
-                <Info className="mt-0.5 h-4 w-4 text-muted-foreground" />
+              {request.rescueServiceDetails ? (
                 <div>
                   <div className="font-medium">Service Type</div>
-                  <div className="text-sm text-muted-foreground">{request.serviceType}</div>
+                  <div className="text-sm text-muted-foreground">{request.rescueServiceDetails.name || "N/A"}</div>
+                  <div className="text-xs text-muted-foreground">{request.rescueServiceDetails.description || "N/A"}</div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <div className="font-medium">Service Type</div>
+                  <div className="text-sm text-muted-foreground">N/A</div>
+                </div>
+              )}
+
+              {request.companyName ? (
+                <div>
+                  <div className="font-medium">Rescue Company</div>
+                  <div className="text-sm text-muted-foreground">{request.companyName}</div>
+                </div>
+              ) : (
+                <div>
+                  <div className="font-medium">Rescue Company</div>
+                  <div className="text-sm text-muted-foreground">N/A</div>
+                </div>
+              )}
 
               <div className="flex items-start gap-2">
                 <Clock className="mt-0.5 h-4 w-4 text-muted-foreground" />
                 <div>
                   <div className="font-medium">Estimated Arrival</div>
                   <div className="text-sm text-muted-foreground">{calculateETA()}</div>
+                </div>
+              </div>
+
+              <div>
+                <div className="font-medium">Price</div>
+                <div className="text-sm text-muted-foreground">
+                  {request.finalPrice !== null
+                    ? `${request.finalPrice} đ`
+                    : request.estimatedPrice
+                      ? `${request.estimatedPrice} đ (estimated)`
+                      : "Chưa cập nhật"}
                 </div>
               </div>
             </CardContent>
@@ -212,26 +274,63 @@ export default function RequestMap() {
               <CardDescription>Information about your assigned vehicle</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-start gap-2">
-                <Car className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                <div>
-                  <div className="font-medium">{request.vehicle.name}</div>
-                  <div className="text-sm text-muted-foreground">{request.vehicle.type}</div>
+              {request.rescueServiceDetails ? (
+                <div className="flex items-start gap-2">
+                  <Car className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <div className="font-medium">{request.rescueServiceDetails.name || "N/A"}</div>
+                    <div className="text-sm text-muted-foreground">{request.rescueServiceDetails.type || "N/A"}</div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <div className="font-medium">Vehicle Info</div>
+                  <div className="text-sm text-muted-foreground">N/A</div>
+                </div>
+              )}
 
-              <div className="flex items-start gap-2">
-                <Phone className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                <div>
-                  <div className="font-medium">{request.vehicle.driver.name}</div>
-                  <div className="text-sm text-muted-foreground">{request.vehicle.driver.phone}</div>
+              {request.rescueServiceDetails ? (
+                <div className="flex items-start gap-2">
+                  <Phone className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <div className="font-medium">{request.rescueServiceDetails.companyName || "N/A"}</div>
+                    <div className="text-sm text-muted-foreground">{request.rescueServiceDetails.companyId || "N/A"}</div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <div className="font-medium">Company Info</div>
+                  <div className="text-sm text-muted-foreground">N/A</div>
+                </div>
+              )}
+
+              {request.vehicleModel ? (
+                <div>
+                  <div className="font-medium">{request.vehicleModel} ({request.vehicleLicensePlate || "N/A"})</div>
+                  <div className="text-sm text-muted-foreground">Status: {request.vehicleStatus || "N/A"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Equipment: {request.vehicleEquipmentDetails?.length ? request.vehicleEquipmentDetails.join(", ") : "N/A"}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="font-medium">Vehicle Details</div>
+                  <div className="text-sm text-muted-foreground">N/A</div>
+                </div>
+              )}
             </CardContent>
             <CardFooter>
-              <Button className="w-full" onClick={() => window.open(`tel:${request.vehicle.driver.phone}`)}>
+              <Button
+                className="w-full"
+                disabled={!request.rescueServiceDetails?.companyId}
+                onClick={() => {
+                  if (request.rescueServiceDetails?.companyId) {
+                    window.open(`tel:${request.rescueServiceDetails.companyId}`)
+                  }
+                }}
+              >
                 <Phone className="mr-2 h-4 w-4" />
-                Call Driver
+                Call Company
               </Button>
             </CardFooter>
           </Card>

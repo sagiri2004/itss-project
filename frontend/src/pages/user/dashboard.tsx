@@ -8,52 +8,131 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Car, FileText, Clock, CheckCircle2, PlusCircle, Wrench, MessageSquare } from "lucide-react"
+import { Car, FileText, Clock, CheckCircle2, PlusCircle, Wrench, MessageSquare, Loader2 } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import api from "@/services/api"
 
-// Replace the mock data imports
-import { mockUserRequests, mockUserInvoices, mockUserChats } from "@/data/mock-data"
+interface Request {
+  id: string
+  service: string
+  status: string
+  date: string
+  location: string
+  company?: string
+  price?: number
+}
 
-// Remove the original mock data declarations
-// Replace:
-// const mockRequests = [ ... ]
-// const mockInvoices = [ ... ]
-// const mockChats = [ ... ]
+interface Invoice {
+  id: string
+  requestId: string
+  status: string
+  date: string
+  amount: number
+}
+
+interface Chat {
+  id: string
+  company: string
+  lastMessage: string
+  unread: number
+  date: string
+}
+
+// Hàm lấy địa chỉ từ lat/lon bằng Nominatim
+async function getAddressFromLatLon(lat: number, lon: number): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
+    );
+    const data = await response.json();
+    return data.display_name || `${lat}, ${lon}`;
+  } catch {
+    return `${lat}, ${lon}`;
+  }
+}
 
 export default function UserDashboard() {
   const { user } = useAuth()
+  const { toast } = useToast()
   const { scrollYProgress } = useScroll()
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0.5])
   const scale = useTransform(scrollYProgress, [0, 0.5], [1, 0.95])
 
+  const [isLoading, setIsLoading] = useState(true)
+  const [requests, setRequests] = useState<Request[]>([])
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [chats, setChats] = useState<Chat[]>([])
   const [activeRequests, setActiveRequests] = useState(0)
   const [completedRequests, setCompletedRequests] = useState(0)
   const [pendingInvoices, setPendingInvoices] = useState(0)
   const [unreadMessages, setUnreadMessages] = useState(0)
 
   useEffect(() => {
-    // Calculate dashboard stats
-    setActiveRequests(
-      mockUserRequests.filter((req) =>
-        [
-          "CREATED",
-          "ACCEPTED_BY_COMPANY",
-          "RESCUE_VEHICLE_DISPATCHED",
-          "RESCUE_VEHICLE_ARRIVED",
-          "INSPECTION_DONE",
-          "PRICE_UPDATED",
-          "IN_PROGRESS",
-        ].includes(req.status),
-      ).length,
-    )
+    const fetchDashboardData = async () => {
+      try {
+        const [requestsRes, invoicesRes, chatsRes] = await Promise.all([
+          api.rescueRequests.getRequests(),
+          api.invoices.getInvoices(),
+          api.chats.getChats(),
+        ])
 
-    setCompletedRequests(
-      mockUserRequests.filter((req) => ["COMPLETED", "INVOICED", "PAID"].includes(req.status)).length,
-    )
+        // Map requests và lấy địa chỉ từ lat/lon
+        const mappedRequests = await Promise.all(
+          requestsRes.data.map(async (req: any) => {
+            let address = req.description;
+            if (!address && req.latitude && req.longitude) {
+              address = await getAddressFromLatLon(req.latitude, req.longitude);
+            }
+            return {
+              id: req.id,
+              service: req.serviceName,
+              status: req.status,
+              date: req.createdAt,
+              location: address || `${req.latitude}, ${req.longitude}`,
+              company: req.companyName,
+              price: req.finalPrice ?? req.estimatedPrice,
+            };
+          })
+        );
 
-    setPendingInvoices(mockUserInvoices.filter((inv) => inv.status === "PENDING").length)
+        setRequests(mappedRequests)
+        setInvoices(invoicesRes.data)
+        setChats(chatsRes.data)
 
-    setUnreadMessages(mockUserChats.reduce((total, chat) => total + chat.unread, 0))
-  }, [])
+        // Các thống kê giữ nguyên
+        setActiveRequests(
+          mappedRequests.filter((req: any) =>
+            [
+              "CREATED",
+              "ACCEPTED_BY_COMPANY",
+              "RESCUE_VEHICLE_DISPATCHED",
+              "RESCUE_VEHICLE_ARRIVED",
+              "INSPECTION_DONE",
+              "PRICE_UPDATED",
+              "IN_PROGRESS",
+            ].includes(req.status),
+          ).length,
+        )
+
+        setCompletedRequests(
+          mappedRequests.filter((req: any) => ["COMPLETED", "INVOICED", "PAID"].includes(req.status)).length,
+        )
+
+        setPendingInvoices(invoicesRes.data.filter((inv: any) => inv.status === "PENDING").length)
+        setUnreadMessages(chatsRes.data.reduce((total: number, chat: any) => total + chat.unread, 0))
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error loading dashboard",
+          description: error.response?.data?.message || "Failed to load dashboard data",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchDashboardData()
+  }, [toast])
 
   // Animation variants
   const containerVariants = {
@@ -77,6 +156,14 @@ export default function UserDashboard() {
         damping: 20,
       },
     },
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -168,7 +255,7 @@ export default function UserDashboard() {
             animate="visible"
             className="grid gap-4 md:grid-cols-2"
           >
-            {mockUserRequests.slice(0, 4).map((request, index) => (
+            {requests.slice(0, 4).map((request) => (
               <motion.div key={request.id} variants={itemVariants}>
                 <Card>
                   <CardHeader className="pb-2">
@@ -221,7 +308,7 @@ export default function UserDashboard() {
             animate="visible"
             className="grid gap-4 md:grid-cols-2"
           >
-            {mockUserInvoices.map((invoice, index) => (
+            {invoices.slice(0, 4).map((invoice) => (
               <motion.div key={invoice.id} variants={itemVariants}>
                 <Card>
                   <CardHeader className="pb-2">
@@ -260,28 +347,25 @@ export default function UserDashboard() {
             animate="visible"
             className="grid gap-4 md:grid-cols-2"
           >
-            {mockUserChats.map((chat, index) => (
+            {chats.slice(0, 4).map((chat) => (
               <motion.div key={chat.id} variants={itemVariants}>
                 <Card>
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">{chat.companyName}</CardTitle>
+                      <CardTitle className="text-base">{chat.company}</CardTitle>
                       {chat.unread > 0 && (
-                        <Badge variant="default">
-                          {chat.unread} new {chat.unread === 1 ? "message" : "messages"}
+                        <Badge variant="default" className="ml-2">
+                          {chat.unread} new
                         </Badge>
                       )}
                     </div>
                     <CardDescription>
-                      {new Date(chat.timestamp).toLocaleDateString()} • Request #{chat.requestId}
+                      {new Date(chat.date).toLocaleDateString()} • {chat.lastMessage}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="pb-2">
-                    <div className="line-clamp-1 text-sm text-muted-foreground">{chat.lastMessage}</div>
-                  </CardContent>
                   <CardFooter>
                     <Button asChild variant="ghost" size="sm" className="w-full">
-                      <Link to={`/user/chat/${chat.id}`}>View Conversation</Link>
+                      <Link to={`/user/chats/${chat.id}`}>View Chat</Link>
                     </Button>
                   </CardFooter>
                 </Card>
@@ -291,7 +375,7 @@ export default function UserDashboard() {
 
           <div className="flex justify-center">
             <Button asChild variant="outline">
-              <Link to="/user/chats">View All Conversations</Link>
+              <Link to="/user/chats">View All Chats</Link>
             </Button>
           </div>
         </TabsContent>

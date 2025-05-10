@@ -13,13 +13,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
+import api from "@/services/api"
 
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
-  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [role, setRole] = useState<"user" | "company" | "admin">("user")
 
@@ -28,30 +29,53 @@ export default function Login() {
     setIsLoading(true)
 
     try {
-      await login(email, password)
+      const response = await api.auth.login({ username, password })
+      console.log("Login API response:", response)
+      const { token, user } = response.data
+
+      // Store token in localStorage
+      localStorage.setItem('token', token)
+      
+      // // Call login from auth context
+      // await login(username, password)
+
+      // log the user
+      console.log("User:", user)
 
       toast({
         title: "Login successful",
-        description: `Welcome back! You are now logged in as ${role}.`,
+        description: `Welcome back! You are now logged in as ${user.role}.`,
       })
 
-      // Redirect based on role
-      navigate(`/${role}`)
-    } catch (error) {
+      // console.log(user.role === "admin")
+    // Chuyển trang dựa vào role
+    if (user.role === "admin") {
+      navigate("/admin")
+    } else if (user.role === "company") {
+      navigate("/company")
+    } else {
+      navigate("/user")
+    }
+    } catch (error: any) {
+      let errorMsg = "Please check your credentials and try again.";
+      console.log("Error:", error)
+      if (error.response?.data?.message) {
+        errorMsg = error.response.data.message;
+      }
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: "Please check your credentials and try again.",
-      })
+        description: errorMsg,
+      });
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Set email based on role for demo purposes
+  // Set username based on role for demo purposes
   const handleRoleChange = (value: string) => {
     setRole(value as "user" | "company" | "admin")
-    setEmail(`${value}@example.com`)
+    setUsername(value)
   }
 
   return (
@@ -92,7 +116,7 @@ export default function Login() {
               </motion.div>
             </div>
             <CardTitle className="text-center text-2xl font-bold">Roadside Assistance</CardTitle>
-            <CardDescription className="text-center">Enter your email below to login to your account</CardDescription>
+            <CardDescription className="text-center">Enter your username below to login to your account</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Tabs defaultValue="user" onValueChange={handleRoleChange}>
@@ -105,13 +129,12 @@ export default function Login() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="username">Username</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="username"
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   required
                 />
               </div>

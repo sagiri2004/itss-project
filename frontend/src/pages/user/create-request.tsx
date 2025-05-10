@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
@@ -14,13 +14,23 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, MapPin, AlertTriangle } from "lucide-react"
+import api from "@/services/api"
 
-// Replace the mock data imports
-import { serviceTypes } from "@/data/mock-data"
+interface Service {
+  id: string
+  name: string
+  description: string
+  price: number
+}
 
-// Remove the original mock data declarations
-// Replace:
-// const serviceTypes = [ ... ]
+interface RequestData {
+  serviceId: string
+  location: string
+  vehicleMake: string
+  vehicleModel: string
+  vehicleYear: number
+  description: string
+}
 
 export default function CreateRequest() {
   const { user } = useAuth()
@@ -28,6 +38,7 @@ export default function CreateRequest() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
+  const [services, setServices] = useState<Service[]>([])
   const [formData, setFormData] = useState({
     serviceType: "",
     location: "",
@@ -37,6 +48,23 @@ export default function CreateRequest() {
     description: "",
     useCurrentLocation: false,
   })
+
+  useEffect(() => {
+    fetchServices()
+  }, [])
+
+  const fetchServices = async () => {
+    try {
+      const response = await api.rescueServices.getServices()
+      setServices(response.data)
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch services. Please try again.",
+      })
+    }
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -48,16 +76,36 @@ export default function CreateRequest() {
   }
 
   const handleUseCurrentLocation = () => {
-    setFormData((prev) => ({
-      ...prev,
-      useCurrentLocation: true,
-      location: "Current Location (GPS)",
-    }))
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          setFormData((prev) => ({
+            ...prev,
+            useCurrentLocation: true,
+            location: `${latitude},${longitude}`,
+          }))
 
-    toast({
-      title: "Location detected",
-      description: "Using your current location for this request.",
-    })
+          toast({
+            title: "Location detected",
+            description: "Using your current location for this request.",
+          })
+        },
+        (error) => {
+          toast({
+            variant: "destructive",
+            title: "Location error",
+            description: "Failed to get your location. Please enter it manually.",
+          })
+        }
+      )
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Location not supported",
+        description: "Your browser does not support geolocation. Please enter your location manually.",
+      })
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,8 +113,16 @@ export default function CreateRequest() {
     setIsLoading(true)
 
     try {
-      // Mock API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const requestData: RequestData = {
+        serviceId: formData.serviceType,
+        location: formData.location,
+        vehicleMake: formData.vehicleMake,
+        vehicleModel: formData.vehicleModel,
+        vehicleYear: parseInt(formData.vehicleYear),
+        description: formData.description,
+      }
+
+      await api.rescueRequests.createRequest(requestData)
 
       toast({
         title: "Request created successfully",
@@ -74,11 +130,11 @@ export default function CreateRequest() {
       })
 
       navigate("/user/requests")
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Failed to create request",
-        description: "There was an error submitting your request. Please try again.",
+        description: error.response?.data?.message || "There was an error submitting your request. Please try again.",
       })
     } finally {
       setIsLoading(false)
@@ -175,7 +231,7 @@ export default function CreateRequest() {
                         <SelectValue placeholder="Select a service type" />
                       </SelectTrigger>
                       <SelectContent>
-                        {serviceTypes.map((service) => (
+                        {services.map((service) => (
                           <SelectItem key={service.id} value={service.id}>
                             {service.name}
                           </SelectItem>
@@ -248,6 +304,9 @@ export default function CreateRequest() {
                       placeholder="e.g., 2020"
                       value={formData.vehicleYear}
                       onChange={handleChange}
+                      type="number"
+                      min="1900"
+                      max={new Date().getFullYear()}
                     />
                   </div>
                 </div>
@@ -256,72 +315,70 @@ export default function CreateRequest() {
               {currentStep === 3 && (
                 <div className="space-y-4">
                   <div className="rounded-lg border p-4">
-                    <h3 className="mb-2 font-medium">Service Information</h3>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="text-muted-foreground">Service Type:</div>
-                      <div>{serviceTypes.find((s) => s.id === formData.serviceType)?.name || "Not specified"}</div>
-
-                      <div className="text-muted-foreground">Location:</div>
-                      <div className="flex items-center">
-                        <MapPin className="mr-1 h-3 w-3" />
-                        {formData.location || "Not specified"}
-                      </div>
-
-                      <div className="text-muted-foreground">Description:</div>
-                      <div>{formData.description || "Not provided"}</div>
+                    <h3 className="font-semibold mb-2">Service Information</h3>
+                    <div className="space-y-2 text-sm">
+                      <p>
+                        <span className="font-medium">Service Type:</span>{" "}
+                        {services.find((s) => s.id === formData.serviceType)?.name}
+                      </p>
+                      <p>
+                        <span className="font-medium">Location:</span> {formData.location}
+                      </p>
+                      <p>
+                        <span className="font-medium">Description:</span> {formData.description}
+                      </p>
                     </div>
                   </div>
 
                   <div className="rounded-lg border p-4">
-                    <h3 className="mb-2 font-medium">Vehicle Information</h3>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="text-muted-foreground">Make:</div>
-                      <div>{formData.vehicleMake || "Not specified"}</div>
-
-                      <div className="text-muted-foreground">Model:</div>
-                      <div>{formData.vehicleModel || "Not specified"}</div>
-
-                      <div className="text-muted-foreground">Year:</div>
-                      <div>{formData.vehicleYear || "Not specified"}</div>
+                    <h3 className="font-semibold mb-2">Vehicle Information</h3>
+                    <div className="space-y-2 text-sm">
+                      <p>
+                        <span className="font-medium">Make:</span> {formData.vehicleMake}
+                      </p>
+                      <p>
+                        <span className="font-medium">Model:</span> {formData.vehicleModel}
+                      </p>
+                      <p>
+                        <span className="font-medium">Year:</span> {formData.vehicleYear}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 dark:border-amber-800/30 dark:bg-amber-900/20 dark:text-amber-500">
-                    <AlertTriangle className="mr-2 h-4 w-4" />
-                    <p className="text-sm">
-                      By submitting this request, you agree to the terms and conditions of our service.
-                    </p>
+                  <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                      <div>
+                        <h3 className="font-semibold text-yellow-800">Important Notice</h3>
+                        <p className="text-sm text-yellow-700">
+                          By submitting this request, you agree to our terms of service and privacy policy. A service fee
+                          may be charged based on the type of service and distance.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
+
+              <div className="mt-6 flex justify-between">
+                {currentStep > 1 && (
+                  <Button type="button" variant="outline" onClick={prevStep}>
+                    Previous
+                  </Button>
+                )}
+                {currentStep < 3 ? (
+                  <Button type="button" onClick={nextStep}>
+                    Next
+                  </Button>
+                ) : (
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Submit Request
+                  </Button>
+                )}
+              </div>
             </form>
           </CardContent>
-          <CardFooter className="flex justify-between">
-            {currentStep > 1 ? (
-              <Button type="button" variant="outline" onClick={prevStep}>
-                Previous
-              </Button>
-            ) : (
-              <div></div>
-            )}
-
-            {currentStep < 3 ? (
-              <Button type="button" onClick={nextStep}>
-                Next
-              </Button>
-            ) : (
-              <Button type="submit" onClick={handleSubmit} disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  "Submit Request"
-                )}
-              </Button>
-            )}
-          </CardFooter>
         </Card>
       </motion.div>
     </motion.div>

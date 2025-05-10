@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
@@ -8,13 +8,46 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Search, MessageSquare } from "lucide-react"
-import { mockUserChats } from "@/data/mock-data"
+import { Search, MessageSquare, Loader2 } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import api from "@/services/api"
+
+interface Chat {
+  id: string
+  requestId: string
+  companyId: string
+  companyName: string
+  lastMessage: string
+  timestamp: string
+  unread: number
+  status: "ACTIVE" | "COMPLETED" | "PRICE_NEGOTIATION" | "CLOSED"
+}
 
 export default function UserChats() {
   const { user } = useAuth()
-  const [chats, setChats] = useState(mockUserChats)
+  const { toast } = useToast()
+  const [chats, setChats] = useState<Chat[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+
+  useEffect(() => {
+    const fetchChats = async () => {
+      try {
+        const response = await api.chats.getChats()
+        setChats(response.data)
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.response?.data?.message || "Failed to load chats",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchChats()
+  }, [toast])
 
   // Filter chats based on search term
   const filteredChats = chats.filter(
@@ -78,6 +111,14 @@ export default function UserChats() {
       default:
         return <Badge variant="outline">{status}</Badge>
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   return (

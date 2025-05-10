@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Lock, Eye, EyeOff } from "lucide-react"
+import api from "@/services/api"
 
 export default function ChangePasswordForm() {
   const { user } = useAuth()
@@ -89,8 +90,10 @@ export default function ChangePasswordForm() {
     setIsLoading(true)
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      await api.auth.changePassword({
+        currentPassword: formData.currentPassword,
+        newPassword: formData.newPassword,
+      })
 
       // Reset form
       setFormData({
@@ -103,11 +106,11 @@ export default function ChangePasswordForm() {
         title: "Password updated",
         description: "Your password has been changed successfully.",
       })
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Update failed",
-        description: "There was an error updating your password.",
+        description: error.response?.data?.message || "There was an error updating your password.",
       })
     } finally {
       setIsLoading(false)

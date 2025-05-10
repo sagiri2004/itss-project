@@ -13,12 +13,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
+import api from "@/services/api"
 
 export default function Register() {
   const { register } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
+  const [username, setUsername] = useState("")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -40,20 +42,34 @@ export default function Register() {
     setIsLoading(true)
 
     try {
-      await register(name, email, password, role)
+      const response = await api.auth.register({
+        username,
+        name,
+        email,
+        password,
+        roles: [role.toUpperCase()],
+      })
+
+      const { token, user } = response.data
+
+      // Store token in localStorage
+      localStorage.setItem('token', token)
+
+      // Call register from auth context
+      await register(username, name, email, password, role)
 
       toast({
         title: "Registration successful",
-        description: `Your ${role} account has been created.`,
+        description: `Your ${user.role} account has been created.`,
       })
 
       // Redirect based on role
-      navigate(`/${role}`)
-    } catch (error) {
+      navigate(`/${user.role}`)
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Registration failed",
-        description: "There was an error creating your account.",
+        description: error.response?.data?.message || "There was an error creating your account.",
       })
     } finally {
       setIsLoading(false)
@@ -119,6 +135,16 @@ export default function Register() {
             </Tabs>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  placeholder="Choose a username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
                 <Input

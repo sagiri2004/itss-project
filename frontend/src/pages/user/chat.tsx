@@ -6,17 +6,11 @@ import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import ChatInterface from "@/components/chat/chat-interface"
 import type { Message } from "@/types/chat"
 import type { Chat, MessageType, RequestDetails } from "@/types/chat"
-
-// Replace the mock data imports
-import { generateMockChat } from "@/data/mock-data"
-
-// Remove the original mock data declarations
-// Replace:
-// const generateMockChat = (requestId: string, userId: string, companyId: string) => { ... }
+import api from "@/services/api"
 
 export default function UserChat() {
   const { user } = useAuth()
@@ -31,141 +25,108 @@ export default function UserChat() {
   // Fetch chat data
   useEffect(() => {
     const fetchChatData = async () => {
+      if (!requestId) return
+      
       setIsLoading(true)
       try {
-        // In a real app, fetch from API
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        // Fetch chat data
+        const chatResponse = await api.chats.getChatById(requestId)
+        setChat(chatResponse.data)
 
-        // Mock data
-        if (user) {
-          const mockChat = {
-            ...generateMockChat(requestId || "unknown", user.id, "comp-001"),
-            status: "ACTIVE" as const, // Ensure status matches the expected type
-          }
-          setChat(mockChat)
-
-          setRequestDetails({
-            id: requestId || "unknown",
-            status: "RESCUE_VEHICLE_DISPATCHED",
-            currentPrice: 75.0,
-          })
-        }
-      } catch (error) {
+        // Fetch request details
+        const requestResponse = await api.rescueRequests.getRequestById(requestId)
+        setRequestDetails({
+          id: requestId,
+          status: requestResponse.data.status,
+          currentPrice: requestResponse.data.price || 0,
+        })
+      } catch (error: any) {
         toast({
           variant: "destructive",
           title: "Error loading chat",
-          description: "Could not load the chat. Please try again.",
+          description: error.response?.data?.message || "Could not load the chat. Please try again.",
         })
       } finally {
         setIsLoading(false)
       }
     }
 
-    if (requestId) {
-      fetchChatData()
-    }
-  }, [requestId, user, toast])
+    fetchChatData()
+  }, [requestId, toast])
 
-  const handleSendMessage = (message: Omit<Message, "id" | "timestamp">) => {
+  const handleSendMessage = async (message: Omit<Message, "id" | "timestamp">) => {
+    if (!requestId) return
+    
     setIsLoading(true)
-
-    // In a real app, send to API
-    setTimeout(() => {
-      const newMessage = {
-        ...message,
-        id: `msg-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-      }
-
-      setChat((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          messages: [...prev.messages, newMessage],
-          lastUpdated: new Date().toISOString(),
-        };
+    try {
+      const response = await api.chats.sendMessage(requestId, {
+        content: message.content,
+        type: message.type,
+        metadata: message.metadata,
       })
 
+      setChat((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          messages: [...prev.messages, response.data],
+          lastUpdated: new Date().toISOString(),
+        }
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error sending message",
+        description: error.response?.data?.message || "Could not send message. Please try again.",
+      })
+    } finally {
       setIsLoading(false)
-    }, 500)
+    }
   }
 
-  const handlePriceResponse = (accepted: boolean, reason?: string) => {
+  const handlePriceResponse = async (accepted: boolean, reason?: string) => {
+    if (!requestId || !requestDetails) return
+    
     setIsLoading(true)
-
-    // In a real app, send to API
-    setTimeout(() => {
-      const responseType = accepted ? ("price_accepted" as MessageType) : ("price_rejected" as MessageType)
-      const responseContent = accepted ? "I accept the price offer." : "I cannot accept this price offer."
-
-      const newMessage = {
-        id: `msg-${Date.now()}`,
-        senderId: user?.id || "",
-        senderName: "You",
-        senderRole: "user" as const,
-        content: responseContent,
-        timestamp: new Date().toISOString(),
-        type: responseType,
-        metadata: accepted ? undefined : { reason },
-      }
-
-      setChat((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          messages: [...prev.messages, newMessage],
-          lastUpdated: new Date().toISOString(),
-        };
+    try {
+      const response = await api.rescueRequests.updateRequest(requestId, {
+        status: accepted ? "PRICE_ACCEPTED" : "PRICE_REJECTED",
+        price: accepted ? requestDetails.currentPrice : undefined,
+        reason: reason || "",
       })
 
-      // If accepted, update the request price
+      // Update request details with new price if accepted
       if (accepted) {
-        // Find the last price offer
-        const lastPriceOffer = chat ? [...chat.messages].reverse().find((msg) => msg.type === "price_offer") : null
-
-        if (lastPriceOffer?.metadata?.price) {
-          if (lastPriceOffer?.metadata?.price) {
-            setRequestDetails((prev) => ({
-              ...prev!,
-              currentPrice: lastPriceOffer.metadata?.price ?? 0,
-              id: prev?.id || requestId || "unknown",
-              status: prev?.status || "UNKNOWN",
-            }))
-          }
-        }
-      }
-
-      // If rejected, add a system message about chat ending
-      if (!accepted) {
-        const systemMessage = {
-          id: `msg-${Date.now() + 1}`,
-          senderId: "system",
-          senderName: "System",
-          senderRole: "system" as const,
-          content: "Price was rejected. This conversation will be archived.",
-          timestamp: new Date().toISOString(),
-          type: "system" as MessageType,
-        }
-
+        setRequestDetails((prev) => ({
+          ...prev!,
+          currentPrice: response.data.price,
+          status: response.data.status,
+        }))
+      } else {
+        // If rejected, update chat status to closed
         setChat((prev) => {
-          if (!prev) return null;
+          if (!prev) return null
           return {
             ...prev,
-            messages: [...prev.messages, systemMessage],
             status: "CLOSED",
             lastUpdated: new Date().toISOString(),
-          };
-        });
+          }
+        })
 
-        // Show toast notification
         toast({
           title: "Price rejected",
           description: "You have rejected the price offer. This conversation will be archived.",
         })
       }
-
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error responding to price offer",
+        description: error.response?.data?.message || "Could not process your response. Please try again.",
+      })
+    } finally {
       setIsLoading(false)
-    }, 800)
+    }
   }
 
   // Animation variants
@@ -192,12 +153,22 @@ export default function UserChat() {
     },
   }
 
+  if (isLoading && !chat) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading chat...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!chat || !requestDetails) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading chat...</p>
+          <p className="text-muted-foreground">Chat not found</p>
         </div>
       </div>
     )
