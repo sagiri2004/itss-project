@@ -1,3 +1,5 @@
+import type { Chat, Message, RequestDetails } from "@/types/chat"
+
 // Users
 export const mockUsers = [
   {
@@ -1432,74 +1434,38 @@ export const mockCompanyDashboardStats = {
 }
 
 // Chat data for user and company chat pages
-export const generateMockChat = (requestId: string, userId: string, companyId: string) => {
-  const now = new Date()
-  const fiveMinAgo = new Date(now.getTime() - 5 * 60000)
-  const tenMinAgo = new Date(now.getTime() - 10 * 60000)
-
+export const generateMockChat = (requestId: string, userId: string, companyId: string): Chat => {
   return {
-    id: `chat-${requestId}`,
-    requestId,
+    id: requestId,
     participants: [
-      {
-        id: userId,
-        name: "John Doe",
-        role: "user" as const,
-      },
-      {
-        id: companyId,
-        name: "FastFix Roadside",
-        role: "company" as const,
-      },
+      { id: userId, name: "John Doe", role: "user" },
+      { id: companyId, name: "Rescue Company", role: "company" }
     ],
     messages: [
       {
         id: "msg-1",
-        senderId: "system",
-        senderName: "System",
-        senderRole: "system" as const,
-        content: "Chat started for request #" + requestId,
-        timestamp: tenMinAgo.toISOString(),
-        type: "system" as const,
+        content: "Hello, I need help with my car.",
+        type: "TEXT",
+        senderId: userId,
+        timestamp: new Date().toISOString()
       },
       {
         id: "msg-2",
+        content: "Hi! We can help you. What's the issue?",
+        type: "TEXT",
         senderId: companyId,
-        senderName: "FastFix Roadside",
-        senderRole: "company" as const,
-        content:
-          "Hello! We've accepted your request for roadside assistance. Our technician is preparing to head your way.",
-        timestamp: tenMinAgo.toISOString(),
-        type: "text" as const,
-      },
-      {
-        id: "msg-3",
-        senderId: userId,
-        senderName: "John Doe",
-        senderRole: "user" as const,
-        content: "Thank you! How long do you think it will take?",
-        timestamp: fiveMinAgo.toISOString(),
-        type: "text" as const,
-      },
-      {
-        id: "msg-4",
-        senderId: companyId,
-        senderName: "FastFix Roadside",
-        senderRole: "company" as const,
-        content: "Based on your location, our technician should arrive in approximately 20-25 minutes.",
-        timestamp: fiveMinAgo.toISOString(),
-        type: "text" as const,
-      },
+        timestamp: new Date().toISOString()
+      }
     ],
     status: "ACTIVE",
-    lastUpdated: now.toISOString(),
+    lastUpdated: new Date().toISOString()
   }
 }
 
-export const mockChatRequestDetails = {
-  id: "req-001",
-  status: "RESCUE_VEHICLE_DISPATCHED",
-  currentPrice: 75.0,
+export const mockChatRequestDetails: RequestDetails = {
+  id: "req-1",
+  status: "PENDING",
+  currentPrice: 0
 }
 
 // Add the PaymentInvoice type and mockPaymentInvoice data at the end of the file

@@ -1,39 +1,48 @@
-export interface Participant {
+export interface ChatConversation {
+  id: string
+  userId: string
+  userName: string
+  rescueCompanyId?: string
+  rescueCompanyName?: string
+  lastMessage?: string
+  lastMessageTime?: string
+  unreadCount: number
+}
+
+export interface ChatParticipant {
   id: string
   name: string
-  role: "user" | "company" | "system"
+  role: "USER" | "RESCUE_COMPANY" | "ADMIN"
+  avatarUrl?: string
 }
 
-export interface MessageMetadata {
-  price?: number
-  reason?: string
-  [key: string]: any
-}
-
-export type MessageType = "text" | "system" | "price_offer" | "price_accepted" | "price_rejected" | "status_update"
+export type SenderType = "USER" | "RESCUE_COMPANY" | "ADMIN"
 
 export interface Message {
-  id: string
-  senderId: string
-  senderName: string
-  senderRole: "user" | "company" | "system"
-  content: string
-  timestamp: string
-  type: MessageType
-  metadata?: MessageMetadata
+  id: string;
+  content: string;
+  type: MessageType;
+  senderId: string;
+  timestamp: string;
+  metadata?: Record<string, any>;
 }
 
 export interface Chat {
-  id: string
-  requestId: string
-  participants: Participant[]
-  messages: Message[]
-  status: "ACTIVE" | "CLOSED"
-  lastUpdated: string
+  id: string;
+  participants: Array<{
+    id: string;
+    name: string;
+    role: string;
+  }>;
+  messages: Message[];
+  status: string;
+  lastUpdated: string;
 }
 
+export type MessageType = 'TEXT' | 'PRICE_OFFER' | 'PRICE_RESPONSE' | 'SYSTEM';
+
 export interface RequestDetails {
-  id: string
-  status: string
-  currentPrice: number
+  id: string;
+  status: string;
+  currentPrice: number;
 }

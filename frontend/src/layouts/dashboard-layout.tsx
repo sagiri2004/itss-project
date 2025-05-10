@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Outlet, useNavigate, useLocation } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
@@ -24,7 +24,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ModeToggle } from "@/components/mode-toggle"
-import { Loader2, LogOut } from "lucide-react"
+import { Loader2, LogOut, Bell } from "lucide-react"
+import { useWebSocketContext } from "@/context/websocket-context"
 
 // Import role-specific navigation items
 import { userNavItems, companyNavItems, adminNavItems } from "@/config/navigation"
@@ -38,6 +39,9 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const [isMounted, setIsMounted] = useState(false)
+  const { notifications, unreadCount, markAllAsRead } = useWebSocketContext()
+  const [showDropdown, setShowDropdown] = useState(false)
+  const bellRef = useRef<HTMLDivElement>(null)
 
   // Get navigation items based on role
   const navItems = role === "admin" ? adminNavItems : role === "company" ? companyNavItems : userNavItems
@@ -55,6 +59,23 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
       // navigate("/login")
     }
   }, [loading, isAuthenticated, user, role, navigate])
+
+  // Đóng dropdown khi click ra ngoài
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (bellRef.current && !bellRef.current.contains(event.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    if (showDropdown) {
+      document.addEventListener("mousedown", handleClickOutside)
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [showDropdown])
 
   if (loading || !isMounted) {
     return (
@@ -154,6 +175,39 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
           <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-6">
             <SidebarTrigger />
             <div className="ml-auto flex items-center gap-4">
+              <div ref={bellRef} className="relative ml-4">
+                <button
+                  className="relative focus:outline-none"
+                  onClick={() => {
+                    setShowDropdown((v) => !v)
+                    markAllAsRead()
+                  }}
+                  aria-label="Notifications"
+                >
+                  <Bell className="h-6 w-6" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+                {showDropdown && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded shadow-lg z-50 max-h-96 overflow-y-auto">
+                    <div className="p-2 font-semibold border-b border-gray-200 dark:border-gray-700">Notifications</div>
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">No notifications</div>
+                    ) : (
+                      notifications.slice(0, 10).map((noti, idx) => (
+                        <div key={idx} className="p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-muted/50">
+                          <div className="font-medium">{noti.title}</div>
+                          <div className="text-xs text-muted-foreground">{noti.content}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{new Date(noti.sentAt).toLocaleString()}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
               <span className="text-sm font-medium">
                 {user?.name} ({user?.role})
               </span>

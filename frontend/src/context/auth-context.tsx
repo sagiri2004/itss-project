@@ -41,20 +41,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     try {
       const response = await api.auth.login({ username, password })
-      console.log("Login API response:", response)
-      const { token, userId, companyId } = response.data
+      // console.log("Login API response:", response)
+      const { token, user } = response.data
 
       // Store token in localStorage
       localStorage.setItem("token", token)
-
-      const user: User = {
-        id: userId,
-        username,
-        name: username, // Using username as name since it's not provided in response
-        email: `${username}@example.com`, // Using default email since it's not provided in response
-        role: "user", // Default role since it's not provided in response
-        companyId: companyId,
-      }
 
       setUser(user)
       localStorage.setItem("roadside-user", JSON.stringify(user))

@@ -1,310 +1,166 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useRef, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Send, DollarSign, ThumbsUp, ThumbsDown } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Button } from "../ui/button"
+import { Input } from "../ui/input"
+import { ScrollArea } from "../ui/scroll-area"
+import { Avatar } from "../ui/avatar"
+import { useAuth } from "../../context/auth-context"
+import { useWebSocketContext } from "../../context/websocket-context"
+import type { ChatMessage } from "../../services/websocket-service"
 import type { Message } from "@/types/chat"
-import { motion } from "framer-motion"
 
 export interface ChatInterfaceProps {
-  requestId: string
-  currentUserId: string
-  currentUserRole: "user" | "company"
-  otherPartyName: string
-  initialMessages: Message[]
-  onSendMessage: (message: Omit<Message, "id" | "timestamp">) => void
-  onPriceOffer?: (price: number) => void
-  onPriceResponse: (accepted: boolean, reason?: string) => void
-  isLoading: boolean
-  currentPrice: number
-  requestStatus: string
+  requestId: string;
+  currentUserId: string;
+  currentUserRole: string;
+  otherPartyName: string;
+  initialMessages: Message[];
+  onSendMessage: (message: Omit<Message, "id" | "timestamp">) => Promise<void>;
+  onPriceResponse: (accepted: boolean, reason?: string) => Promise<void>;
+  isLoading: boolean;
+  currentPrice: number;
+  requestStatus: string;
 }
 
-export default function ChatInterface({
+export function ChatInterface({
   requestId,
   currentUserId,
   currentUserRole,
   otherPartyName,
   initialMessages,
   onSendMessage,
-  onPriceOffer,
   onPriceResponse,
   isLoading,
   currentPrice,
   requestStatus,
 }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>(initialMessages)
-  const [newMessage, setNewMessage] = useState("")
-  const [isPriceDialogOpen, setIsPriceDialogOpen] = useState(false)
-  const [priceOffer, setPriceOffer] = useState(currentPrice.toString())
-  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
-  const [rejectReason, setRejectReason] = useState("")
-  const [lastPriceOffer, setLastPriceOffer] = useState<Message | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [message, setMessage] = useState("")
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([])
+  const { user } = useAuth()
+  const { connected, messages, sendMessage } = useWebSocketContext()
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
 
-  // Update messages when initialMessages changes
+  // Filter messages for this specific conversation
   useEffect(() => {
-    setMessages(initialMessages)
-  }, [initialMessages])
+    if (messages && messages.length > 0) {
+      const filteredMessages = messages.filter((msg) => msg.conversationId === requestId)
 
-  // Find the last price offer message
+      if (filteredMessages.length > 0) {
+        setChatHistory((prev) => {
+          const newMessages = filteredMessages.filter(
+            (newMsg) =>
+              !prev.some(
+                (existingMsg) =>
+                  // Identify unique messages (this is a simple approach, you might need a more robust one)
+                  existingMsg.content === newMsg.content && existingMsg.sentAt === newMsg.sentAt,
+              ),
+          )
+
+          return [...prev, ...newMessages]
+        })
+      }
+    }
+  }, [messages, requestId])
+
+  // Auto scroll to bottom when new messages arrive
   useEffect(() => {
-    const lastOffer = [...messages]
-      .reverse()
-      .find((msg) => msg.type === "price_offer" && msg.senderRole !== currentUserRole)
-
-    if (lastOffer) {
-      setLastPriceOffer(lastOffer)
+    if (scrollAreaRef.current) {
+      const scrollArea = scrollAreaRef.current
+      scrollArea.scrollTop = scrollArea.scrollHeight
     }
-  }, [messages, currentUserRole])
+  }, [chatHistory])
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault()
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return
+    if (!message.trim() || !connected || !user) return
 
-    onSendMessage({
-      senderId: currentUserId,
-      senderName: currentUserRole === "user" ? "You" : "Your Company",
-      senderRole: currentUserRole,
-      content: newMessage,
-      type: "text",
-    })
-
-    setNewMessage("")
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
-    }
-  }
-
-  const handlePriceOfferSubmit = () => {
-    const price = Number.parseFloat(priceOffer)
-    if (isNaN(price) || price <= 0) return
-
-    onPriceOffer?.(price)
-    setIsPriceDialogOpen(false)
-    setPriceOffer("")
-  }
-
-  const handleRejectSubmit = () => {
-    onPriceResponse(false, rejectReason)
-    setIsRejectDialogOpen(false)
-    setRejectReason("")
-  }
-
-  const renderMessage = (message: Message, index: number) => {
-    const isCurrentUser = message.senderRole === currentUserRole
-    const isSystem = message.senderRole === "system"
-
-    // Determine message style based on type and sender
-    let messageClass = "p-3 rounded-lg max-w-[80%] break-words"
-    if (isSystem) {
-      messageClass += " bg-muted text-muted-foreground text-sm italic mx-auto text-center"
-    } else if (isCurrentUser) {
-      messageClass += " bg-primary text-primary-foreground ml-auto"
-    } else {
-      messageClass += " bg-secondary text-secondary-foreground"
+    const newMessage: ChatMessage = {
+      content: message,
+      conversationId: requestId,
+      userId: currentUserId,
+      rescueCompanyId: currentUserRole === "RESCUE_COMPANY" ? currentUserId : undefined,
+      senderType: user.role === "company" ? "RESCUE_COMPANY" : "USER",
+      isRead: false,
+      sentAt: new Date().toISOString(),
     }
 
-    // Special styling for price offers and responses
-    if (message.type === "price_offer") {
-      messageClass += " border-2 border-yellow-400 bg-yellow-50 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
-    } else if (message.type === "price_accepted") {
-      messageClass += " border-2 border-green-400 bg-green-50 text-green-800 dark:bg-green-900 dark:text-green-100"
-    } else if (message.type === "price_rejected") {
-      messageClass += " border-2 border-red-400 bg-red-50 text-red-800 dark:bg-red-900 dark:text-red-100"
-    }
+    sendMessage(newMessage)
 
-    return (
-      <motion.div
-        key={message.id}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className={`flex flex-col mb-4 ${isSystem ? "w-full" : ""}`}
-      >
-        {!isSystem && !isCurrentUser && (
-          <span className="text-xs text-muted-foreground mb-1">{message.senderName}</span>
-        )}
-        <div className={messageClass}>
-          {message.content}
+    // Optimistically add to chat history
+    setChatHistory((prev) => [...prev, newMessage])
 
-          {message.type === "price_offer" && message.metadata?.price && (
-            <div className="mt-2 font-bold flex items-center">
-              <DollarSign className="h-4 w-4 mr-1" />
-              Price: ${message.metadata.price.toFixed(2)}
-            </div>
-          )}
-
-          {message.type === "price_rejected" && message.metadata?.reason && (
-            <div className="mt-2 text-sm italic">Reason: {message.metadata.reason}</div>
-          )}
-
-          {/* Price response buttons for the non-sender of the price offer */}
-          {message.type === "price_offer" &&
-            message.senderRole !== currentUserRole &&
-            !messages.some(
-              (m) => (m.type === "price_accepted" || m.type === "price_rejected") && m.timestamp > message.timestamp,
-            ) && (
-              <div className="mt-3 flex space-x-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
-                  onClick={() => onPriceResponse(true)}
-                  disabled={isLoading}
-                >
-                  <ThumbsUp className="h-4 w-4 mr-1" /> Accept
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="bg-red-100 hover:bg-red-200 text-red-800 border-red-300"
-                  onClick={() => setIsRejectDialogOpen(true)}
-                  disabled={isLoading}
-                >
-                  <ThumbsDown className="h-4 w-4 mr-1" /> Reject
-                </Button>
-              </div>
-            )}
-        </div>
-        <span className="text-xs text-muted-foreground mt-1 self-end">
-          {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-        </span>
-      </motion.div>
-    )
+    // Clear input
+    setMessage("")
   }
 
   return (
-    <Card className="flex flex-col h-full">
-      <CardContent className="flex flex-col h-full p-4">
-        <div className="flex-1 overflow-y-auto mb-4 pr-2">
-          {messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground">No messages yet. Start the conversation!</p>
-            </div>
+    <div className={`flex flex-col h-full border rounded-lg`}>
+      <div className="p-4 border-b bg-muted/30">
+        <h3 className="font-medium">
+          {connected ? (
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-green-500"></span>
+              Connected
+            </span>
           ) : (
-            <div className="space-y-4">
-              {messages.map(renderMessage)}
-              <div ref={messagesEndRef} />
-            </div>
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-red-500"></span>
+              Disconnected
+            </span>
+          )}
+        </h3>
+      </div>
+
+      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+        <div className="space-y-4">
+          {chatHistory.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">No messages yet. Start the conversation!</p>
+          ) : (
+            chatHistory.map((msg, index) => {
+              const isCurrentUser = msg.senderType === (user?.role === "company" ? "RESCUE_COMPANY" : "USER")
+              return (
+                <div key={index} className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
+                  <div className={`flex items-start gap-2 max-w-[80%] ${isCurrentUser ? "flex-row-reverse" : ""}`}>
+                    <Avatar className="h-8 w-8">
+                      <span className="sr-only">
+                        {isCurrentUser ? "You" : msg.senderType === "USER" ? "User" : "Company"}
+                      </span>
+                    </Avatar>
+                    <div
+                      className={`rounded-lg px-3 py-2 text-sm ${
+                        isCurrentUser ? "bg-primary text-primary-foreground" : "bg-muted"
+                      }`}
+                    >
+                      <p>{msg.content}</p>
+                      <div
+                        className={`text-xs mt-1 ${isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+                      >
+                        {new Date(msg.sentAt).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })
           )}
         </div>
+      </ScrollArea>
 
-        {/* Price offer button for company */}
-        {currentUserRole === "company" && (
-          <div className="mb-4">
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => setIsPriceDialogOpen(true)}
-              disabled={isLoading}
-            >
-              <DollarSign className="h-4 w-4 mr-2" /> Make Price Offer
-            </Button>
-          </div>
-        )}
-
-        {/* Message input */}
-        <div className="flex space-x-2">
-          <Input
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={`Message ${otherPartyName}...`}
-            disabled={isLoading}
-            className="flex-1"
-          />
-          <Button onClick={handleSendMessage} disabled={!newMessage.trim() || isLoading}>
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardContent>
-
-      {/* Price offer dialog */}
-      <Dialog open={isPriceDialogOpen} onOpenChange={setIsPriceDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Make a Price Offer</DialogTitle>
-            <DialogDescription>Enter the price you want to offer for this service.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="price" className="text-right">
-                Price ($)
-              </Label>
-              <Input
-                id="price"
-                type="number"
-                min="0"
-                step="0.01"
-                value={priceOffer}
-                onChange={(e) => setPriceOffer(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPriceDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handlePriceOfferSubmit}>Send Offer</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject price dialog */}
-      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Price Offer</DialogTitle>
-            <DialogDescription>Please provide a reason for rejecting the price offer.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="reason" className="text-right">
-                Reason
-              </Label>
-              <Textarea
-                id="reason"
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="The price is too high..."
-                className="col-span-3"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleRejectSubmit}>
-              Reject Offer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
+      <form onSubmit={handleSendMessage} className="p-4 border-t flex gap-2">
+        <Input
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Type your message..."
+          disabled={!connected}
+          className="flex-1"
+        />
+        <Button type="submit" disabled={!connected || !message.trim()}>
+          Send
+        </Button>
+      </form>
+    </div>
   )
 }

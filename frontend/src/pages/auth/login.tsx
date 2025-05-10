@@ -29,44 +29,33 @@ export default function Login() {
     setIsLoading(true)
 
     try {
-      const response = await api.auth.login({ username, password })
-      console.log("Login API response:", response)
-      const { token, user } = response.data
-
-      // Store token in localStorage
-      localStorage.setItem('token', token)
-      
-      // // Call login from auth context
-      // await login(username, password)
-
-      // log the user
-      console.log("User:", user)
+      // Call login from auth context
+      await login(username, password)
 
       toast({
         title: "Login successful",
-        description: `Welcome back! You are now logged in as ${user.role}.`,
+        description: "Welcome back! You are now logged in.",
       })
 
-      // console.log(user.role === "admin")
-    // Chuyển trang dựa vào role
-    if (user.role === "admin") {
-      navigate("/admin")
-    } else if (user.role === "company") {
-      navigate("/company")
-    } else {
-      navigate("/user")
-    }
+      // Redirect based on role
+      const user = JSON.parse(localStorage.getItem("roadside-user") || "{}")
+      if (user.role === "admin") {
+        navigate("/admin")
+      } else if (user.role === "company") {
+        navigate("/company")
+      } else {
+        navigate("/user")
+      }
     } catch (error: any) {
-      let errorMsg = "Please check your credentials and try again.";
-      console.log("Error:", error)
+      let errorMsg = "Please check your credentials and try again."
       if (error.response?.data?.message) {
-        errorMsg = error.response.data.message;
+        errorMsg = error.response.data.message
       }
       toast({
         variant: "destructive",
         title: "Login failed",
         description: errorMsg,
-      });
+      })
     } finally {
       setIsLoading(false)
     }

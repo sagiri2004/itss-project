@@ -7,7 +7,7 @@ import { useAuth } from "@/context/auth-context"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { ArrowLeft } from "lucide-react"
-import ChatInterface from "@/components/chat/chat-interface"
+import { ChatInterface } from "@/components/chat/chat-interface"
 import type { Chat, Message, RequestDetails, MessageType } from "@/types/chat"
 
 // Replace the mock data imports
@@ -58,125 +58,118 @@ export default function CompanyChat() {
     }
   }, [requestId, user, toast])
 
-  const handleSendMessage = (message: Omit<Message, "id" | "timestamp">) => {
+  const handleSendMessage = async (message: Omit<Message, "id" | "timestamp">) => {
     setIsLoading(true)
 
     // In a real app, send to API
-    setTimeout(() => {
-      const newMessage = {
-        ...message,
-        id: `msg-${Date.now()}`,
-        timestamp: new Date().toISOString(),
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    
+    const newMessage: Message = {
+      ...message,
+      id: `msg-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+    }
+
+    setChat((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        messages: [...prev.messages, newMessage],
+        lastUpdated: new Date().toISOString(),
       }
+    })
 
-      setChat((prev) => {
-        if (!prev) return prev
-        return {
-          ...prev,
-          messages: [...prev.messages, newMessage],
-          lastUpdated: new Date().toISOString(),
-        }
-      })
-
-      setIsLoading(false)
-    }, 500)
+    setIsLoading(false)
   }
 
-  const handlePriceOffer = (price: number) => {
+  const handlePriceOffer = async (price: number) => {
     setIsLoading(true)
 
     // In a real app, send to API
-    setTimeout(() => {
-      const newMessage = {
-        id: `msg-${Date.now()}`,
-        senderId: user?.id || "",
-        senderName: "Your Company",
-        senderRole: "company" as const,
-        content: `We're offering a price of $${price.toFixed(2)} for this service based on the details provided.`,
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    
+    const newMessage: Message = {
+      id: `msg-${Date.now()}`,
+      content: `We're offering a price of $${price.toFixed(2)} for this service based on the details provided.`,
+      type: "PRICE_OFFER",
+      senderId: user?.id || "",
+      timestamp: new Date().toISOString(),
+      metadata: { price },
+    }
+
+    setChat((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        messages: [...prev.messages, newMessage],
+        lastUpdated: new Date().toISOString(),
+      };
+    })
+
+    setIsLoading(false)
+
+    toast({
+      title: "Price offer sent",
+      description: `You've sent a price offer of $${price.toFixed(2)} to the customer.`,
+    })
+  }
+
+  const handlePriceResponse = async (accepted: boolean, reason?: string) => {
+    setIsLoading(true)
+
+    // In a real app, send to API
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    
+    const responseType: MessageType = accepted ? "PRICE_RESPONSE" : "PRICE_RESPONSE"
+    const responseContent = accepted
+      ? "I accept the price offer from the customer."
+      : "I cannot accept this price from the customer."
+
+    const newMessage: Message = {
+      id: `msg-${Date.now()}`,
+      content: responseContent,
+      type: responseType,
+      senderId: user?.id || "",
+      timestamp: new Date().toISOString(),
+      metadata: accepted ? undefined : { reason },
+    }
+
+    setChat((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        messages: [...prev.messages, newMessage],
+        lastUpdated: new Date().toISOString(),
+      };
+    })
+
+    // If rejected, add a system message about chat ending
+    if (!accepted) {
+      const systemMessage: Message = {
+        id: `msg-${Date.now() + 1}`,
+        content: "Price was rejected. This conversation will be archived.",
+        type: "SYSTEM",
+        senderId: "system",
         timestamp: new Date().toISOString(),
-        type: "price_offer" as const,
-        metadata: { price },
       }
 
       setChat((prev) => {
         if (!prev) return null;
         return {
           ...prev,
-          messages: [...prev.messages, newMessage],
+          messages: [...prev.messages, systemMessage],
+          status: "CLOSED",
           lastUpdated: new Date().toISOString(),
         };
-      })
-
-      setIsLoading(false)
+      });
 
       toast({
-        title: "Price offer sent",
-        description: `You've sent a price offer of $${price.toFixed(2)} to the customer.`,
+        title: "Price rejected",
+        description: "You have rejected the customer's price. This conversation will be archived.",
       })
-    }, 800)
-  }
+    }
 
-  const handlePriceResponse = (accepted: boolean, reason?: string) => {
-    setIsLoading(true)
-
-    // In a real app, send to API
-    setTimeout(() => {
-      const responseType = accepted ? ("price_accepted" as MessageType) : ("price_rejected" as MessageType)
-      const responseContent = accepted
-        ? "I accept the price offer from the customer."
-        : "I cannot accept this price from the customer."
-
-      const newMessage = {
-        id: `msg-${Date.now()}`,
-        senderId: user?.id || "",
-        senderName: "Your Company",
-        senderRole: "company" as const,
-        content: responseContent,
-        timestamp: new Date().toISOString(),
-        type: responseType,
-        metadata: accepted ? undefined : { reason },
-      }
-
-      setChat((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          messages: [...prev.messages, newMessage],
-          lastUpdated: new Date().toISOString(),
-        };
-      })
-
-      // If rejected, add a system message about chat ending
-      if (!accepted) {
-        const systemMessage = {
-          id: `msg-${Date.now() + 1}`,
-          senderId: "system",
-          senderName: "System",
-          senderRole: "system" as const,
-          content: "Price was rejected. This conversation will be archived.",
-          timestamp: new Date().toISOString(),
-          type: "system" as MessageType,
-        }
-
-        setChat((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            messages: [...prev.messages, systemMessage],
-            status: "CLOSED",
-            lastUpdated: new Date().toISOString(),
-          };
-        });
-
-        // Show toast notification
-        toast({
-          title: "Price rejected",
-          description: "You have rejected the customer's price. This conversation will be archived.",
-        })
-      }
-
-      setIsLoading(false)
-    }, 800)
+    setIsLoading(false)
   }
 
   // Animation variants
@@ -228,10 +221,9 @@ export default function CompanyChat() {
           requestId={requestId || ""}
           currentUserId={user?.id || ""}
           currentUserRole="company"
-          otherPartyName={chat.participants.find((p: any) => p.role === "user")?.name || "Customer"}
+          otherPartyName={chat.participants.find((p) => p.role === "user")?.name || "Customer"}
           initialMessages={chat.messages}
           onSendMessage={handleSendMessage}
-          onPriceOffer={handlePriceOffer}
           onPriceResponse={handlePriceResponse}
           isLoading={isLoading}
           currentPrice={requestDetails.currentPrice}
