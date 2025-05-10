@@ -1,8 +1,0 @@
-// path config
-{
-  "compilerOptions": {
-    "paths": {
-      "~/*": ["./src/*"]
-    }
-  }
-}

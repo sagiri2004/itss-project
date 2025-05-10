@@ -5,6 +5,7 @@ import com.example.backend.dto.request.LoginRequest;
 import com.example.backend.dto.request.RegisterRequest;
 import com.example.backend.dto.request.ResetPasswordRequest;
 import com.example.backend.dto.response.AuthResponse;
+import com.example.backend.dto.response.UserResponse;
 import com.example.backend.exception.AuthException;
 import com.example.backend.model.RescueCompany;
 import com.example.backend.model.User;
@@ -85,21 +86,25 @@ public class AuthServiceImpl implements AuthService {
 
 		String token = jwtUtil.generateToken(user.getUsername(), user.getRoles(), user.getId());
 
-		// Get company ID if available
-		String companyId = null;
-		Optional<RescueCompany> companyOpt = userRepository.findById(user.getId())
-				.flatMap(u -> repository.findByUserId(u.getId()));
-		if (companyOpt.isPresent()) {
-			companyId = companyOpt.get().getId();
-		}
+		String companyId = userRepository.findById(user.getId())
+				.flatMap(u -> repository.findByUserId(u.getId()))
+				.map(RescueCompany::getId)
+				.orElse(null);
 
-		return AuthResponse.builder()
-				.token(token)
-				.message("User logged in successfully")
-				.userId(user.getId())
+		UserResponse userResponse = UserResponse.builder()
+				.id(user.getId())
+				.username(user.getUsername())
+				.name(user.getName())
+				.email(user.getEmail())
+				.role(user.getRoles().iterator().next().name().toLowerCase())  // Nếu chỉ lấy 1 role
 				.companyId(companyId)
 				.build();
 
+		return AuthResponse.builder()
+				.message("User logged in successfully")
+				.token(token)
+				.user(userResponse)
+				.build();
 	}
 
 	@Override
