@@ -36,6 +36,8 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 	private final RescueServiceRepository serviceRepository;
 	private final RescueCompanyRepository rescueCompanyRepository;
 	private final RescueVehicleRepository rescueVehicleRepository;
+	private final MessageRepository messageRepository;
+	private final ConversationRepository conversationRepository;
 	private final InvoiceRepository invoiceRepository;
 	private final RescueVehicleDispatchRepository rescueVehicleDispatchRepository;
 	private final UserRepository userRepository;
@@ -237,6 +239,33 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 		request.setStatus(RescueRequestStatus.ACCEPTED_BY_COMPANY);
 		RescueRequest saved = requestRepository.save(request);
 
+		// --- Tạo conversation và gửi tin nhắn chào ---
+		User user = request.getUser();
+		// 1. Kiểm tra đã có conversation chưa
+		Conversation conversation = conversationRepository.findByUserIdAndRescueCompanyId(user.getId(), company.getId())
+				.orElse(null);
+		if (conversation == null) {
+			conversation = Conversation.builder()
+					.user(user)
+					.rescueCompany(company)
+					.createdAt(LocalDateTime.now())
+					.build();
+			conversation = conversationRepository.save(conversation);
+		}
+
+		// 2. Tạo message chào
+		Message welcomeMsg = Message.builder()
+				.conversation(conversation)
+				.senderType(MessageSender.RESCUE_COMPANY)
+				.content("Xin chào, chúng tôi đã tiếp nhận yêu cầu cứu hộ của bạn. Vui lòng giữ liên lạc để được hỗ trợ nhanh nhất!")
+				.sentAt(LocalDateTime.now())
+				.isRead(false)
+				.build();
+		messageRepository.save(welcomeMsg);
+
+		// (Nếu có hệ thống WebSocket/chat realtime, có thể publish message này tại đây)
+
+		// --- Gửi notification như cũ ---
 		NotificationEvent event = NotificationEvent.builder()
 				.recipientId(request.getUser().getId())
 				.title("Yêu cầu được tiếp nhận")
@@ -245,6 +274,16 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 				.sentAt(LocalDateTime.now())
 				.build();
 		notificationEventProducer.sendNotificationEvent(event);
+
+		// --- Gui them message chào ---
+		NotificationEvent welcomeMsgEvent = NotificationEvent.builder()
+				.recipientId(request.getUser().getId())
+				.title("Chào mừng bạn đã được tiếp nhận yêu cầu cứu hộ")
+				.content(welcomeMsg.getContent())
+				.type(NotificationType.CHAT)
+				.conversationId(conversation.getId())
+				.sentAt(LocalDateTime.now())
+				.build();
 
 		return toResponse(saved);
 	}

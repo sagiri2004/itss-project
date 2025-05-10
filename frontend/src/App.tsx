@@ -56,7 +56,7 @@ function WebSocketConsoleLogger() {
   useEffect(() => {
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1]
-      console.log("[WebSocket Notification]", lastMessage)
+      // console.log("[WebSocket Notification]", lastMessage)
     }
   }, [messages])
   return null

@@ -118,16 +118,14 @@ export const invoiceApi = {
 
 // Chat APIs
 export const chatApi = {
-  getChats: (params?: any) => 
-    axios.get(`${API_BASE_URL}/chats`, { params }),
-  getChatById: (id: string) => 
-    axios.get(`${API_BASE_URL}/chats/${id}`),
-  getChatMessages: (chatId: string, params?: any) => 
-    axios.get(`${API_BASE_URL}/chats/${chatId}/messages`, { params }),
-  sendMessage: (chatId: string, messageData: any) => 
-    axios.post(`${API_BASE_URL}/chats/${chatId}/messages`, messageData),
-  markAsRead: (chatId: string) => 
-    axios.put(`${API_BASE_URL}/chats/${chatId}/read`),
+  getConversations: () =>
+    axios.get(`${API_BASE_URL}/chat/conversations`),
+  getConversationById: (conversationId: string) =>
+    axios.get(`${API_BASE_URL}/chat/conversations/${conversationId}`),
+  getMessages: (conversationId: string, params?: any) =>
+    axios.get(`${API_BASE_URL}/chat/conversations/${conversationId}/messages`, { params }),
+  markAsRead: (conversationId: string) =>
+    axios.put(`${API_BASE_URL}/chat/conversations/${conversationId}/read`),
 };
 
 // Configure axios defaults

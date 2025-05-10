@@ -43,6 +43,7 @@ export interface Notification {
 }
 
 export interface ChatMessage {
+  id?: string; // <-- add this line
   content: string
   conversationId: string
   rescueCompanyId?: string
@@ -101,7 +102,7 @@ class WebSocketServiceImpl implements WebSocketService {
         brokerURL: wsUrl,
         connectHeaders: {},
         debug: (str) => {
-          console.log("STOMP: " + str)
+          // console.log("STOMP: " + str)
         },
         reconnectDelay: 5000,
         heartbeatIncoming: 4000,
@@ -110,7 +111,7 @@ class WebSocketServiceImpl implements WebSocketService {
 
       // Set up connection handlers
       client.onConnect = (frame) => {
-        console.log("Connected: " + frame)
+        // console.log("Connected: " + frame)
         this._connected = true
 
         // Subscribe to personal notifications
@@ -131,7 +132,7 @@ class WebSocketServiceImpl implements WebSocketService {
       }
 
       client.onDisconnect = () => {
-        console.log("Disconnected")
+        // console.log("Disconnected")
         this._connected = false
         this.subscriptions = []
       }
@@ -156,7 +157,7 @@ class WebSocketServiceImpl implements WebSocketService {
       this.client.deactivate()
       this.client = null
       this._connected = false
-      console.log("WebSocket disconnected")
+      // console.log("WebSocket disconnected")
     }
   }
 
@@ -166,7 +167,7 @@ class WebSocketServiceImpl implements WebSocketService {
     const personalSub = this.client.subscribe("/user/queue/notifications", (messageOutput: Message) => {
       try {
         const message = JSON.parse(messageOutput.body)
-        console.log("Personal notification received:", message)
+        // console.log("Personal notification received:", message)
         this.notifySubscribers(message)
       } catch (error) {
         console.error("Error parsing personal notification:", error)
@@ -242,7 +243,7 @@ export function useWebSocket() {
   const [connected, setConnected] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
 
-  console.log("useWebSocket hook rendered, user:", user)
+  // console.log("useWebSocket hook rendered, user:", user)
   
   // Update connection state when it changes
   useEffect(() => {

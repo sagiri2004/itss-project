@@ -11,6 +11,8 @@ import { useWebSocketContext } from "../../context/websocket-context"
 import type { ChatMessage } from "../../services/websocket-service"
 import type { Message } from "@/types/chat"
 
+type ChatHistoryItem = ChatMessage & { id: string }
+
 export interface ChatInterfaceProps {
   requestId: string;
   currentUserId: string;
@@ -20,8 +22,12 @@ export interface ChatInterfaceProps {
   onSendMessage: (message: Omit<Message, "id" | "timestamp">) => Promise<void>;
   onPriceResponse: (accepted: boolean, reason?: string) => Promise<void>;
   isLoading: boolean;
+  isLoadingMore?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => Promise<void>;
   currentPrice: number;
   requestStatus: string;
+  rescueCompanyId?: string;
 }
 
 export function ChatInterface({
@@ -33,31 +39,54 @@ export function ChatInterface({
   onSendMessage,
   onPriceResponse,
   isLoading,
+  isLoadingMore,
+  hasMore,
+  onLoadMore,
   currentPrice,
   requestStatus,
+  rescueCompanyId,
 }: ChatInterfaceProps) {
   const [message, setMessage] = useState("")
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([])
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([])
   const { user } = useAuth()
   const { connected, messages, sendMessage } = useWebSocketContext()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Filter messages for this specific conversation
+  // Set chatHistory from initialMessages when they change (API response)
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      // Convert Message[] to {id, ...ChatMessage}
+      const mapped: ChatHistoryItem[] = initialMessages.map((msg: any) => ({
+        id: msg.id,
+        content: msg.content,
+        conversationId: msg.conversationId || requestId,
+        userId: msg.senderId || msg.userId || "",
+        rescueCompanyId: msg.rescueCompanyId || undefined,
+        senderType: msg.senderType || "USER",
+        isRead: msg.read ?? msg.isRead ?? false,
+        sentAt: msg.sentAt || msg.timestamp || "",
+      }))
+      setChatHistory(mapped)
+    } else {
+      setChatHistory([])
+    }
+  }, [initialMessages, requestId])
+
+  // Append new messages from WebSocket
   useEffect(() => {
     if (messages && messages.length > 0) {
       const filteredMessages = messages.filter((msg) => msg.conversationId === requestId)
-
       if (filteredMessages.length > 0) {
         setChatHistory((prev) => {
+          // Only add messages that are not already in chatHistory (by content, sentAt, senderType)
           const newMessages = filteredMessages.filter(
-            (newMsg) =>
-              !prev.some(
-                (existingMsg) =>
-                  // Identify unique messages (this is a simple approach, you might need a more robust one)
-                  existingMsg.content === newMsg.content && existingMsg.sentAt === newMsg.sentAt,
-              ),
-          )
-
+            (newMsg) => !prev.some((existingMsg) =>
+              existingMsg.content === newMsg.content &&
+              existingMsg.sentAt === newMsg.sentAt &&
+              existingMsg.senderType === newMsg.senderType
+            )
+          ).map((msg) => ({ ...msg, id: msg.id || Math.random().toString(36).slice(2) })) as ChatHistoryItem[]
           return [...prev, ...newMessages]
         })
       }
@@ -66,9 +95,8 @@ export function ChatInterface({
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollArea = scrollAreaRef.current
-      scrollArea.scrollTop = scrollArea.scrollHeight
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
     }
   }, [chatHistory])
 
@@ -81,7 +109,7 @@ export function ChatInterface({
       content: message,
       conversationId: requestId,
       userId: currentUserId,
-      rescueCompanyId: currentUserRole === "RESCUE_COMPANY" ? currentUserId : undefined,
+      rescueCompanyId: currentUserRole === "RESCUE_COMPANY" ? currentUserId : rescueCompanyId,
       senderType: user.role === "company" ? "RESCUE_COMPANY" : "USER",
       isRead: false,
       sentAt: new Date().toISOString(),
@@ -90,14 +118,24 @@ export function ChatInterface({
     sendMessage(newMessage)
 
     // Optimistically add to chat history
-    setChatHistory((prev) => [...prev, newMessage])
+    setChatHistory((prev) => [
+      ...prev,
+      { ...newMessage, id: Math.random().toString(36).slice(2) } as ChatHistoryItem
+    ])
 
     // Clear input
     setMessage("")
   }
 
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop } = e.currentTarget
+    if (scrollTop === 0 && hasMore && !isLoadingMore && onLoadMore) {
+      onLoadMore()
+    }
+  }
+
   return (
-    <div className={`flex flex-col h-full border rounded-lg`}>
+    <div className="flex flex-col h-full border rounded-lg">
       <div className="p-4 border-b bg-muted/30">
         <h3 className="font-medium">
           {connected ? (
@@ -114,15 +152,21 @@ export function ChatInterface({
         </h3>
       </div>
 
-      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef} onScroll={handleScroll}>
         <div className="space-y-4">
+          {isLoadingMore && (
+            <div className="flex justify-center py-2">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            </div>
+          )}
+          
           {chatHistory.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">No messages yet. Start the conversation!</p>
           ) : (
             chatHistory.map((msg, index) => {
               const isCurrentUser = msg.senderType === (user?.role === "company" ? "RESCUE_COMPANY" : "USER")
               return (
-                <div key={index} className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
+                <div key={msg.id || index} className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
                   <div className={`flex items-start gap-2 max-w-[80%] ${isCurrentUser ? "flex-row-reverse" : ""}`}>
                     <Avatar className="h-8 w-8">
                       <span className="sr-only">
@@ -138,7 +182,9 @@ export function ChatInterface({
                       <div
                         className={`text-xs mt-1 ${isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"}`}
                       >
-                        {new Date(msg.sentAt).toLocaleTimeString()}
+                        {msg.sentAt && !isNaN(Date.parse(msg.sentAt))
+                          ? new Date(msg.sentAt).toLocaleTimeString()
+                          : ""}
                       </div>
                     </div>
                   </div>
@@ -146,6 +192,7 @@ export function ChatInterface({
               )
             })
           )}
+          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 

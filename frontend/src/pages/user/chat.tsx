@@ -7,39 +7,63 @@ import { useAuth } from "@/context/auth-context"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { ArrowLeft, Loader2 } from "lucide-react"
-import {ChatInterface} from "@/components/chat/chat-interface"
+import { ChatInterface } from "@/components/chat/chat-interface"
 import type { Message } from "@/types/chat"
-import type { Chat, MessageType, RequestDetails } from "@/types/chat"
 import api from "@/services/api"
+import { useWebSocketContext } from "@/context/websocket-context"
 
 export default function UserChat() {
   const { user } = useAuth()
-  const { id: requestId } = useParams()
+  const { id: conversationId } = useParams()
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { notifications } = useWebSocketContext()
 
   const [isLoading, setIsLoading] = useState(false)
-  const [chat, setChat] = useState<Chat | null>(null)
-  const [requestDetails, setRequestDetails] = useState<RequestDetails | null>(null)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [chat, setChat] = useState<any | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(true)
 
-  // Fetch chat data
+  const fetchMessages = async (cursor?: string) => {
+    if (!conversationId) return
+    try {
+      const response = await api.chats.getMessages(conversationId, {
+        cursor,
+        limit: 20,
+        sort: 'desc',
+        markAsRead: true
+      })
+      
+      const newMessages = response.data.messages || response.data
+      if (cursor) {
+        setMessages(prev => [...prev, ...newMessages])
+      } else {
+        setMessages(newMessages)
+      }
+      
+      setNextCursor(response.data.nextCursor || null)
+      setHasMore(!!response.data.nextCursor)
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error loading messages",
+        description: error.response?.data?.message || "Could not load messages. Please try again.",
+      })
+    }
+  }
+
   useEffect(() => {
     const fetchChatData = async () => {
-      if (!requestId) return
-      
+      if (!conversationId) return
       setIsLoading(true)
       try {
-        // Fetch chat data
-        const chatResponse = await api.chats.getChatById(requestId)
+        // Fetch conversation
+        const chatResponse = await api.chats.getConversationById(conversationId)
         setChat(chatResponse.data)
-
-        // Fetch request details
-        const requestResponse = await api.rescueRequests.getRequestById(requestId)
-        setRequestDetails({
-          id: requestId,
-          status: requestResponse.data.status,
-          currentPrice: requestResponse.data.price || 0,
-        })
+        // Fetch initial messages
+        await fetchMessages()
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -50,108 +74,34 @@ export default function UserChat() {
         setIsLoading(false)
       }
     }
-
     fetchChatData()
-  }, [requestId, toast])
+  }, [conversationId, toast])
 
-  const handleSendMessage = async (message: Omit<Message, "id" | "timestamp">) => {
-    if (!requestId) return
-    
-    setIsLoading(true)
+  useEffect(() => {
+    if (!conversationId) return;
+    if (!notifications || notifications.length === 0) return;
+    const latest = notifications[0]; // notifications are prepended
+    if (
+      latest.type === "CHAT" &&
+      latest.additionalData?.conversationId === conversationId
+    ) {
+      fetchMessages();
+    }
+  }, [notifications, conversationId]);
+
+  const loadMoreMessages = async () => {
+    if (!nextCursor || isLoadingMore) return
+    setIsLoadingMore(true)
     try {
-      const response = await api.chats.sendMessage(requestId, {
-        content: message.content,
-        type: message.type,
-        metadata: message.metadata,
-      })
-
-      setChat((prev) => {
-        if (!prev) return prev
-        return {
-          ...prev,
-          messages: [...prev.messages, response.data],
-          lastUpdated: new Date().toISOString(),
-        }
-      })
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error sending message",
-        description: error.response?.data?.message || "Could not send message. Please try again.",
-      })
+      await fetchMessages(nextCursor)
     } finally {
-      setIsLoading(false)
+      setIsLoadingMore(false)
     }
   }
 
-  const handlePriceResponse = async (accepted: boolean, reason?: string) => {
-    if (!requestId || !requestDetails) return
-    
-    setIsLoading(true)
-    try {
-      const response = await api.rescueRequests.updateRequest(requestId, {
-        status: accepted ? "PRICE_ACCEPTED" : "PRICE_REJECTED",
-        price: accepted ? requestDetails.currentPrice : undefined,
-        reason: reason || "",
-      })
-
-      // Update request details with new price if accepted
-      if (accepted) {
-        setRequestDetails((prev) => ({
-          ...prev!,
-          currentPrice: response.data.price,
-          status: response.data.status,
-        }))
-      } else {
-        // If rejected, update chat status to closed
-        setChat((prev) => {
-          if (!prev) return null
-          return {
-            ...prev,
-            status: "CLOSED",
-            lastUpdated: new Date().toISOString(),
-          }
-        })
-
-        toast({
-          title: "Price rejected",
-          description: "You have rejected the price offer. This conversation will be archived.",
-        })
-      }
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error responding to price offer",
-        description: error.response?.data?.message || "Could not process your response. Please try again.",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 260,
-        damping: 20,
-      },
-    },
-  }
+  // Không dùng sendMessage API ở đây, chỉ demo nhận message
+  const handleSendMessage = async () => {}
+  const handlePriceResponse = async () => {}
 
   if (isLoading && !chat) {
     return (
@@ -164,7 +114,7 @@ export default function UserChat() {
     )
   }
 
-  if (!chat || !requestDetails) {
+  if (!chat) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
         <div className="text-center">
@@ -175,26 +125,29 @@ export default function UserChat() {
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="h-[calc(100vh-12rem)]">
-      <motion.div variants={itemVariants} className="flex items-center mb-4">
-        <Button variant="outline" size="icon" onClick={() => navigate(`/user/requests/${requestId}`)}>
+    <motion.div className="h-[calc(100vh-12rem)]">
+      <motion.div className="flex items-center mb-4">
+        <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-2xl font-bold ml-2">Chat with Service Provider</h1>
       </motion.div>
-
-      <motion.div variants={itemVariants} className="h-[calc(100%-3rem)]">
+      <motion.div className="h-[calc(100%-3rem)]">
         <ChatInterface
-          requestId={requestId || ""}
+          requestId={conversationId || ""}
           currentUserId={user?.id || ""}
+          rescueCompanyId={typeof chat.company === 'object' ? chat.company.id : undefined}
           currentUserRole="user"
-          otherPartyName={chat.participants.find((p: any) => p.role === "company")?.name || "Service Provider"}
-          initialMessages={chat.messages}
+          otherPartyName={chat.company?.name || "Service Provider"}
+          initialMessages={messages}
           onSendMessage={handleSendMessage}
           onPriceResponse={handlePriceResponse}
           isLoading={isLoading}
-          currentPrice={requestDetails.currentPrice}
-          requestStatus={requestDetails.status}
+          isLoadingMore={isLoadingMore}
+          hasMore={hasMore}
+          onLoadMore={loadMoreMessages}
+          currentPrice={0}
+          requestStatus={""}
         />
       </motion.div>
     </motion.div>

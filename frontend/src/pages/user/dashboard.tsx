@@ -32,10 +32,13 @@ interface Invoice {
 
 interface Chat {
   id: string
-  company: string
-  lastMessage: string
+  company: string | { name: string }
+  lastMessage: string | { content: string }
   unread: number
+  unreadCount?: number
   date: string
+  updatedAt?: string
+  timestamp?: string
 }
 
 // Hàm lấy địa chỉ từ lat/lon bằng Nominatim
@@ -72,9 +75,11 @@ export default function UserDashboard() {
       try {
         const [requestsRes, invoicesRes, chatsRes] = await Promise.all([
           api.rescueRequests.getRequests(),
-          api.invoices.getInvoices(),
-          api.chats.getChats(),
+          api.invoices.getUserInvoices(),
+          api.chats.getConversations(),
         ])
+
+        console.log("chatsRes", chatsRes)
 
         // Map requests và lấy địa chỉ từ lat/lon
         const mappedRequests = await Promise.all(
@@ -119,7 +124,7 @@ export default function UserDashboard() {
         )
 
         setPendingInvoices(invoicesRes.data.filter((inv: any) => inv.status === "PENDING").length)
-        setUnreadMessages(chatsRes.data.reduce((total: number, chat: any) => total + chat.unread, 0))
+        setUnreadMessages(chatsRes.data.reduce((total: number, chat: any) => total + (chat.unreadCount || 0), 0))
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -347,30 +352,37 @@ export default function UserDashboard() {
             animate="visible"
             className="grid gap-4 md:grid-cols-2"
           >
-            {chats.slice(0, 4).map((chat) => (
-              <motion.div key={chat.id} variants={itemVariants}>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">{chat.company}</CardTitle>
-                      {chat.unread > 0 && (
-                        <Badge variant="default" className="ml-2">
-                          {chat.unread} new
-                        </Badge>
-                      )}
-                    </div>
-                    <CardDescription>
-                      {new Date(chat.date).toLocaleDateString()} • {chat.lastMessage}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardFooter>
-                    <Button asChild variant="ghost" size="sm" className="w-full">
-                      <Link to={`/user/chats/${chat.id}`}>View Chat</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            ))}
+            {chats.slice(0, 4).map((chat) => {
+              // Fallbacks for compatibility with both old and new chat data
+              const companyName = typeof chat.company === 'string' ? chat.company : chat.company?.name || 'Unknown';
+              const unreadCount = chat.unreadCount ?? chat.unread ?? 0;
+              const updatedAt = chat.updatedAt ?? chat.timestamp ?? '';
+              const lastMessageContent = typeof chat.lastMessage === 'string' ? chat.lastMessage : chat.lastMessage?.content || '';
+              return (
+                <motion.div key={chat.id} variants={itemVariants}>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base">{companyName}</CardTitle>
+                        {unreadCount > 0 && (
+                          <Badge variant="default" className="ml-2">
+                            {unreadCount} new
+                          </Badge>
+                        )}
+                      </div>
+                      <CardDescription>
+                        {updatedAt ? new Date(updatedAt).toLocaleDateString() : ''} • {lastMessageContent}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardFooter>
+                      <Button asChild variant="ghost" size="sm" className="w-full">
+                        <Link to={`/user/chat/${chat.id}`}>View Chat</Link>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                </motion.div>
+              );
+            })}
           </motion.div>
 
           <div className="flex justify-center">

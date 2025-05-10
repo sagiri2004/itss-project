@@ -14,13 +14,12 @@ import api from "@/services/api"
 
 interface Chat {
   id: string
-  requestId: string
-  companyId: string
-  companyName: string
-  lastMessage: string
-  timestamp: string
-  unread: number
-  status: "ACTIVE" | "COMPLETED" | "PRICE_NEGOTIATION" | "CLOSED"
+  user: { id: string; name: string }
+  company: { id: string; name: string }
+  lastMessage?: { id: string; content: string; senderType: string; sentAt: string }
+  unreadCount: number
+  hasUnreadMessages: boolean
+  updatedAt: string
 }
 
 export default function UserChats() {
@@ -33,7 +32,7 @@ export default function UserChats() {
   useEffect(() => {
     const fetchChats = async () => {
       try {
-        const response = await api.chats.getChats()
+        const response = await api.chats.getConversations()
         setChats(response.data)
       } catch (error: any) {
         toast({
@@ -45,15 +44,14 @@ export default function UserChats() {
         setIsLoading(false)
       }
     }
-
     fetchChats()
   }, [toast])
 
   // Filter chats based on search term
   const filteredChats = chats.filter(
     (chat) =>
-      chat.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase()),
+      chat.company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (chat.lastMessage?.content || "").toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   // Animation variants
@@ -165,26 +163,26 @@ export default function UserChats() {
                     key={chat.id}
                     variants={itemVariants}
                     className={`relative rounded-lg border p-4 transition-colors hover:bg-accent/50 ${
-                      chat.unread > 0 ? "border-primary/50 bg-primary/5" : ""
+                      chat.unreadCount > 0 ? "border-primary/50 bg-primary/5" : ""
                     }`}
                   >
                     <Link to={`/user/chat/${chat.id}`} className="block">
                       <div className="flex items-start gap-4">
                         <Avatar>
-                          <AvatarImage src={`https://avatar.vercel.sh/${chat.companyName}`} />
-                          <AvatarFallback>{chat.companyName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                          <AvatarImage src={`https://avatar.vercel.sh/${chat.company.name}`} />
+                          <AvatarFallback>{chat.company.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 space-y-1">
                           <div className="flex items-center justify-between">
-                            <h4 className="font-medium">{chat.companyName}</h4>
-                            <span className="text-xs text-muted-foreground">{formatDate(chat.timestamp)}</span>
+                            <h4 className="font-medium">{chat.company.name}</h4>
+                            <span className="text-xs text-muted-foreground">{formatDate(chat.updatedAt)}</span>
                           </div>
-                          <p className="line-clamp-1 text-sm text-muted-foreground">{chat.lastMessage}</p>
+                          <p className="line-clamp-1 text-sm text-muted-foreground">{chat.lastMessage?.content}</p>
                           <div className="flex items-center justify-between pt-1">
-                            <div>{getStatusBadge(chat.status)}</div>
-                            {chat.unread > 0 && (
+                            <div>{getStatusBadge(chat.hasUnreadMessages ? "ACTIVE" : "CLOSED")}</div>
+                            {chat.unreadCount > 0 && (
                               <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                                {chat.unread}
+                                {chat.unreadCount}
                               </div>
                             )}
                           </div>

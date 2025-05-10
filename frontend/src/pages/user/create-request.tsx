@@ -15,16 +15,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, MapPin, AlertTriangle } from "lucide-react"
 import api from "@/services/api"
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet"
+import L from "leaflet"
+import "leaflet/dist/leaflet.css"
 
 interface Service {
   id: string
   name: string
   description: string
   price: number
+  type: string
+  companyName: string
+  distance?: number
+  company?: {
+    latitude: number
+    longitude: number
+    name: string
+  }
 }
 
 interface RequestData {
-  serviceId: string
+  rescueServiceId: string
   location: string
   vehicleMake: string
   vehicleModel: string
@@ -41,13 +52,17 @@ export default function CreateRequest() {
   const [services, setServices] = useState<Service[]>([])
   const [formData, setFormData] = useState({
     serviceType: "",
+    serviceTypeEnum: "",
     location: "",
     vehicleMake: "",
     vehicleModel: "",
     vehicleYear: "",
     description: "",
     useCurrentLocation: false,
+    selectedNearbyService: null as string | null,
   })
+  const [nearbyServices, setNearbyServices] = useState<Service[]>([])
+  const [isLoadingNearby, setIsLoadingNearby] = useState(false)
 
   useEffect(() => {
     fetchServices()
@@ -72,7 +87,16 @@ export default function CreateRequest() {
   }
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    if (name === "serviceType") {
+      const selected = services.find((s) => s.id === value)
+      setFormData((prev) => ({
+        ...prev,
+        serviceType: value,
+        serviceTypeEnum: selected?.type || "",
+      }))
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }))
+    }
   }
 
   const handleUseCurrentLocation = () => {
@@ -108,18 +132,47 @@ export default function CreateRequest() {
     }
   }
 
+  const fetchNearbyServices = async () => {
+    setIsLoadingNearby(true)
+    try {
+      const [lat, lng] = formData.location.split(",").map(Number)
+      const response = await api.rescueServices.getServices({
+        latitude: lat,
+        longitude: lng,
+        serviceType: formData.serviceTypeEnum,
+        limit: 5,
+      })
+      setNearbyServices(response.data)
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch nearby services. Please try again.",
+      })
+    } finally {
+      setIsLoadingNearby(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      const requestData: RequestData = {
-        serviceId: formData.serviceType,
-        location: formData.location,
+      let latitude, longitude;
+      if (formData.location && formData.location.includes(',')) {
+        [latitude, longitude] = formData.location.split(',').map(Number);
+      }
+      const requestData: any = {
+        rescueServiceId: formData.serviceType,
         vehicleMake: formData.vehicleMake,
         vehicleModel: formData.vehicleModel,
         vehicleYear: parseInt(formData.vehicleYear),
         description: formData.description,
+      };
+      if (latitude !== undefined && longitude !== undefined) {
+        requestData.latitude = latitude;
+        requestData.longitude = longitude;
       }
 
       await api.rescueRequests.createRequest(requestData)
@@ -142,7 +195,9 @@ export default function CreateRequest() {
   }
 
   const nextStep = () => {
-    setCurrentStep((prev) => prev + 1)
+    if (currentStep < 4) {
+      setCurrentStep((prev) => prev + 1)
+    }
   }
 
   const prevStep = () => {
@@ -173,6 +228,24 @@ export default function CreateRequest() {
     },
   }
 
+  // Helper để lấy center hợp lệ cho map
+  function getMapCenter(services: Service[]): [number, number] {
+    for (const s of services) {
+      if (s.company && typeof s.company.latitude === 'number' && typeof s.company.longitude === 'number') {
+        return [s.company.latitude, s.company.longitude]
+      }
+    }
+    return [21, 105.8]
+  }
+
+  // Custom icon cho vị trí xe (user), có thể thay iconUrl nếu muốn
+  const userIcon = new L.Icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32],
+  });
+
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="mx-auto max-w-2xl space-y-6">
       <motion.div variants={itemVariants}>
@@ -183,10 +256,10 @@ export default function CreateRequest() {
       </motion.div>
 
       <motion.div variants={itemVariants} className="flex justify-between">
-        {[1, 2, 3].map((step) => (
+        {[1, 2, 3, 4].map((step) => (
           <div
             key={step}
-            className={`flex flex-1 items-center ${step < 3 ? "after:content-[''] after:h-[2px] after:flex-1 after:mx-2 after:bg-muted" : ""}`}
+            className={`flex flex-1 items-center ${step < 4 ? "after:content-[''] after:h-[2px] after:flex-1 after:mx-2 after:bg-muted" : ""}`}
           >
             <div
               className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
@@ -208,17 +281,19 @@ export default function CreateRequest() {
           <CardHeader>
             <CardTitle>
               {currentStep === 1 && "Service Information"}
-              {currentStep === 2 && "Vehicle Information"}
-              {currentStep === 3 && "Review & Submit"}
+              {currentStep === 2 && "Select Nearby Service"}
+              {currentStep === 3 && "Vehicle Information"}
+              {currentStep === 4 && "Review & Submit"}
             </CardTitle>
             <CardDescription>
               {currentStep === 1 && "Select the type of service you need and your location"}
-              {currentStep === 2 && "Provide details about your vehicle"}
-              {currentStep === 3 && "Review your request details before submitting"}
+              {currentStep === 2 && "Choose a nearby service provider for your request"}
+              {currentStep === 3 && "Provide details about your vehicle"}
+              {currentStep === 4 && "Review your request details before submitting"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={e => e.preventDefault()}>
               {currentStep === 1 && (
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -274,6 +349,82 @@ export default function CreateRequest() {
 
               {currentStep === 2 && (
                 <div className="space-y-4">
+                  <Button type="button" onClick={fetchNearbyServices} disabled={isLoadingNearby || !formData.location || !formData.serviceTypeEnum}>
+                    {isLoadingNearby ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Find Nearby Services
+                  </Button>
+                  <div className="text-sm text-muted-foreground">You can select a service by clicking a marker on the map or choosing from the list below.</div>
+                  {nearbyServices.length > 0 && (
+                    <div style={{ height: 350, width: "100%", marginBottom: 16 }}>
+                      <MapContainer
+                        center={getMapCenter(nearbyServices)}
+                        zoom={13}
+                        style={{ height: "100%", width: "100%" }}
+                        scrollWheelZoom={true}
+                      >
+                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                        {/* User vehicle position marker */}
+                        {formData.location && formData.location.includes(',') && (() => {
+                          const [userLat, userLng] = formData.location.split(',').map(Number)
+                          return (
+                            <Marker position={[userLat, userLng]} icon={userIcon}>
+                              <Popup>
+                                <div><b>Your vehicle location</b></div>
+                              </Popup>
+                            </Marker>
+                          )
+                        })()}
+                        {nearbyServices.map((service) =>
+                          service.company?.latitude && service.company?.longitude ? (
+                            <Marker
+                              key={service.id}
+                              position={[service.company.latitude, service.company.longitude]}
+                              eventHandlers={{
+                                click: () => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    selectedNearbyService: service.id,
+                                  }))
+                                },
+                              }}
+                              icon={
+                                formData.selectedNearbyService === service.id
+                                  ? new L.Icon.Default({ className: "selected-marker" })
+                                  : new L.Icon.Default()
+                              }
+                            >
+                              <Popup>
+                                <div>
+                                  <div className="font-semibold">{service.name}</div>
+                                  <div>{service.description}</div>
+                                  <div>Price: {service.price}</div>
+                                  <div>Company: {service.company?.name}</div>
+                                  <button
+                                    className="mt-2 px-2 py-1 bg-primary text-white rounded"
+                                    type="button"
+                                    onMouseDown={e => {
+                                      e.stopPropagation();
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        selectedNearbyService: service.id,
+                                      }));
+                                    }}
+                                  >
+                                    Select this service
+                                  </button>
+                                </div>
+                              </Popup>
+                            </Marker>
+                          ) : null
+                        )}
+                      </MapContainer>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {currentStep === 3 && (
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="vehicleMake">Vehicle Make</Label>
                     <Input
@@ -312,7 +463,7 @@ export default function CreateRequest() {
                 </div>
               )}
 
-              {currentStep === 3 && (
+              {currentStep === 4 && (
                 <div className="space-y-4">
                   <div className="rounded-lg border p-4">
                     <h3 className="font-semibold mb-2">Service Information</h3>
@@ -326,6 +477,9 @@ export default function CreateRequest() {
                       </p>
                       <p>
                         <span className="font-medium">Description:</span> {formData.description}
+                      </p>
+                      <p>
+                        <span className="font-medium">Selected Service:</span> {nearbyServices.find((s) => s.id === formData.selectedNearbyService)?.name}
                       </p>
                     </div>
                   </div>
@@ -366,12 +520,12 @@ export default function CreateRequest() {
                     Previous
                   </Button>
                 )}
-                {currentStep < 3 ? (
-                  <Button type="button" onClick={nextStep}>
+                {currentStep < 4 ? (
+                  <Button type="button" onClick={nextStep} disabled={currentStep === 2 && !formData.selectedNearbyService}>
                     Next
                   </Button>
                 ) : (
-                  <Button type="submit" disabled={isLoading}>
+                  <Button type="button" onClick={handleSubmit} disabled={isLoading}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Submit Request
                   </Button>
