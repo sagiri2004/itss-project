@@ -9,71 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Car, Clock, AlertCircle, PlusCircle, Wrench, Truck, DollarSign } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
-// Mock data
-const mockRequests = [
-  {
-    id: "req-001",
-    service: "Flat Tire Replacement",
-    status: "ACCEPTED_BY_COMPANY",
-    date: "2023-05-01T10:30:00",
-    user: "John Doe",
-    location: "123 Main St, Anytown",
-    price: 85.0,
-  },
-  {
-    id: "req-002",
-    service: "Battery Jump Start",
-    status: "IN_PROGRESS",
-    date: "2023-05-05T14:15:00",
-    user: "Jane Smith",
-    location: "456 Oak Ave, Somewhere",
-    price: 65.0,
-  },
-  {
-    id: "req-003",
-    service: "Vehicle Towing",
-    status: "CREATED",
-    date: "2023-05-07T09:00:00",
-    user: "Bob Johnson",
-    location: "789 Pine Rd, Nowhere",
-    price: null,
-  },
-  {
-    id: "req-004",
-    service: "Fuel Delivery",
-    status: "COMPLETED",
-    date: "2023-05-03T11:20:00",
-    user: "Alice Brown",
-    location: "321 Elm St, Anytown",
-    price: 75.0,
-  },
-]
-
-const mockVehicles = [
-  {
-    id: "veh-001",
-    name: "Tow Truck #1",
-    type: "Tow Truck",
-    status: "AVAILABLE",
-    lastMaintenance: "2023-04-15",
-  },
-  {
-    id: "veh-002",
-    name: "Service Van #1",
-    type: "Service Van",
-    status: "IN_USE",
-    lastMaintenance: "2023-04-20",
-  },
-  {
-    id: "veh-003",
-    name: "Tow Truck #2",
-    type: "Tow Truck",
-    status: "MAINTENANCE",
-    lastMaintenance: "2023-05-05",
-  },
-]
+import { mockRequests, mockCompanyVehicles } from "@/data/mock-data"
 
 export default function CompanyDashboard() {
   const { user } = useAuth()
@@ -106,7 +43,7 @@ export default function CompanyDashboard() {
 
     setCompletedRequests(mockRequests.filter((req) => ["COMPLETED", "INVOICED", "PAID"].includes(req.status)).length)
 
-    setAvailableVehicles(mockVehicles.filter((veh) => veh.status === "AVAILABLE").length)
+    setAvailableVehicles(mockCompanyVehicles.filter((veh) => veh.status === "AVAILABLE").length)
 
     // Calculate total revenue from completed requests
     setTotalRevenue(
@@ -220,7 +157,6 @@ export default function CompanyDashboard() {
           <TabsTrigger value="pending">Pending Requests</TabsTrigger>
           <TabsTrigger value="active">Active Requests</TabsTrigger>
           <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
-          <TabsTrigger value="chats">Recent Chats</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="space-y-4">
@@ -247,7 +183,7 @@ export default function CompanyDashboard() {
                     <CardContent className="pb-2">
                       <div className="flex items-center text-sm">
                         <Car className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>Customer: {request.user}</span>
+                        <span>Customer: {request.user.name}</span>
                       </div>
                     </CardContent>
                     <CardFooter className="flex justify-between">
@@ -301,7 +237,7 @@ export default function CompanyDashboard() {
                     <CardContent className="pb-2">
                       <div className="flex items-center text-sm">
                         <Car className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>Customer: {request.user}</span>
+                        <span>Customer: {request.user.name}</span>
                       </div>
                       {request.price && <div className="mt-2 text-sm font-medium">${request.price.toFixed(2)}</div>}
                     </CardContent>
@@ -324,7 +260,7 @@ export default function CompanyDashboard() {
             animate="visible"
             className="grid gap-4 md:grid-cols-2"
           >
-            {mockVehicles.map((vehicle) => (
+            {mockCompanyVehicles.map((vehicle) => (
               <motion.div key={vehicle.id} variants={itemVariants}>
                 <Card>
                   <CardHeader className="pb-2">
@@ -362,66 +298,6 @@ export default function CompanyDashboard() {
             </Button>
           </div>
         </TabsContent>
-
-        <TabsContent value="chats" className="space-y-4">
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="grid gap-4 md:grid-cols-2"
-          >
-            {[
-              {
-                id: "chat-001",
-                userName: "John Doe",
-                service: "Flat Tire Replacement",
-                lastMessage: "We'll be there in about 15 minutes.",
-                timestamp: new Date().toISOString(),
-                unread: 2,
-              },
-              {
-                id: "chat-002",
-                userName: "Jane Smith",
-                service: "Battery Jump Start",
-                lastMessage: "Your invoice has been generated. Please check your email.",
-                timestamp: new Date(Date.now() - 3600000).toISOString(),
-                unread: 0,
-              },
-            ].map((chat) => (
-              <motion.div key={chat.id} variants={itemVariants}>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">{chat.userName}</CardTitle>
-                      {chat.unread > 0 && (
-                        <Badge variant="default">
-                          {chat.unread} new {chat.unread === 1 ? "message" : "messages"}
-                        </Badge>
-                      )}
-                    </div>
-                    <CardDescription>
-                      {new Date(chat.timestamp).toLocaleDateString()} • {chat.service}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pb-2">
-                    <div className="line-clamp-1 text-sm text-muted-foreground">{chat.lastMessage}</div>
-                  </CardContent>
-                  <CardFooter>
-                    <Button asChild variant="ghost" size="sm" className="w-full">
-                      <Link to={`/company/chat/${chat.id}`}>View Conversation</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          <div className="flex justify-center">
-            <Button asChild variant="outline">
-              <Link to="/company/chats">View All Conversations</Link>
-            </Button>
-          </div>
-        </TabsContent>
       </Tabs>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
@@ -449,34 +325,6 @@ export default function CompanyDashboard() {
                   <span>View All Requests</span>
                 </Link>
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Company Profile</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-start gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={`https://avatar.vercel.sh/company`} />
-                <AvatarFallback>CO</AvatarFallback>
-              </Avatar>
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">Your Company</h3>
-                <p className="text-sm text-muted-foreground">Roadside Assistance Provider</p>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">Towing</Badge>
-                  <Badge variant="outline">Battery Service</Badge>
-                  <Badge variant="outline">Tire Change</Badge>
-                </div>
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/company/profile">Edit Profile</Link>
-                </Button>
-              </div>
             </div>
           </CardContent>
         </Card>

@@ -13,38 +13,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, User, Mail, Phone, Calendar, MapPin, Car, Shield } from "lucide-react"
-
-// Mock user data
-const mockUserDetails = {
-  id: "user-123",
-  name: "John Doe",
-  email: "john@example.com",
-  phone: "+1 (555) 123-4567",
-  address: "123 Main St, Anytown, USA",
-  joinDate: "2023-01-15",
-  vehicles: [
-    {
-      id: "veh-001",
-      make: "Toyota",
-      model: "Camry",
-      year: 2020,
-      licensePlate: "ABC-1234",
-    },
-    {
-      id: "veh-002",
-      make: "Honda",
-      model: "Civic",
-      year: 2018,
-      licensePlate: "XYZ-5678",
-    },
-  ],
-}
+import api from "@/services/api"
 
 export default function UserProfile() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
-  const [userDetails, setUserDetails] = useState(mockUserDetails)
+  const [userDetails, setUserDetails] = useState<any>(null)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -53,15 +28,28 @@ export default function UserProfile() {
   })
 
   useEffect(() => {
-    // In a real app, fetch user details from API
-    // For now, use mock data
-    setFormData({
-      name: userDetails.name,
-      email: userDetails.email,
-      phone: userDetails.phone,
-      address: userDetails.address,
-    })
-  }, [userDetails])
+    const fetchUserProfile = async () => {
+      try {
+        const response = await api.users.getProfile()
+        const userData = response.data
+        setUserDetails(userData)
+        setFormData({
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone,
+          address: userData.address,
+        })
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.response?.data?.message || "Failed to load user profile",
+        })
+      }
+    }
+
+    fetchUserProfile()
+  }, [toast])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -76,24 +64,19 @@ export default function UserProfile() {
     setIsLoading(true)
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await api.users.updateProfile(formData)
+      const updatedUser = response.data
 
-      // Update user details
-      setUserDetails((prev) => ({
-        ...prev,
-        ...formData,
-      }))
-
+      setUserDetails(updatedUser)
       toast({
         title: "Profile updated",
         description: "Your profile information has been updated successfully.",
       })
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Update failed",
-        description: "There was an error updating your profile.",
+        description: error.response?.data?.message || "There was an error updating your profile.",
       })
     } finally {
       setIsLoading(false)
@@ -122,6 +105,14 @@ export default function UserProfile() {
         damping: 20,
       },
     },
+  }
+
+  if (!userDetails) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -273,28 +264,27 @@ export default function UserProfile() {
                 <CardDescription>Manage your registered vehicles</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {userDetails.vehicles.map((vehicle) => (
-                    <div key={vehicle.id} className="rounded-lg border p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="rounded-full bg-primary/10 p-2">
-                            <Car className="h-5 w-5 text-primary" />
-                          </div>
+                {userDetails.vehicles && userDetails.vehicles.length > 0 ? (
+                  <div className="space-y-4">
+                    {userDetails.vehicles.map((vehicle: any) => (
+                      <div key={vehicle.id} className="rounded-lg border p-4">
+                        <div className="flex items-center justify-between">
                           <div>
                             <h3 className="font-medium">
-                              {vehicle.year} {vehicle.make} {vehicle.model}
+                              {vehicle.make} {vehicle.model} ({vehicle.year})
                             </h3>
                             <p className="text-sm text-muted-foreground">License: {vehicle.licensePlate}</p>
                           </div>
+                          <Button variant="outline" size="sm">
+                            Edit
+                          </Button>
                         </div>
-                        <Button variant="outline" size="sm">
-                          Edit
-                        </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground">No vehicles registered yet.</div>
+                )}
               </CardContent>
               <CardFooter>
                 <Button className="w-full">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
@@ -17,9 +17,7 @@ export function useIsMobile() {
     window.addEventListener("resize", checkIfMobile)
 
     // Clean up
-    return () => {
-      window.removeEventListener("resize", checkIfMobile)
-    }
+    return () => window.removeEventListener("resize", checkIfMobile)
   }, [])
 
   return isMobile

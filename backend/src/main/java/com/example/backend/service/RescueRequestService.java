@@ -7,7 +7,9 @@ import com.example.backend.model.enums.RescueRequestStatus;
 import java.util.List;
 
 public interface RescueRequestService {
+	RescueRequestResponse getRescueRequestById(String id, String userId);
 	RescueRequestResponse createRescueRequest(RescueRequestCreateRequest request, String token);
+	List<RescueRequestResponse> getUserRequests(String userId);
 	List<RescueRequestResponse> getRequestsForCompany(String token, RescueRequestStatus status);
 	RescueRequestResponse acceptRequest(String requestId, String token);
 	RescueRequestResponse cancelByUser(String requestId, String token);

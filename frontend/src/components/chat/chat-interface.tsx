@@ -1,434 +1,213 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useRef, useEffect } from "react"
-import { motion } from "framer-motion"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Send, DollarSign, ThumbsUp, ThumbsDown } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Button } from "../ui/button"
+import { Input } from "../ui/input"
+import { ScrollArea } from "../ui/scroll-area"
+import { Avatar } from "../ui/avatar"
+import { useAuth } from "../../context/auth-context"
+import { useWebSocketContext } from "../../context/websocket-context"
+import type { ChatMessage } from "../../services/websocket-service"
 import type { Message } from "@/types/chat"
 
-export type MessageType = "text" | "system" | "price_offer" | "price_accepted" | "price_rejected" | "status_update"
+type ChatHistoryItem = ChatMessage & { id: string }
 
-interface ChatInterfaceProps {
-  requestId: string
-  currentUserId: string
-  currentUserRole: "user" | "company" | "admin"
-  otherPartyName: string
-  initialMessages: Message[]
-  onSendMessage: (message: Omit<Message, "id" | "timestamp">) => void
-  onPriceOffer?: (price: number) => void
-  onPriceResponse?: (accepted: boolean, reason?: string) => void
-  isLoading: boolean
-  currentPrice?: number
-  requestStatus?: string
+export interface ChatInterfaceProps {
+  requestId: string;
+  currentUserId: string;
+  currentUserRole: string;
+  otherPartyName: string;
+  initialMessages: Message[];
+  onSendMessage: (message: Omit<Message, "id" | "timestamp">) => Promise<void>;
+  onPriceResponse: (accepted: boolean, reason?: string) => Promise<void>;
+  isLoading: boolean;
+  isLoadingMore?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => Promise<void>;
+  currentPrice: number;
+  requestStatus: string;
+  rescueCompanyId?: string;
 }
 
-export default function ChatInterface({
+export function ChatInterface({
   requestId,
   currentUserId,
   currentUserRole,
   otherPartyName,
   initialMessages,
   onSendMessage,
-  onPriceOffer,
   onPriceResponse,
   isLoading,
+  isLoadingMore,
+  hasMore,
+  onLoadMore,
   currentPrice,
   requestStatus,
+  rescueCompanyId,
 }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>(initialMessages)
-  const [newMessage, setNewMessage] = useState("")
-  const [isPriceDialogOpen, setIsPriceDialogOpen] = useState(false)
-  const [priceOfferAmount, setPriceOfferAmount] = useState(currentPrice || 0)
-  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
-  const [rejectReason, setRejectReason] = useState("")
+  const [message, setMessage] = useState("")
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([])
+  const { user } = useAuth()
+  const { connected, messages, sendMessage } = useWebSocketContext()
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Update messages when initialMessages changes
+  // Set chatHistory from initialMessages when they change (API response)
   useEffect(() => {
-    setMessages(initialMessages)
-  }, [initialMessages])
+    if (initialMessages && initialMessages.length > 0) {
+      // Convert Message[] to {id, ...ChatMessage}
+      const mapped: ChatHistoryItem[] = initialMessages.map((msg: any) => ({
+        id: msg.id,
+        content: msg.content,
+        conversationId: msg.conversationId || requestId,
+        userId: msg.senderId || msg.userId || "",
+        rescueCompanyId: msg.rescueCompanyId || undefined,
+        senderType: msg.senderType || "USER",
+        isRead: msg.read ?? msg.isRead ?? false,
+        sentAt: msg.sentAt || msg.timestamp || "",
+      }))
+      setChatHistory(mapped)
+    } else {
+      setChatHistory([])
+    }
+  }, [initialMessages, requestId])
 
-  // Scroll to bottom when messages change
+  // Append new messages from WebSocket
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
-
-  const handleSendMessage = () => {
-    if (newMessage.trim() === "") return
-
-    onSendMessage({
-      senderId: currentUserId,
-      senderName: currentUserRole === "user" ? "You" : "Your Company",
-      senderRole: currentUserRole === "admin" ? "system" : currentUserRole,
-      content: newMessage,
-      type: "text",
-    })
-
-    setNewMessage("")
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
-    }
-  }
-
-  // Update the price offer handling to match the new status flow
-  const handlePriceOffer = () => {
-    if (onPriceOffer) {
-      onPriceOffer(priceOfferAmount)
-      setIsPriceDialogOpen(false)
-
-      // Update the request status to WAITING after sending a price offer
-      if (requestStatus === "PRICE_UPDATED") {
-        // This would typically be handled by the parent component
-        // but we're adding this comment to clarify the flow
+    if (messages && messages.length > 0) {
+      const filteredMessages = messages.filter((msg) => msg.conversationId === requestId)
+      if (filteredMessages.length > 0) {
+        setChatHistory((prev) => {
+          // Only add messages that are not already in chatHistory (by content, sentAt, senderType)
+          const newMessages = filteredMessages.filter(
+            (newMsg) => !prev.some((existingMsg) =>
+              existingMsg.content === newMsg.content &&
+              existingMsg.sentAt === newMsg.sentAt &&
+              existingMsg.senderType === newMsg.senderType
+            )
+          ).map((msg) => ({ ...msg, id: msg.id || Math.random().toString(36).slice(2) })) as ChatHistoryItem[]
+          return [...prev, ...newMessages]
+        })
       }
     }
-  }
+  }, [messages, requestId])
 
-  const handlePriceResponse = (accepted: boolean) => {
-    if (onPriceResponse) {
-      if (accepted) {
-        onPriceResponse(true)
-        // This would update the status to PRICE_CONFIRMED
-      } else {
-        setIsRejectDialogOpen(true)
-        // This would eventually update the status to REJECTED_BY_USER
-      }
+  // Auto scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
     }
-  }
+  }, [chatHistory])
 
-  const confirmReject = () => {
-    if (onPriceResponse) {
-      onPriceResponse(false, rejectReason)
-      setIsRejectDialogOpen(false)
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!message.trim() || !connected || !user) return
+
+    const newMessage: ChatMessage = {
+      content: message,
+      conversationId: requestId,
+      userId: currentUserId,
+      rescueCompanyId: currentUserRole === "RESCUE_COMPANY" ? currentUserId : rescueCompanyId,
+      senderType: user.role === "company" ? "RESCUE_COMPANY" : "USER",
+      isRead: false,
+      sentAt: new Date().toISOString(),
     }
+
+    sendMessage(newMessage)
+
+    // Optimistically add to chat history
+    setChatHistory((prev) => [
+      ...prev,
+      { ...newMessage, id: Math.random().toString(36).slice(2) } as ChatHistoryItem
+    ])
+
+    // Clear input
+    setMessage("")
   }
 
-  // Helper function to format date
-  const formatMessageTime = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  }
-
-  // Helper function to group messages by date
-  const groupMessagesByDate = (messages: Message[]) => {
-    const groups: { [key: string]: Message[] } = {}
-
-    messages.forEach((message) => {
-      const date = new Date(message.timestamp)
-      const dateKey = date.toLocaleDateString()
-
-      if (!groups[dateKey]) {
-        groups[dateKey] = []
-      }
-
-      groups[dateKey].push(message)
-    })
-
-    return Object.entries(groups)
-  }
-
-  // Check if there's a pending price offer
-  const hasPendingPriceOffer = messages.some(
-    (msg) =>
-      msg.type === "price_offer" &&
-      !messages.some(
-        (m) =>
-          (m.type === "price_accepted" || m.type === "price_rejected") &&
-          new Date(m.timestamp) > new Date(msg.timestamp),
-      ),
-  )
-
-  // Get the last price offer
-  const lastPriceOffer = [...messages].reverse().find((msg) => msg.type === "price_offer")
-
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.05,
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 260,
-        damping: 20,
-      },
-    },
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop } = e.currentTarget
+    if (scrollTop === 0 && hasMore && !isLoadingMore && onLoadMore) {
+      onLoadMore()
+    }
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <Card className="flex h-full flex-col">
-        <CardHeader className="border-b p-4">
-          <div className="flex items-center space-x-4">
-            <Avatar>
-              <AvatarImage src={`https://avatar.vercel.sh/${otherPartyName}`} />
-              <AvatarFallback>{otherPartyName.substring(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <div>
-              <h3 className="font-semibold">{otherPartyName}</h3>
-              <p className="text-sm text-muted-foreground">
-                Request #{requestId} • {requestStatus?.replace(/_/g, " ")}
-              </p>
+    <div className="flex flex-col h-full border rounded-lg">
+      <div className="p-4 border-b bg-muted/30">
+        <h3 className="font-medium">
+          {connected ? (
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-green-500"></span>
+              Connected
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-red-500"></span>
+              Disconnected
+            </span>
+          )}
+        </h3>
+      </div>
+
+      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef} onScroll={handleScroll}>
+        <div className="space-y-4">
+          {isLoadingMore && (
+            <div className="flex justify-center py-2">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto p-4">
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-            {groupMessagesByDate(messages).map(([dateKey, dateMessages]) => (
-              <div key={dateKey} className="space-y-4">
-                <div className="relative flex items-center py-2">
-                  <div className="flex-grow border-t"></div>
-                  <span className="mx-4 flex-shrink text-xs text-muted-foreground">{dateKey}</span>
-                  <div className="flex-grow border-t"></div>
+          )}
+          
+          {chatHistory.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">No messages yet. Start the conversation!</p>
+          ) : (
+            chatHistory.map((msg, index) => {
+              const isCurrentUser = msg.senderType === (user?.role === "company" ? "RESCUE_COMPANY" : "USER")
+              return (
+                <div key={msg.id || index} className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
+                  <div className={`flex items-start gap-2 max-w-[80%] ${isCurrentUser ? "flex-row-reverse" : ""}`}>
+                    <Avatar className="h-8 w-8">
+                      <span className="sr-only">
+                        {isCurrentUser ? "You" : msg.senderType === "USER" ? "User" : "Company"}
+                      </span>
+                    </Avatar>
+                    <div
+                      className={`rounded-lg px-3 py-2 text-sm ${
+                        isCurrentUser ? "bg-primary text-primary-foreground" : "bg-muted"
+                      }`}
+                    >
+                      <p>{msg.content}</p>
+                      <div
+                        className={`text-xs mt-1 ${isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+                      >
+                        {msg.sentAt && !isNaN(Date.parse(msg.sentAt))
+                          ? new Date(msg.sentAt).toLocaleTimeString()
+                          : ""}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              )
+            })
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
 
-                {dateMessages.map((message) => (
-                  <motion.div
-                    key={message.id}
-                    variants={itemVariants}
-                    className={`flex ${
-                      message.senderRole === "system"
-                        ? "justify-center"
-                        : message.senderRole === currentUserRole
-                          ? "justify-end"
-                          : "justify-start"
-                    }`}
-                  >
-                    {message.senderRole === "system" ? (
-                      <div className="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-                        {message.content}
-                      </div>
-                    ) : message.senderRole !== currentUserRole ? (
-                      <div className="flex max-w-[80%] items-start space-x-2">
-                        <Avatar className="mt-1 h-8 w-8">
-                          <AvatarImage src={`https://avatar.vercel.sh/${message.senderName}`} />
-                          <AvatarFallback>{message.senderName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="rounded-lg bg-accent p-3">
-                            {message.type === "price_offer" ? (
-                              <div className="space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  <DollarSign className="h-5 w-5 text-primary" />
-                                  <span className="font-medium">Price Offer</span>
-                                </div>
-                                <p>{message.content}</p>
-                                <div className="rounded-md bg-primary/10 p-2 text-center">
-                                  <span className="text-lg font-bold text-primary">
-                                    ${(message.metadata?.price ?? 0).toFixed(2)}
-                                  </span>
-                                </div>
-                                {currentUserRole === "user" &&
-                                  hasPendingPriceOffer &&
-                                  message.id === lastPriceOffer?.id && (
-                                    <div className="mt-2 flex space-x-2">
-                                      <Button size="sm" className="w-full" onClick={() => handlePriceResponse(true)}>
-                                        <ThumbsUp className="mr-1 h-4 w-4" />
-                                        Accept
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="w-full"
-                                        onClick={() => handlePriceResponse(false)}
-                                      >
-                                        <ThumbsDown className="mr-1 h-4 w-4" />
-                                        Reject
-                                      </Button>
-                                    </div>
-                                  )}
-                              </div>
-                            ) : message.type === "price_accepted" ? (
-                              <div className="space-y-2">
-                                <Badge variant="success">Price Accepted</Badge>
-                                <p>{message.content}</p>
-                              </div>
-                            ) : message.type === "price_rejected" ? (
-                              <div className="space-y-2">
-                                <Badge variant="destructive">Price Rejected</Badge>
-                                <p>{message.content}</p>
-                                {message.metadata?.reason && (
-                                  <div className="rounded-md bg-muted p-2 text-sm">
-                                    <span className="font-medium">Reason: </span>
-                                    {message.metadata.reason}
-                                  </div>
-                                )}
-                              </div>
-                            ) : message.type === "status_update" ? (
-                              <div className="space-y-2">
-                                <Badge>Status Update</Badge>
-                                <p>{message.content}</p>
-                              </div>
-                            ) : (
-                              <p>{message.content}</p>
-                            )}
-                          </div>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            {formatMessageTime(message.timestamp)}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex max-w-[80%] flex-col items-end">
-                        <div className="rounded-lg bg-primary p-3 text-primary-foreground">
-                          {message.type === "price_offer" ? (
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <DollarSign className="h-5 w-5" />
-                                <span className="font-medium">Price Offer</span>
-                              </div>
-                              <p>{message.content}</p>
-                              <div className="rounded-md bg-primary-foreground/20 p-2 text-center">
-                                <span className="text-lg font-bold">${(message.metadata?.price ?? 0).toFixed(2)}</span>
-                              </div>
-                            </div>
-                          ) : message.type === "price_accepted" ? (
-                            <div className="space-y-2">
-                              <Badge variant="success">Price Accepted</Badge>
-                              <p>{message.content}</p>
-                            </div>
-                          ) : message.type === "price_rejected" ? (
-                            <div className="space-y-2">
-                              <Badge variant="destructive">Price Rejected</Badge>
-                              <p>{message.content}</p>
-                              {message.metadata?.reason && (
-                                <div className="rounded-md bg-primary-foreground/20 p-2 text-sm">
-                                  <span className="font-medium">Reason: </span>
-                                  {message.metadata.reason}
-                                </div>
-                              )}
-                            </div>
-                          ) : message.type === "status_update" ? (
-                            <div className="space-y-2">
-                              <Badge>Status Update</Badge>
-                              <p>{message.content}</p>
-                            </div>
-                          ) : (
-                            <p>{message.content}</p>
-                          )}
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground">{formatMessageTime(message.timestamp)}</div>
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </motion.div>
-        </CardContent>
-        <CardFooter className="border-t p-4">
-          <div className="flex w-full items-end space-x-2">
-            <div className="flex-1">
-              <Textarea
-                placeholder="Type your message..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="min-h-[80px] resize-none"
-                disabled={isLoading}
-              />
-            </div>
-            <div className="flex flex-col space-y-2">
-              {currentUserRole === "company" && onPriceOffer && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setIsPriceDialogOpen(true)}
-                  disabled={isLoading}
-                  title="Send price offer"
-                >
-                  <DollarSign className="h-5 w-5" />
-                </Button>
-              )}
-              <Button size="icon" onClick={handleSendMessage} disabled={isLoading || newMessage.trim() === ""}>
-                <Send className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-        </CardFooter>
-      </Card>
-
-      {/* Price Offer Dialog */}
-      <Dialog open={isPriceDialogOpen} onOpenChange={setIsPriceDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send Price Offer</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="price">Price Amount ($)</Label>
-              <Input
-                id="price"
-                type="number"
-                min="0"
-                step="0.01"
-                value={priceOfferAmount}
-                onChange={(e) => setPriceOfferAmount(Number.parseFloat(e.target.value))}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPriceDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handlePriceOffer} disabled={priceOfferAmount <= 0}>
-              Send Offer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject Reason Dialog */}
-      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Price Offer</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="reason">Reason for rejection (optional)</Label>
-              <Textarea
-                id="reason"
-                placeholder="Please provide a reason for rejecting the price offer..."
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={confirmReject}>
-              Confirm Rejection
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <form onSubmit={handleSendMessage} className="p-4 border-t flex gap-2">
+        <Input
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Type your message..."
+          disabled={!connected}
+          className="flex-1"
+        />
+        <Button type="submit" disabled={!connected || !message.trim()}>
+          Send
+        </Button>
+      </form>
     </div>
   )
 }

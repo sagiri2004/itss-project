@@ -17,29 +17,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/components/ui/use-toast"
 import { Building2, Camera, MapPin, Mail, Phone, Shield, Clock, Trash } from "lucide-react"
 
-// Mock company data
-const mockCompanyData = {
-  id: "comp-001",
-  name: "FastFix Roadside",
-  logo: "",
-  description:
-    "24/7 roadside assistance for all your vehicle needs. From flat tires to towing, we've got you covered with fast and reliable service.",
-  address: "123 Service Rd, Mechanics Town, MT 12345",
-  phone: "+1 (555) 123-4567",
-  email: "contact@fastfixroadside.com",
-  website: "https://fastfixroadside.com",
-  operatingHours: "24/7",
-  serviceArea: "50 mile radius from Mechanics Town",
-  serviceTypes: ["Towing", "Flat Tire", "Battery Jump", "Fuel Delivery", "Lockout"],
-  isVerified: true,
-  foundedYear: "2012",
-  employees: "15",
-  insuranceInfo: {
-    provider: "SafeGuard Insurance",
-    policyNumber: "SG123456789",
-    expiryDate: "2024-05-15",
-  },
-}
+// Replace the mock data imports
+import { mockCompanyData } from "@/data/mock-data"
+
+// Remove the original mock data declarations
+// Replace:
+// const mockCompanyData = { ... }
 
 export default function CompanyProfile() {
   const { user } = useAuth()

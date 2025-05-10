@@ -10,69 +10,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, MessageSquare } from "lucide-react"
-
-// Mock chat data
-const mockChats = [
-  {
-    id: "chat-001",
-    requestId: "req-001",
-    userId: "user-001",
-    userName: "John Doe",
-    service: "Flat Tire Replacement",
-    lastMessage: "We'll be there in about 15 minutes.",
-    timestamp: "2023-05-07T14:30:00",
-    unread: 0,
-    status: "ACTIVE",
-  },
-  {
-    id: "chat-002",
-    requestId: "req-002",
-    userId: "user-002",
-    userName: "Jane Smith",
-    service: "Battery Jump Start",
-    lastMessage: "Your invoice has been generated. Please check your email.",
-    timestamp: "2023-05-06T11:45:00",
-    unread: 1,
-    status: "COMPLETED",
-  },
-  {
-    id: "chat-003",
-    requestId: "req-003",
-    userId: "user-003",
-    userName: "Bob Johnson",
-    service: "Vehicle Towing",
-    lastMessage: "We need to update the price to $95 due to additional parts needed.",
-    timestamp: "2023-05-05T16:20:00",
-    unread: 0,
-    status: "PRICE_NEGOTIATION",
-  },
-  {
-    id: "chat-004",
-    requestId: "req-004",
-    userId: "user-004",
-    userName: "Alice Brown",
-    service: "Fuel Delivery",
-    lastMessage: "Thank you for using our service!",
-    timestamp: "2023-05-02T09:15:00",
-    unread: 0,
-    status: "CLOSED",
-  },
-  {
-    id: "chat-005",
-    requestId: "req-005",
-    userId: "user-005",
-    userName: "Charlie Wilson",
-    service: "Lockout Service",
-    lastMessage: "I'm at the corner of Main St and Oak Ave.",
-    timestamp: "2023-05-07T15:10:00",
-    unread: 3,
-    status: "ACTIVE",
-  },
-]
+import { mockCompanyChats } from "@/data/mock-data"
 
 export default function CompanyChats() {
   const { user } = useAuth()
-  const [chats, setChats] = useState(mockChats)
+  const [chats, setChats] = useState(mockCompanyChats)
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("all")
 

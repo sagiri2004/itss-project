@@ -8,112 +8,136 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Car, FileText, Clock, CheckCircle2, PlusCircle, Wrench, MessageSquare } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Car, FileText, Clock, CheckCircle2, PlusCircle, Wrench, MessageSquare, Loader2 } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import api from "@/services/api"
 
-// Mock data
-const mockRequests = [
-  {
-    id: "req-001",
-    service: "Flat Tire Replacement",
-    status: "COMPLETED",
-    date: "2023-05-01T10:30:00",
-    company: "FastFix Roadside",
-    location: "123 Main St, Anytown",
-    price: 85.0,
-  },
-  {
-    id: "req-002",
-    service: "Battery Jump Start",
-    status: "IN_PROGRESS",
-    date: "2023-05-05T14:15:00",
-    company: "QuickHelp Auto",
-    location: "456 Oak Ave, Somewhere",
-    price: 65.0,
-  },
-  {
-    id: "req-003",
-    service: "Vehicle Towing",
-    status: "CREATED",
-    date: "2023-05-07T09:00:00",
-    company: null,
-    location: "789 Pine Rd, Nowhere",
-    price: null,
-  },
-]
+interface Request {
+  id: string
+  service: string
+  status: string
+  date: string
+  location: string
+  company?: string
+  price?: number
+}
 
-const mockInvoices = [
-  {
-    id: "inv-001",
-    requestId: "req-001",
-    amount: 85.0,
-    status: "PAID",
-    date: "2023-05-01T16:45:00",
-  },
-  {
-    id: "inv-002",
-    requestId: "req-002",
-    amount: 65.0,
-    status: "PENDING",
-    date: "2023-05-05T17:30:00",
-  },
-]
+interface Invoice {
+  id: string
+  requestId: string
+  status: string
+  date: string
+  amount: number
+}
 
-// Mock chats data
-const mockChats = [
-  {
-    id: "chat-001",
-    requestId: "req-001",
-    companyId: "company-001",
-    companyName: "FastFix Roadside",
-    lastMessage: "We'll be there in about 15 minutes.",
-    timestamp: "2023-05-07T14:30:00",
-    unread: 2,
-  },
-  {
-    id: "chat-002",
-    requestId: "req-002",
-    companyId: "company-002",
-    companyName: "QuickHelp Auto",
-    lastMessage: "Your invoice has been generated. Please check your email.",
-    timestamp: "2023-05-06T11:45:00",
-    unread: 0,
-  },
-]
+interface Chat {
+  id: string
+  company: string | { name: string }
+  lastMessage: string | { content: string }
+  unread: number
+  unreadCount?: number
+  date: string
+  updatedAt?: string
+  timestamp?: string
+}
+
+// Hàm lấy địa chỉ từ lat/lon bằng Nominatim
+async function getAddressFromLatLon(lat: number, lon: number): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
+    );
+    const data = await response.json();
+    return data.display_name || `${lat}, ${lon}`;
+  } catch {
+    return `${lat}, ${lon}`;
+  }
+}
 
 export default function UserDashboard() {
   const { user } = useAuth()
+  const { toast } = useToast()
   const { scrollYProgress } = useScroll()
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0.5])
   const scale = useTransform(scrollYProgress, [0, 0.5], [1, 0.95])
 
+  const [isLoading, setIsLoading] = useState(true)
+  const [requests, setRequests] = useState<Request[]>([])
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [chats, setChats] = useState<Chat[]>([])
   const [activeRequests, setActiveRequests] = useState(0)
   const [completedRequests, setCompletedRequests] = useState(0)
   const [pendingInvoices, setPendingInvoices] = useState(0)
   const [unreadMessages, setUnreadMessages] = useState(0)
 
   useEffect(() => {
-    // Calculate dashboard stats
-    setActiveRequests(
-      mockRequests.filter((req) =>
-        [
-          "CREATED",
-          "ACCEPTED_BY_COMPANY",
-          "RESCUE_VEHICLE_DISPATCHED",
-          "RESCUE_VEHICLE_ARRIVED",
-          "INSPECTION_DONE",
-          "PRICE_UPDATED",
-          "IN_PROGRESS",
-        ].includes(req.status),
-      ).length,
-    )
+    const fetchDashboardData = async () => {
+      try {
+        const [requestsRes, invoicesRes, chatsRes] = await Promise.all([
+          api.rescueRequests.getRequests(),
+          api.invoices.getUserInvoices(),
+          api.chats.getConversations(),
+        ])
 
-    setCompletedRequests(mockRequests.filter((req) => ["COMPLETED", "INVOICED", "PAID"].includes(req.status)).length)
+        console.log("chatsRes", chatsRes)
 
-    setPendingInvoices(mockInvoices.filter((inv) => inv.status === "PENDING").length)
+        // Map requests và lấy địa chỉ từ lat/lon
+        const mappedRequests = await Promise.all(
+          requestsRes.data.map(async (req: any) => {
+            let address = req.description;
+            if (!address && req.latitude && req.longitude) {
+              address = await getAddressFromLatLon(req.latitude, req.longitude);
+            }
+            return {
+              id: req.id,
+              service: req.serviceName,
+              status: req.status,
+              date: req.createdAt,
+              location: address || `${req.latitude}, ${req.longitude}`,
+              company: req.companyName,
+              price: req.finalPrice ?? req.estimatedPrice,
+            };
+          })
+        );
 
-    setUnreadMessages(mockChats.reduce((total, chat) => total + chat.unread, 0))
-  }, [])
+        setRequests(mappedRequests)
+        setInvoices(invoicesRes.data)
+        setChats(chatsRes.data)
+
+        // Các thống kê giữ nguyên
+        setActiveRequests(
+          mappedRequests.filter((req: any) =>
+            [
+              "CREATED",
+              "ACCEPTED_BY_COMPANY",
+              "RESCUE_VEHICLE_DISPATCHED",
+              "RESCUE_VEHICLE_ARRIVED",
+              "INSPECTION_DONE",
+              "PRICE_UPDATED",
+              "IN_PROGRESS",
+            ].includes(req.status),
+          ).length,
+        )
+
+        setCompletedRequests(
+          mappedRequests.filter((req: any) => ["COMPLETED", "INVOICED", "PAID"].includes(req.status)).length,
+        )
+
+        setPendingInvoices(invoicesRes.data.filter((inv: any) => inv.status === "PENDING").length)
+        setUnreadMessages(chatsRes.data.reduce((total: number, chat: any) => total + (chat.unreadCount || 0), 0))
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error loading dashboard",
+          description: error.response?.data?.message || "Failed to load dashboard data",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchDashboardData()
+  }, [toast])
 
   // Animation variants
   const containerVariants = {
@@ -137,6 +161,14 @@ export default function UserDashboard() {
         damping: 20,
       },
     },
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -228,7 +260,7 @@ export default function UserDashboard() {
             animate="visible"
             className="grid gap-4 md:grid-cols-2"
           >
-            {mockRequests.slice(0, 4).map((request, index) => (
+            {requests.slice(0, 4).map((request) => (
               <motion.div key={request.id} variants={itemVariants}>
                 <Card>
                   <CardHeader className="pb-2">
@@ -281,7 +313,7 @@ export default function UserDashboard() {
             animate="visible"
             className="grid gap-4 md:grid-cols-2"
           >
-            {mockInvoices.map((invoice, index) => (
+            {invoices.slice(0, 4).map((invoice) => (
               <motion.div key={invoice.id} variants={itemVariants}>
                 <Card>
                   <CardHeader className="pb-2">
@@ -320,38 +352,42 @@ export default function UserDashboard() {
             animate="visible"
             className="grid gap-4 md:grid-cols-2"
           >
-            {mockChats.map((chat, index) => (
-              <motion.div key={chat.id} variants={itemVariants}>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">{chat.companyName}</CardTitle>
-                      {chat.unread > 0 && (
-                        <Badge variant="default">
-                          {chat.unread} new {chat.unread === 1 ? "message" : "messages"}
-                        </Badge>
-                      )}
-                    </div>
-                    <CardDescription>
-                      {new Date(chat.timestamp).toLocaleDateString()} • Request #{chat.requestId}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pb-2">
-                    <div className="line-clamp-1 text-sm text-muted-foreground">{chat.lastMessage}</div>
-                  </CardContent>
-                  <CardFooter>
-                    <Button asChild variant="ghost" size="sm" className="w-full">
-                      <Link to={`/user/chat/${chat.id}`}>View Conversation</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            ))}
+            {chats.slice(0, 4).map((chat) => {
+              // Fallbacks for compatibility with both old and new chat data
+              const companyName = typeof chat.company === 'string' ? chat.company : chat.company?.name || 'Unknown';
+              const unreadCount = chat.unreadCount ?? chat.unread ?? 0;
+              const updatedAt = chat.updatedAt ?? chat.timestamp ?? '';
+              const lastMessageContent = typeof chat.lastMessage === 'string' ? chat.lastMessage : chat.lastMessage?.content || '';
+              return (
+                <motion.div key={chat.id} variants={itemVariants}>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base">{companyName}</CardTitle>
+                        {unreadCount > 0 && (
+                          <Badge variant="default" className="ml-2">
+                            {unreadCount} new
+                          </Badge>
+                        )}
+                      </div>
+                      <CardDescription>
+                        {updatedAt ? new Date(updatedAt).toLocaleDateString() : ''} • {lastMessageContent}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardFooter>
+                      <Button asChild variant="ghost" size="sm" className="w-full">
+                        <Link to={`/user/chat/${chat.id}`}>View Chat</Link>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                </motion.div>
+              );
+            })}
           </motion.div>
 
           <div className="flex justify-center">
             <Button asChild variant="outline">
-              <Link to="/user/chats">View All Conversations</Link>
+              <Link to="/user/chats">View All Chats</Link>
             </Button>
           </div>
         </TabsContent>
@@ -388,33 +424,6 @@ export default function UserDashboard() {
                   <span>View Invoices</span>
                 </Link>
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-        <Card>
-          <CardHeader>
-            <CardTitle>My Profile</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-start space-x-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={`https://avatar.vercel.sh/${user?.name || "user"}`} />
-                <AvatarFallback>{user?.name?.substring(0, 2).toUpperCase() || "U"}</AvatarFallback>
-              </Avatar>
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">{user?.name || "John Doe"}</h3>
-                <p className="text-sm text-muted-foreground">User • Member since {new Date().getFullYear()}</p>
-                <div className="flex space-x-2">
-                  <Badge variant="outline">3 Active Requests</Badge>
-                  <Badge variant="outline">{completedRequests} Completed</Badge>
-                </div>
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/user/profile">Edit Profile</Link>
-                </Button>
-              </div>
             </div>
           </CardContent>
         </Card>

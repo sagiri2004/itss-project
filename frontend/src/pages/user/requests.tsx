@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
@@ -12,77 +12,83 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getStatusVariant, formatDate } from "@/lib/utils"
-import { PlusCircle, Search, Filter, Car, Clock, MapPin } from "lucide-react"
+import { PlusCircle, Search, Filter, Car, Clock, MapPin, Loader2 } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import api from "@/services/api"
 
-// Mock data
-const mockRequests = [
-  {
-    id: "req-001",
-    service: "Flat Tire Replacement",
-    status: "COMPLETED",
-    date: "2023-05-01T10:30:00",
-    company: "FastFix Roadside",
-    location: "123 Main St, Anytown",
-    price: 85.0,
-  },
-  {
-    id: "req-002",
-    service: "Battery Jump Start",
-    status: "IN_PROGRESS",
-    date: "2023-05-05T14:15:00",
-    company: "QuickHelp Auto",
-    location: "456 Oak Ave, Somewhere",
-    price: 65.0,
-  },
-  {
-    id: "req-003",
-    service: "Vehicle Towing",
-    status: "CREATED",
-    date: "2023-05-07T09:00:00",
-    company: null,
-    location: "789 Pine Rd, Nowhere",
-    price: null,
-  },
-  {
-    id: "req-004",
-    service: "Fuel Delivery",
-    status: "CANCELLED_BY_USER",
-    date: "2023-04-29T11:30:00",
-    company: null,
-    location: "321 Cedar St, Anytown",
-    price: null,
-  },
-  {
-    id: "req-005",
-    service: "Lockout Service",
-    status: "ACCEPTED_BY_COMPANY",
-    date: "2023-05-06T16:45:00",
-    company: "FastFix Roadside",
-    location: "555 Maple Ave, Somewhere",
-    price: 70.0,
-  },
-]
+interface Request {
+  id: string
+  userId: string
+  serviceId: string
+  serviceName: string
+  companyId: string
+  companyName: string
+  latitude: number
+  longitude: number
+  description: string
+  estimatedPrice: number
+  finalPrice: number | null
+  status: string
+  createdAt: string
+  notes: string | null
+  rescueServiceDetails: {
+    id: string
+    name: string
+    description: string
+    price: number
+    type: string
+    companyId: string
+    companyName: string
+  } | null
+  vehicleLicensePlate: string | null
+  vehicleModel: string | null
+  vehicleEquipmentDetails: string[] | null
+  vehicleStatus: string | null
+}
 
 export default function UserRequests() {
   const { user } = useAuth()
+  const { toast } = useToast()
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [filteredRequests, setFilteredRequests] = useState(mockRequests)
+  const [requests, setRequests] = useState<Request[]>([])
+  const [filteredRequests, setFilteredRequests] = useState<Request[]>([])
+
+  useEffect(() => {
+    const fetchRequests = async () => {
+      try {
+        const response = await api.rescueRequests.getRequests()
+        setRequests(response.data)
+        setFilteredRequests(response.data)
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.response?.data?.message || "Failed to load requests",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchRequests()
+  }, [toast])
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value.toLowerCase()
     setSearchTerm(term)
 
     if (!term.trim()) {
-      setFilteredRequests(mockRequests)
+      setFilteredRequests(requests)
       return
     }
 
-    const filtered = mockRequests.filter(
+    const filtered = requests.filter(
       (request) =>
-        request.service.toLowerCase().includes(term) ||
-        request.location.toLowerCase().includes(term) ||
-        request.status.toLowerCase().includes(term) ||
-        (request.company && request.company.toLowerCase().includes(term)),
+        (request.serviceName?.toLowerCase() || "").includes(term) ||
+        (request.description?.toLowerCase() || "").includes(term) ||
+        (request.status?.toLowerCase() || "").includes(term) ||
+        (request.companyName?.toLowerCase() || "").includes(term)
     )
 
     setFilteredRequests(filtered)
@@ -110,6 +116,14 @@ export default function UserRequests() {
         damping: 20,
       },
     },
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -171,16 +185,16 @@ export default function UserRequests() {
                     filteredRequests.map((request) => (
                       <TableRow key={request.id}>
                         <TableCell>
-                          <div className="font-medium">{request.service}</div>
+                          <div className="font-medium">{request.serviceName}</div>
                           <div className="flex items-center text-xs text-muted-foreground mt-1">
                             <MapPin className="mr-1 h-3 w-3" />
-                            {request.location}
+                            {request.companyName}
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center">
                             <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{formatDate(request.date)}</span>
+                            <span>{formatDate(request.createdAt)}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -189,16 +203,20 @@ export default function UserRequests() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {request.company ? (
-                            <div className="flex items-center">
-                              <Car className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                              <span>{request.company}</span>
+                          {request.companyName}
+                        </TableCell>
+                        <TableCell>
+                          {request.finalPrice !== null ? (
+                            <div className="font-medium">${request.finalPrice.toFixed(2)}</div>
+                          ) : request.estimatedPrice ? (
+                            <div>
+                              <div className="font-medium">${request.estimatedPrice.toFixed(2)}</div>
+                              <div className="text-xs text-muted-foreground">(Estimated)</div>
                             </div>
                           ) : (
-                            <span className="text-muted-foreground">Not assigned</span>
+                            <span className="text-muted-foreground">-</span>
                           )}
                         </TableCell>
-                        <TableCell>{request.price ? `$${request.price.toFixed(2)}` : "-"}</TableCell>
                         <TableCell className="text-right">
                           <Button asChild variant="ghost" size="sm">
                             <Link to={`/user/requests/${request.id}`}>View</Link>

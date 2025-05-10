@@ -2,6 +2,7 @@ package com.example.backend.controller;
 
 import com.example.backend.dto.request.RescueServiceRequest;
 import com.example.backend.dto.response.RescueServiceResponse;
+import com.example.backend.model.enums.RescueServiceType;
 import com.example.backend.service.RescueServiceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -68,5 +69,26 @@ public class RescueServiceController {
 	@GetMapping
 	public ResponseEntity<List<RescueServiceResponse>> getAll() {
 		return ResponseEntity.ok(rescueServiceService.getAll());
+	}
+
+	@Operation(summary = "Tìm dịch vụ cứu hộ gần nhất",
+			description = "API tìm các dịch vụ cứu hộ gần nhất theo tọa độ người dùng và loại dịch vụ")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Lấy danh sách thành công",
+					content = @Content(mediaType = "application/json",
+							array = @ArraySchema(schema = @Schema(implementation = RescueServiceResponse.class)))),
+			@ApiResponse(responseCode = "400", description = "Tọa độ hoặc loại dịch vụ không hợp lệ")
+	})
+	@GetMapping("/nearby")
+	public ResponseEntity<List<RescueServiceResponse>> findNearbyServices(
+			@Parameter(description = "Vĩ độ của người dùng", required = true)
+			@RequestParam Double latitude,
+			@Parameter(description = "Kinh độ của người dùng", required = true)
+			@RequestParam Double longitude,
+			@Parameter(description = "Loại dịch vụ cứu hộ", required = true)
+			@RequestParam RescueServiceType serviceType,
+			@Parameter(description = "Số lượng dịch vụ trả về (mặc định: 10)")
+			@RequestParam(defaultValue = "10") Integer limit) {
+		return ResponseEntity.ok(rescueServiceService.findNearbyServices(latitude, longitude, serviceType, limit));
 	}
 }

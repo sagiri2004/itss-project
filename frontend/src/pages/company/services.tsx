@@ -22,56 +22,13 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { Plus, Search, Edit, Trash, Check, X } from "lucide-react"
-
-// Mock data
-const mockServices = [
-  {
-    id: "serv-001",
-    name: "Flat Tire Replacement",
-    description: "Replace a flat tire with your spare or provide a temporary tire.",
-    basePrice: 75.0,
-    duration: 30,
-    isActive: true,
-  },
-  {
-    id: "serv-002",
-    name: "Battery Jump Start",
-    description: "Jump start your vehicle's battery to get you back on the road.",
-    basePrice: 55.0,
-    duration: 20,
-    isActive: true,
-  },
-  {
-    id: "serv-003",
-    name: "Vehicle Towing",
-    description: "Tow your vehicle to a nearby garage or your preferred location.",
-    basePrice: 120.0,
-    duration: 60,
-    isActive: true,
-  },
-  {
-    id: "serv-004",
-    name: "Fuel Delivery",
-    description: "Delivery of fuel when you've run out on the road.",
-    basePrice: 65.0,
-    duration: 30,
-    isActive: false,
-  },
-  {
-    id: "serv-005",
-    name: "Lockout Service",
-    description: "Help when you're locked out of your vehicle.",
-    basePrice: 70.0,
-    duration: 25,
-    isActive: true,
-  },
-]
+import { mockCompanyServices } from "@/data/mock-data"
 
 export default function CompanyServices() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const [services, setServices] = useState(mockServices)
+  const [services, setServices] = useState(mockCompanyServices)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [currentService, setCurrentService] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)

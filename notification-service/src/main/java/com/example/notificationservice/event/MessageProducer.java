@@ -20,6 +20,7 @@ public class MessageProducer {
 
 	public void sendMessageEvent(Message event) {
 		try {
+			log.info("📢 Sending message event: {}", event);
 			String message = objectMapper.writeValueAsString(event);
 			kafkaTemplate.send(TOPIC, message);
 		} catch (JsonProcessingException e) {

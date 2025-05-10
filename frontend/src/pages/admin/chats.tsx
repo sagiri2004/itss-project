@@ -11,160 +11,13 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
 import { Search, MessageSquare, AlertTriangle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-
-// Mock data
-const mockChats = [
-  {
-    id: "chat-001",
-    participants: [
-      {
-        id: "user-001",
-        name: "John Doe",
-        role: "user",
-        avatar: "",
-      },
-      {
-        id: "comp-001",
-        name: "FastFix Roadside",
-        role: "company",
-        avatar: "",
-      },
-    ],
-    requestId: "req-001",
-    lastMessage: {
-      sender: "user-001",
-      content: "Thank you for your help!",
-      timestamp: "2023-05-07T11:30:00",
-    },
-    status: "ACTIVE",
-    unreadCount: 0,
-    messages: [
-      {
-        id: "msg-001",
-        sender: "comp-001",
-        content: "We've dispatched a technician. ETA 20 minutes.",
-        timestamp: "2023-05-01T10:42:00",
-      },
-      {
-        id: "msg-002",
-        sender: "user-001",
-        content: "Thank you, I'll be waiting by the car.",
-        timestamp: "2023-05-01T10:45:00",
-      },
-      {
-        id: "msg-003",
-        sender: "comp-001",
-        content: "Our technician has arrived. Please meet them at your vehicle.",
-        timestamp: "2023-05-01T11:00:00",
-      },
-      {
-        id: "msg-004",
-        sender: "user-001",
-        content: "Thank you for your help!",
-        timestamp: "2023-05-07T11:30:00",
-      },
-    ],
-    hasIssue: false,
-  },
-  {
-    id: "chat-002",
-    participants: [
-      {
-        id: "user-002",
-        name: "Jane Smith",
-        role: "user",
-        avatar: "",
-      },
-      {
-        id: "comp-002",
-        name: "QuickHelp Auto",
-        role: "company",
-        avatar: "",
-      },
-    ],
-    requestId: "req-002",
-    lastMessage: {
-      sender: "user-002",
-      content: "The technician is taking too long to arrive. Can you check the status?",
-      timestamp: "2023-05-07T09:15:00",
-    },
-    status: "ACTIVE",
-    unreadCount: 2,
-    messages: [
-      {
-        id: "msg-001",
-        sender: "comp-002",
-        content: "We're on our way. Should arrive in about 25 minutes.",
-        timestamp: "2023-05-05T14:28:00",
-      },
-      {
-        id: "msg-002",
-        sender: "user-002",
-        content: "Great, thank you!",
-        timestamp: "2023-05-05T14:30:00",
-      },
-      {
-        id: "msg-003",
-        sender: "user-002",
-        content: "It's been 30 minutes now. Any update?",
-        timestamp: "2023-05-07T09:00:00",
-      },
-      {
-        id: "msg-004",
-        sender: "user-002",
-        content: "The technician is taking too long to arrive. Can you check the status?",
-        timestamp: "2023-05-07T09:15:00",
-      },
-    ],
-    hasIssue: true,
-  },
-  {
-    id: "chat-003",
-    participants: [
-      {
-        id: "user-004",
-        name: "Alice Brown",
-        role: "user",
-        avatar: "",
-      },
-      {
-        id: "comp-001",
-        name: "FastFix Roadside",
-        role: "company",
-        avatar: "",
-      },
-    ],
-    requestId: "req-004",
-    lastMessage: {
-      sender: "comp-001",
-      content: "We'll be there in about 15 minutes with your fuel.",
-      timestamp: "2023-05-06T11:45:00",
-    },
-    status: "ACTIVE",
-    unreadCount: 0,
-    messages: [
-      {
-        id: "msg-001",
-        sender: "user-004",
-        content: "I've run out of fuel. How soon can you get here?",
-        timestamp: "2023-05-06T11:30:00",
-      },
-      {
-        id: "msg-002",
-        sender: "comp-001",
-        content: "We'll be there in about 15 minutes with your fuel.",
-        timestamp: "2023-05-06T11:45:00",
-      },
-    ],
-    hasIssue: false,
-  },
-]
+import { mockAdminChats } from "@/data/mock-data"
 
 export default function AdminChats() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const [chats, setChats] = useState(mockChats)
+  const [chats, setChats] = useState(mockAdminChats)
   const [selectedChat, setSelectedChat] = useState<any>(null)
   const [message, setMessage] = useState("")
   const [activeTab, setActiveTab] = useState("all")
@@ -386,8 +239,8 @@ export default function AdminChats() {
                   <div className="p-4 border-b flex justify-between items-center">
                     <div>
                       <h3 className="font-medium">
-                        {selectedChat.participants.find((p) => p.role === "user")?.name} ↔{" "}
-                        {selectedChat.participants.find((p) => p.role === "company")?.name}
+                        {selectedChat.participants.find((p: { role: string }) => p.role === "user")?.name} ↔{" "}
+                        {selectedChat.participants.find((p: { role: string }) => p.role === "company")?.name}
                       </h3>
                       <div className="text-xs text-muted-foreground">Request: {selectedChat.requestId}</div>
                     </div>
@@ -401,8 +254,8 @@ export default function AdminChats() {
                     </div>
                   </div>
                   <div className="flex-1 overflow-auto p-4 space-y-4">
-                    {selectedChat.messages.map((msg) => {
-                      const sender = selectedChat.participants.find((p) => p.id === msg.sender)
+                    {selectedChat.messages.map((msg: { id: string; sender: string; content: string; timestamp: string }) => {
+                      const sender = selectedChat.participants.find((p: { id: string; role: string; name: string }) => p.id === msg.sender)
                       const isAdmin = msg.sender === "admin"
                       const isUser = sender?.role === "user"
 

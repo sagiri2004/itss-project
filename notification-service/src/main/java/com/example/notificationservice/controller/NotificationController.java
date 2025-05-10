@@ -72,6 +72,7 @@ public class NotificationController {
 
 	@MessageMapping("/message")
 	public void handleMessage(Message message) {
+		logger.info("Received message: {}", message);
 		messageProducer.sendMessageEvent(message);
 	}
 }

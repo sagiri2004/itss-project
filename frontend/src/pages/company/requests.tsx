@@ -14,124 +14,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getStatusVariant, formatDate } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
-import {
-  Search,
-  Clock,
-  MapPin,
-  User,
-  Truck,
-  CheckCircle,
-  AlertTriangle,
-  MessageSquare,
-  DollarSign,
-  FileText,
-  Play,
-} from "lucide-react"
+import { Search, Clock, MapPin, User, Truck, CheckCircle, AlertTriangle, MessageSquare } from "lucide-react"
 
-// Mock data
-const mockRequests = [
-  {
-    id: "req-001",
-    service: "Flat Tire Replacement",
-    status: "COMPLETED",
-    date: "2023-05-01T10:30:00",
-    user: {
-      id: "user-001",
-      name: "John Doe",
-      phone: "+1 (555) 123-4567",
-    },
-    location: "123 Main St, Anytown",
-    assignedVehicle: "Tow Truck #1",
-    price: 85.0,
-    hasChat: true,
-  },
-  {
-    id: "req-002",
-    service: "Battery Jump Start",
-    status: "IN_PROGRESS",
-    date: "2023-05-05T14:15:00",
-    user: {
-      id: "user-002",
-      name: "Jane Smith",
-      phone: "+1 (555) 987-6543",
-    },
-    location: "456 Oak Ave, Somewhere",
-    assignedVehicle: "Service Van #1",
-    price: 65.0,
-    hasChat: true,
-  },
-  {
-    id: "req-003",
-    service: "Vehicle Towing",
-    status: "CREATED",
-    date: "2023-05-07T09:00:00",
-    user: {
-      id: "user-003",
-      name: "Bob Johnson",
-      phone: "+1 (555) 456-7890",
-    },
-    location: "789 Pine Rd, Nowhere",
-    assignedVehicle: null,
-    price: null,
-    hasChat: false,
-  },
-  {
-    id: "req-004",
-    service: "Fuel Delivery",
-    status: "ACCEPTED_BY_COMPANY",
-    date: "2023-05-06T11:20:00",
-    user: {
-      id: "user-004",
-      name: "Alice Brown",
-      phone: "+1 (555) 234-5678",
-    },
-    location: "321 Elm St, Anytown",
-    assignedVehicle: null,
-    price: 75.0,
-    hasChat: true,
-  },
-  {
-    id: "req-005",
-    service: "Lockout Service",
-    status: "RESCUE_VEHICLE_DISPATCHED",
-    date: "2023-05-06T16:45:00",
-    user: {
-      id: "user-005",
-      name: "Charlie Wilson",
-      phone: "+1 (555) 345-6789",
-    },
-    location: "555 Maple Ave, Somewhere",
-    assignedVehicle: "Service Van #1",
-    price: 70.0,
-    hasChat: true,
-  },
-]
-
-// Vehicle options for the select
-const vehicleOptions = [
-  { id: "veh-001", name: "Tow Truck #1", type: "Tow Truck" },
-  { id: "veh-002", name: "Service Van #1", type: "Service Van" },
-  { id: "veh-004", name: "Flatbed Truck #1", type: "Flatbed Truck" },
-]
-
-// Status options for the select
-const statusOptions = [
-  "CREATED",
-  "ACCEPTED_BY_COMPANY",
-  "RESCUE_VEHICLE_DISPATCHED",
-  "RESCUE_VEHICLE_ARRIVED",
-  "INSPECTION_DONE",
-  "PRICE_UPDATED",
-  "WAITING",
-  "PRICE_CONFIRMED",
-  "REJECTED_BY_USER",
-  "IN_PROGRESS",
-  "COMPLETED",
-  "INVOICED",
-  "PAID",
-  "CANCELLED_BY_COMPANY",
-  "CANCELLED_BY_USER",
-]
+import { mockRequests, vehicleOptions, statusOptions } from "@/data/mock-data"
 
 export default function CompanyRequests() {
   const { user } = useAuth()
@@ -139,24 +24,7 @@ export default function CompanyRequests() {
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
-  type Request = {
-    id: string
-    service: string
-    status: string
-    date: string
-    user: {
-      id: string
-      name: string
-      phone: string
-    }
-    location: string
-    assignedVehicle: string | null
-    price: number | null
-    hasChat: boolean
-  }
-  
-  const [requests, setRequests] = useState<Request[]>(mockRequests)
-  
+  const [requests, setRequests] = useState(mockRequests)
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
@@ -170,16 +38,15 @@ export default function CompanyRequests() {
     const vehicle = vehicleOptions.find((v) => v.id === vehicleId)
 
     setRequests(
-      requests.map((request) => {
-        if (request.id === requestId) {
-          return {
-            ...request,
-            assignedVehicle: vehicle?.name || null,
-            status: "RESCUE_VEHICLE_DISPATCHED",
-          }
-        }
-        return request
-      }),
+      requests.map((request) =>
+        request.id === requestId
+          ? {
+              ...request,
+              assignedVehicle: vehicle?.name || null,
+              status: "RESCUE_VEHICLE_DISPATCHED",
+            }
+          : request,
+      ),
     )
 
     toast({
@@ -195,8 +62,7 @@ export default function CompanyRequests() {
           ? {
               ...request,
               status: newStatus,
-              hasChat:
-                newStatus !== "CREATED" && newStatus !== "CANCELLED_BY_COMPANY" && newStatus !== "CANCELLED_BY_USER",
+              hasChat: newStatus !== "CREATED" && newStatus !== "CANCELLED_BY_COMPANY",
             }
           : request,
       ),
@@ -371,76 +237,22 @@ export default function CompanyRequests() {
                               </Button>
                             )}
 
-                            {/* Status transition buttons based on current status */}
                             {request.status === "CREATED" && (
                               <Button size="sm" onClick={() => updateRequestStatus(request.id, "ACCEPTED_BY_COMPANY")}>
                                 <CheckCircle className="mr-2 h-4 w-4" />
                                 Accept
                               </Button>
                             )}
-
-                            {request.status === "ACCEPTED_BY_COMPANY" && request.assignedVehicle && (
-                              <Button
-                                size="sm"
-                                onClick={() => updateRequestStatus(request.id, "RESCUE_VEHICLE_DISPATCHED")}
-                              >
-                                <Truck className="mr-2 h-4 w-4" />
-                                Dispatch
-                              </Button>
-                            )}
-
-                            {request.status === "RESCUE_VEHICLE_DISPATCHED" && (
-                              <Button
-                                size="sm"
-                                onClick={() => updateRequestStatus(request.id, "RESCUE_VEHICLE_ARRIVED")}
-                              >
-                                <MapPin className="mr-2 h-4 w-4" />
-                                Arrived
-                              </Button>
-                            )}
-
-                            {request.status === "RESCUE_VEHICLE_ARRIVED" && (
-                              <Button size="sm" onClick={() => updateRequestStatus(request.id, "INSPECTION_DONE")}>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Inspection Done
-                              </Button>
-                            )}
-
-                            {request.status === "INSPECTION_DONE" && (
-                              <Button size="sm" onClick={() => updateRequestStatus(request.id, "PRICE_UPDATED")}>
-                                <DollarSign className="mr-2 h-4 w-4" />
-                                Update Price
-                              </Button>
-                            )}
-
-                            {request.status === "PRICE_UPDATED" && (
-                              <Button size="sm" variant="outline" disabled>
-                                <Clock className="mr-2 h-4 w-4" />
-                                Waiting for User
-                              </Button>
-                            )}
-
-                            {request.status === "PRICE_CONFIRMED" && (
+                            {["ACCEPTED_BY_COMPANY", "RESCUE_VEHICLE_DISPATCHED"].includes(request.status) && (
                               <Button size="sm" onClick={() => updateRequestStatus(request.id, "IN_PROGRESS")}>
-                                <Play className="mr-2 h-4 w-4" />
-                                Start Work
+                                Start
                               </Button>
                             )}
-
                             {request.status === "IN_PROGRESS" && (
                               <Button size="sm" onClick={() => updateRequestStatus(request.id, "COMPLETED")}>
-                                <CheckCircle className="mr-2 h-4 w-4" />
                                 Complete
                               </Button>
                             )}
-
-                            {request.status === "COMPLETED" && (
-                              <Button size="sm" onClick={() => updateRequestStatus(request.id, "INVOICED")}>
-                                <FileText className="mr-2 h-4 w-4" />
-                                Invoice
-                              </Button>
-                            )}
-
                             {["CREATED", "ACCEPTED_BY_COMPANY"].includes(request.status) && (
                               <Button
                                 variant="outline"

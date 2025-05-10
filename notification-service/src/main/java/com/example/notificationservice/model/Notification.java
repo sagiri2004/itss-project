@@ -25,4 +25,5 @@ public class Notification implements Serializable {
 	NotificationType type;
 	LocalDateTime sentAt;
 	Map<String, Object> additionalData;
+	String conversationId;
 }

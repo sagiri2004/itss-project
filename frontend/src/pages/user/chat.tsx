@@ -1,256 +1,114 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams, Link } from "react-router-dom"
+import { useParams, useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { ArrowLeft } from "lucide-react"
-import ChatInterface from "@/components/chat/chat-interface"
+import { useToast } from "@/components/ui/use-toast"
+import { ArrowLeft, Loader2 } from "lucide-react"
+import { ChatInterface } from "@/components/chat/chat-interface"
 import type { Message } from "@/types/chat"
+import api from "@/services/api"
+import { useWebSocketContext } from "@/context/websocket-context"
 
-// Mock data for a specific chat (same as company chat for demo)
-const mockChatData = {
-  "chat-001": {
-    id: "chat-001",
-    requestId: "req-001",
-    companyId: "company-001",
-    companyName: "Roadside Assistance Co.",
-    service: "Flat Tire Replacement",
-    status: "ACCEPTED_BY_COMPANY",
-    messages: [
-      {
-        id: "msg-001",
-        senderId: "user-001",
-        senderName: "You",
-        senderRole: "user" as "user",
-        content: "Hello, my car has a flat tire. Can you help?",
-        type: "text",
-        timestamp: "2023-05-07T10:15:00",
-      },
-      {
-        id: "msg-002",
-        senderId: "company-001",
-        senderName: "Roadside Assistance Co.",
-        senderRole: "company" as "company",
-        content: "Hi John, we can definitely help. Can you share your location?",
-        type: "text",
-        timestamp: "2023-05-07T10:17:00",
-      },
-      {
-        id: "msg-003",
-        senderId: "user-001",
-        senderName: "You",
-        senderRole: "user",
-        content: "I'm at 123 Main St, Anytown.",
-        type: "text",
-        timestamp: "2023-05-07T10:18:00",
-      },
-      {
-        id: "msg-004",
-        senderId: "company-001",
-        senderName: "Roadside Assistance Co.",
-        senderRole: "company",
-        content: "Thank you. Based on our initial assessment, here's our price offer for the service.",
-        type: "price_offer",
-        timestamp: "2023-05-07T10:20:00",
-        metadata: {
-          price: 85.0,
-        },
-      },
-      {
-        id: "msg-005",
-        senderId: "user-001",
-        senderName: "You",
-        senderRole: "user",
-        content: "I accept the price offer.",
-        type: "price_accepted",
-        timestamp: "2023-05-07T10:22:00",
-      },
-      {
-        id: "msg-006",
-        senderId: "company-001",
-        senderName: "Roadside Assistance Co.",
-        senderRole: "company",
-        content: "Great! We'll dispatch a technician right away. They should arrive in about 30 minutes.",
-        type: "text",
-        timestamp: "2023-05-07T10:23:00",
-      },
-      {
-        id: "msg-007",
-        senderId: "system",
-        senderName: "System",
-        senderRole: "system" as "system",
-        content: "Service status updated to: RESCUE_VEHICLE_DISPATCHED",
-        type: "status_update",
-        timestamp: "2023-05-07T10:25:00",
-      },
-      {
-        id: "msg-008",
-        senderId: "company-001",
-        senderName: "Roadside Assistance Co.",
-        senderRole: "company",
-        content: "Our technician is on the way. You can track their location in the app.",
-        type: "text",
-        timestamp: "2023-05-07T10:30:00",
-      },
-    ],
-  },
-  "chat-002": {
-    id: "chat-002",
-    requestId: "req-002",
-    companyId: "company-002",
-    companyName: "Quick Roadside Help",
-    service: "Battery Jump Start",
-    status: "COMPLETED",
-    messages: [
-      {
-        id: "msg-101",
-        senderId: "user-001",
-        senderName: "You",
-        senderRole: "user",
-        content: "My car won't start. I think it's the battery.",
-        type: "text",
-        timestamp: "2023-05-05T14:00:00",
-      },
-      {
-        id: "msg-102",
-        senderId: "company-002",
-        senderName: "Quick Roadside Help",
-        senderRole: "company",
-        content: "Hi there, we can help with a jump start. What's your location?",
-        type: "text",
-        timestamp: "2023-05-05T14:02:00",
-      },
-      {
-        id: "msg-103",
-        senderId: "user-001",
-        senderName: "You",
-        senderRole: "user",
-        content: "I'm at 456 Oak Ave, Somewhere.",
-        type: "text",
-        timestamp: "2023-05-05T14:03:00",
-      },
-      {
-        id: "msg-104",
-        senderId: "company-002",
-        senderName: "Quick Roadside Help",
-        senderRole: "company",
-        content: "Here's our price offer for the battery jump start service.",
-        type: "price_offer",
-        timestamp: "2023-05-05T14:05:00",
-        metadata: {
-          price: 65.0,
-        },
-      },
-      {
-        id: "msg-105",
-        senderId: "user-001",
-        senderName: "You",
-        senderRole: "user",
-        content: "That's a bit high. Can you do it for less?",
-        type: "price_rejected",
-        timestamp: "2023-05-05T14:07:00",
-        metadata: {
-          reason: "The price is higher than I expected.",
-        },
-      },
-      {
-        id: "msg-106",
-        senderId: "company-002",
-        senderName: "Quick Roadside Help",
-        senderRole: "company",
-        content: "We can offer a discount. Here's our revised price.",
-        type: "price_offer",
-        timestamp: "2023-05-05T14:10:00",
-        metadata: {
-          price: 55.0,
-        },
-      },
-      {
-        id: "msg-107",
-        senderId: "user-001",
-        senderName: "You",
-        senderRole: "user",
-        content: "That works for me. Thank you!",
-        type: "price_accepted",
-        timestamp: "2023-05-05T14:12:00",
-      },
-      {
-        id: "msg-108",
-        senderId: "system",
-        senderName: "System",
-        senderRole: "system",
-        content: "Service status updated to: COMPLETED",
-        type: "status_update",
-        timestamp: "2023-05-05T15:30:00",
-      },
-      {
-        id: "msg-109",
-        senderId: "company-002",
-        senderName: "Quick Roadside Help",
-        senderRole: "company",
-        content: "Your invoice has been generated. Please check your email.",
-        type: "text",
-        timestamp: "2023-05-05T15:35:00",
-      },
-    ],
-  },
-}
-
-export default function UserChatDetail() {
+export default function UserChat() {
   const { user } = useAuth()
-  const { chatId } = useParams<{ chatId: string }>()
-  const [chat, setChat] = useState<any>(null)
-  const [messages, setMessages] = useState<Message[]>([])
+  const { id: conversationId } = useParams()
+  const navigate = useNavigate()
+  const { toast } = useToast()
+  const { notifications } = useWebSocketContext()
+
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [chat, setChat] = useState<any | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(true)
+
+  const fetchMessages = async (cursor?: string) => {
+    if (!conversationId) return
+    try {
+      const response = await api.chats.getMessages(conversationId, {
+        cursor,
+        limit: 20,
+        sort: 'desc',
+        markAsRead: true
+      })
+      
+      const newMessages = response.data.messages || response.data
+      if (cursor) {
+        setMessages(prev => [...prev, ...newMessages])
+      } else {
+        setMessages(newMessages)
+      }
+      
+      setNextCursor(response.data.nextCursor || null)
+      setHasMore(!!response.data.nextCursor)
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error loading messages",
+        description: error.response?.data?.message || "Could not load messages. Please try again.",
+      })
+    }
+  }
 
   useEffect(() => {
-    // Simulate loading chat data
-    setIsLoading(true)
-    setTimeout(() => {
-      if (chatId && mockChatData[chatId as keyof typeof mockChatData]) {
-        const chatData = mockChatData[chatId as keyof typeof mockChatData]
-        setChat(chatData)
-        setMessages(chatData.messages)
+    const fetchChatData = async () => {
+      if (!conversationId) return
+      setIsLoading(true)
+      try {
+        // Fetch conversation
+        const chatResponse = await api.chats.getConversationById(conversationId)
+        setChat(chatResponse.data)
+        // Fetch initial messages
+        await fetchMessages()
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error loading chat",
+          description: error.response?.data?.message || "Could not load the chat. Please try again.",
+        })
+      } finally {
+        setIsLoading(false)
       }
-      setIsLoading(false)
-    }, 500)
-  }, [chatId])
-
-  const handleSendMessage = (message: Omit<Message, "id" | "timestamp">) => {
-    const newMessage: Message = {
-      ...message,
-      id: `msg-${Date.now()}`,
-      timestamp: new Date().toISOString(),
     }
+    fetchChatData()
+  }, [conversationId, toast])
 
-    setMessages((prev) => [...prev, newMessage])
+  useEffect(() => {
+    if (!conversationId) return;
+    if (!notifications || notifications.length === 0) return;
+    const latest = notifications[0]; // notifications are prepended
+    if (
+      latest.type === "CHAT" &&
+      latest.additionalData?.conversationId === conversationId
+    ) {
+      fetchMessages();
+    }
+  }, [notifications, conversationId]);
+
+  const loadMoreMessages = async () => {
+    if (!nextCursor || isLoadingMore) return
+    setIsLoadingMore(true)
+    try {
+      await fetchMessages(nextCursor)
+    } finally {
+      setIsLoadingMore(false)
+    }
   }
 
-  const handlePriceResponse = (accepted: boolean, reason?: string) => {
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      senderId: user?.id || "user-001",
-      senderName: "You",
-      senderRole: "user",
-      content: accepted ? "I accept the price offer." : "I decline the price offer.",
-      type: accepted ? "price_accepted" : "price_rejected",
-      timestamp: new Date().toISOString(),
-      metadata: accepted ? undefined : { reason },
-    }
+  // Không dùng sendMessage API ở đây, chỉ demo nhận message
+  const handleSendMessage = async () => {}
+  const handlePriceResponse = async () => {}
 
-    setMessages((prev) => [...prev, newMessage])
-  }
-
-  if (isLoading) {
+  if (isLoading && !chat) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
         <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p>Loading chat...</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading chat...</p>
         </div>
       </div>
     )
@@ -258,63 +116,40 @@ export default function UserChatDetail() {
 
   if (!chat) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <h2 className="text-xl font-semibold mb-2">Chat not found</h2>
-              <p className="text-muted-foreground mb-4">
-                The chat you're looking for doesn't exist or has been deleted.
-              </p>
-              <Button asChild>
-                <Link to="/user/chats">Back to Chats</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
+        <div className="text-center">
+          <p className="text-muted-foreground">Chat not found</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="container mx-auto h-[calc(100vh-10rem)] max-w-4xl"
-    >
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="icon">
-            <Link to="/user/chats">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold">Chat with {chat.companyName}</h1>
-        </div>
-        <Badge>{chat.status.replace(/_/g, " ")}</Badge>
-      </div>
-
-      <Card className="h-[calc(100%-3rem)]">
-        <CardHeader className="border-b p-4">
-          <CardTitle className="text-lg">
-            {chat.service} - Request #{chat.requestId}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ChatInterface
-            requestId={chat.requestId}
-            currentUserId={user?.id || "user-001"}
-            currentUserRole="user"
-            otherPartyName={chat.companyName}
-            initialMessages={messages}
-            onSendMessage={handleSendMessage}
-            onPriceResponse={handlePriceResponse}
-            isLoading={isLoading}
-            requestStatus={chat.status}
-          />
-        </CardContent>
-      </Card>
+    <motion.div className="h-[calc(100vh-12rem)]">
+      <motion.div className="flex items-center mb-4">
+        <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-2xl font-bold ml-2">Chat with Service Provider</h1>
+      </motion.div>
+      <motion.div className="h-[calc(100%-3rem)]">
+        <ChatInterface
+          requestId={conversationId || ""}
+          currentUserId={user?.id || ""}
+          rescueCompanyId={typeof chat.company === 'object' ? chat.company.id : undefined}
+          currentUserRole="user"
+          otherPartyName={chat.company?.name || "Service Provider"}
+          initialMessages={messages}
+          onSendMessage={handleSendMessage}
+          onPriceResponse={handlePriceResponse}
+          isLoading={isLoading}
+          isLoadingMore={isLoadingMore}
+          hasMore={hasMore}
+          onLoadMore={loadMoreMessages}
+          currentPrice={0}
+          requestStatus={""}
+        />
+      </motion.div>
     </motion.div>
   )
 }

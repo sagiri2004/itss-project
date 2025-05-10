@@ -10,32 +10,38 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { formatStatus, getStatusVariant } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
-import { ArrowLeft, Clock, MapPin, Phone, Car, Info } from "lucide-react"
+import { ArrowLeft, Clock, MapPin, Phone, Car, Info, Loader2 } from "lucide-react"
+import api from "@/services/api"
 
-// Mock data for a request
-const mockRequest = {
-  id: "req-001",
-  status: "RESCUE_VEHICLE_DISPATCHED",
+interface Location {
+  address: string
+  coordinates: [number, number]
+}
+
+interface Driver {
+  name: string
+  phone: string
+}
+
+interface Vehicle {
+  id: string
+  name: string
+  type: string
+  driver: Driver
   location: {
-    address: "123 Main St, New York, NY 10001",
-    coordinates: [40.7128, -74.006] as [number, number],
-  },
-  serviceType: "Flat Tire Replacement",
-  createdAt: "2023-06-15T14:30:00Z",
-  estimatedArrival: "2023-06-15T15:00:00Z",
-  vehicle: {
-    id: "veh-001",
-    name: "Tow Truck #1",
-    type: "Tow Truck",
-    driver: {
-      name: "John Smith",
-      phone: "+1 (555) 123-4567",
-    },
-    location: {
-      coordinates: [40.72, -74.01] as [number, number],
-      lastUpdated: "2023-06-15T14:45:00Z",
-    },
-  },
+    coordinates: [number, number]
+    lastUpdated: string
+  }
+}
+
+interface Request {
+  id: string
+  status: string
+  location: Location
+  serviceType: string
+  createdAt: string
+  estimatedArrival: string
+  vehicle: Vehicle
 }
 
 export default function RequestMap() {
@@ -43,26 +49,26 @@ export default function RequestMap() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { toast } = useToast()
-  const [request, setRequest] = useState(mockRequest)
+  const [request, setRequest] = useState<Request | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [mapCenter, setMapCenter] = useState<[number, number]>([40.7128, -74.006])
   const [mapZoom, setMapZoom] = useState(13)
 
-  // Simulate fetching request data
   useEffect(() => {
     const fetchRequest = async () => {
+      if (!id) return
+
       try {
-        // In a real app, fetch from API
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-        setRequest(mockRequest)
-        setMapCenter(mockRequest.location.coordinates)
-        setIsLoading(false)
-      } catch (error) {
+        const response = await api.rescueRequests.getRequestById(id)
+        setRequest(response.data)
+        setMapCenter(response.data.location.coordinates)
+      } catch (error: any) {
         toast({
           variant: "destructive",
           title: "Error loading request",
-          description: "Could not load the request details. Please try again.",
+          description: error.response?.data?.message || "Could not load the request details. Please try again.",
         })
+      } finally {
         setIsLoading(false)
       }
     }
@@ -70,56 +76,51 @@ export default function RequestMap() {
     fetchRequest()
   }, [id, toast])
 
-  // Simulate vehicle movement (for demo purposes)
+  // Update vehicle location
   useEffect(() => {
-    if (!isLoading && request.status === "RESCUE_VEHICLE_DISPATCHED") {
-      const interval = setInterval(() => {
+    if (!request || request.status !== "RESCUE_VEHICLE_DISPATCHED") return
+
+    const interval = setInterval(async () => {
+      try {
+        const response = await api.rescueVehicles.getVehicleById(request.vehicle.id)
         setRequest((prev) => {
-          // Move vehicle slightly closer to the request location
-          const vehicleLat = prev.vehicle.location.coordinates[0]
-          const vehicleLng = prev.vehicle.location.coordinates[1]
-          const requestLat = prev.location.coordinates[0]
-          const requestLng = prev.location.coordinates[1]
-
-          const newLat = vehicleLat + (requestLat - vehicleLat) * 0.1
-          const newLng = vehicleLng + (requestLng - vehicleLng) * 0.1
-
-          // Check if vehicle has arrived (close enough to request)
-          const distance = Math.sqrt(Math.pow(newLat - requestLat, 2) + Math.pow(newLng - requestLng, 2))
-
-          if (distance < 0.001) {
-            clearInterval(interval)
-            return {
-              ...prev,
-              status: "RESCUE_VEHICLE_ARRIVED",
-              vehicle: {
-                ...prev.vehicle,
-                location: {
-                  ...prev.vehicle.location,
-                  coordinates: [requestLat, requestLng],
-                  lastUpdated: new Date().toISOString(),
-                },
-              },
-            }
-          }
-
+          if (!prev) return prev
           return {
             ...prev,
             vehicle: {
               ...prev.vehicle,
-              location: {
-                ...prev.vehicle.location,
-                coordinates: [newLat, newLng],
-                lastUpdated: new Date().toISOString(),
-              },
+              location: response.data.location,
             },
           }
         })
-      }, 3000)
+      } catch (error: any) {
+        console.error("Error updating vehicle location:", error)
+      }
+    }, 3000)
 
-      return () => clearInterval(interval)
-    }
-  }, [isLoading, request.status])
+    return () => clearInterval(interval)
+  }, [request?.id, request?.status, request?.vehicle.id])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading request details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!request) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
+        <div className="text-center">
+          <p className="text-muted-foreground">Request not found</p>
+        </div>
+      </div>
+    )
+  }
 
   // Prepare map markers
   const mapMarkers = [
@@ -251,12 +252,6 @@ export default function RequestMap() {
                 </div>
               </div>
             </CardContent>
-            <CardFooter>
-              <Button className="w-full" onClick={() => window.open(`tel:${request.vehicle.driver.phone}`)}>
-                <Phone className="mr-2 h-4 w-4" />
-                Call Driver
-              </Button>
-            </CardFooter>
           </Card>
         </div>
       </motion.div>

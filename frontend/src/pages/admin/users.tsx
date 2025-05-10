@@ -21,97 +21,10 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { Search, Eye, CheckCircle, XCircle, Calendar, Mail, Phone, Lock, Shield } from "lucide-react"
-
-// Mock data
-const mockUsers = [
-  {
-    id: "user-001",
-    name: "John Doe",
-    email: "john@example.com",
-    phone: "+1 (555) 123-4567",
-    role: "user",
-    status: "ACTIVE",
-    joinDate: "2023-01-10",
-    lastLogin: "2023-05-07T08:30:00",
-    requestsCount: 5,
-    isVerified: true,
-  },
-  {
-    id: "user-002",
-    name: "Jane Smith",
-    email: "jane@example.com",
-    phone: "+1 (555) 987-6543",
-    role: "user",
-    status: "ACTIVE",
-    joinDate: "2023-02-15",
-    lastLogin: "2023-05-06T14:20:00",
-    requestsCount: 3,
-    isVerified: true,
-  },
-  {
-    id: "user-003",
-    name: "Bob Johnson",
-    email: "bob@example.com",
-    phone: "+1 (555) 456-7890",
-    role: "user",
-    status: "SUSPENDED",
-    joinDate: "2023-03-05",
-    lastLogin: "2023-04-20T09:15:00",
-    requestsCount: 2,
-    isVerified: true,
-  },
-  {
-    id: "user-004",
-    name: "Alice Brown",
-    email: "alice@example.com",
-    phone: "+1 (555) 234-5678",
-    role: "user",
-    status: "ACTIVE",
-    joinDate: "2023-03-20",
-    lastLogin: "2023-05-07T11:45:00",
-    requestsCount: 4,
-    isVerified: true,
-  },
-  {
-    id: "user-005",
-    name: "Charlie Wilson",
-    email: "charlie@example.com",
-    phone: "+1 (555) 345-6789",
-    role: "user",
-    status: "PENDING_VERIFICATION",
-    joinDate: "2023-05-01",
-    lastLogin: "2023-05-01T16:30:00",
-    requestsCount: 1,
-    isVerified: false,
-  },
-  {
-    id: "user-006",
-    name: "David Miller",
-    email: "david@example.com",
-    phone: "+1 (555) 567-8901",
-    role: "user",
-    status: "ACTIVE",
-    joinDate: "2023-04-12",
-    lastLogin: "2023-05-05T13:10:00",
-    requestsCount: 2,
-    isVerified: true,
-  },
-  {
-    id: "user-007",
-    name: "Emily Davis",
-    email: "emily@example.com",
-    phone: "+1 (555) 678-9012",
-    role: "admin",
-    status: "ACTIVE",
-    joinDate: "2023-01-05",
-    lastLogin: "2023-05-07T09:30:00",
-    requestsCount: 0,
-    isVerified: true,
-  },
-]
+import { mockUsers } from "@/data/mock-data"
 
 export default function AdminUsers() {
-  const {} = useAuth()
+  const { user } = useAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState<string | null>(null)

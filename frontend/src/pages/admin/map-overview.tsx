@@ -12,151 +12,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast"
 import { RefreshCw, Car, MapPin, AlertTriangle, Clock } from "lucide-react"
 
-// Mock data for vehicles and requests
-const mockVehicles = [
-  {
-    id: "veh-001",
-    name: "Tow Truck #1",
-    company: {
-      id: "comp-001",
-      name: "FastFix Roadside",
-    },
-    type: "Tow Truck",
-    status: "IN_USE",
-    location: {
-      coordinates: [40.72, -74.01] as [number, number],
-      lastUpdated: "2023-06-15T14:45:00Z",
-    },
-    currentRequest: "req-001",
-  },
-  {
-    id: "veh-002",
-    name: "Service Van #1",
-    company: {
-      id: "comp-001",
-      name: "FastFix Roadside",
-    },
-    type: "Service Van",
-    status: "AVAILABLE",
-    location: {
-      coordinates: [40.73, -73.995] as [number, number],
-      lastUpdated: "2023-06-15T14:40:00Z",
-    },
-    currentRequest: null,
-  },
-  {
-    id: "veh-003",
-    name: "Tow Truck #2",
-    company: {
-      id: "comp-001",
-      name: "FastFix Roadside",
-    },
-    type: "Tow Truck",
-    status: "MAINTENANCE",
-    location: {
-      coordinates: [40.715, -74.02] as [number, number],
-      lastUpdated: "2023-06-15T13:30:00Z",
-    },
-    currentRequest: null,
-  },
-  {
-    id: "veh-004",
-    name: "Flatbed Truck #1",
-    company: {
-      id: "comp-002",
-      name: "QuickHelp Auto",
-    },
-    type: "Flatbed Truck",
-    status: "IN_USE",
-    location: {
-      coordinates: [40.705, -73.99] as [number, number],
-      lastUpdated: "2023-06-15T14:30:00Z",
-    },
-    currentRequest: "req-002",
-  },
-  {
-    id: "veh-005",
-    name: "Service Van #2",
-    company: {
-      id: "comp-002",
-      name: "QuickHelp Auto",
-    },
-    type: "Service Van",
-    status: "AVAILABLE",
-    location: {
-      coordinates: [40.725, -73.98] as [number, number],
-      lastUpdated: "2023-06-15T14:20:00Z",
-    },
-    currentRequest: null,
-  },
-]
+// Replace the mock data imports
+import { mockMapVehicles, mockMapRequests } from "@/data/mock-data"
 
-const mockRequests = [
-  {
-    id: "req-001",
-    customerName: "Michael Johnson",
-    serviceType: "Flat Tire Replacement",
-    location: {
-      address: "123 Main St, New York, NY 10001",
-      coordinates: [40.7128, -74.006] as [number, number],
-    },
-    status: "RESCUE_VEHICLE_DISPATCHED",
-    company: {
-      id: "comp-001",
-      name: "FastFix Roadside",
-    },
-    assignedVehicle: "veh-001",
-    createdAt: "2023-06-15T14:30:00Z",
-  },
-  {
-    id: "req-002",
-    customerName: "Jennifer Wilson",
-    serviceType: "Vehicle Towing",
-    location: {
-      address: "456 Park Ave, New York, NY 10022",
-      coordinates: [40.7, -73.985] as [number, number],
-    },
-    status: "IN_PROGRESS",
-    company: {
-      id: "comp-002",
-      name: "QuickHelp Auto",
-    },
-    assignedVehicle: "veh-004",
-    createdAt: "2023-06-15T14:20:00Z",
-  },
-  {
-    id: "req-003",
-    customerName: "Robert Thompson",
-    serviceType: "Battery Jump Start",
-    location: {
-      address: "789 Broadway, New York, NY 10003",
-      coordinates: [40.735, -73.99] as [number, number],
-    },
-    status: "CREATED",
-    company: null,
-    assignedVehicle: null,
-    createdAt: "2023-06-15T14:50:00Z",
-  },
-  {
-    id: "req-004",
-    customerName: "Lisa Anderson",
-    serviceType: "Lockout Service",
-    location: {
-      address: "321 5th Ave, New York, NY 10016",
-      coordinates: [40.745, -73.985] as [number, number],
-    },
-    status: "CREATED",
-    company: null,
-    assignedVehicle: null,
-    createdAt: "2023-06-15T14:55:00Z",
-  },
-]
+// Remove the original mock data declarations
+// Replace:
+// const mockVehicles = [ ... ]
+// const mockRequests = [ ... ]
 
 export default function MapOverview() {
   const { user } = useAuth()
   const { toast } = useToast()
-  const [vehicles, setVehicles] = useState(mockVehicles)
-  const [requests, setRequests] = useState(mockRequests)
+  const [vehicles, setVehicles] = useState(mockMapVehicles)
+  const [requests, setRequests] = useState(mockMapRequests)
   const [companyFilter, setCompanyFilter] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [mapCenter, setMapCenter] = useState<[number, number]>([40.7128, -74.006])
