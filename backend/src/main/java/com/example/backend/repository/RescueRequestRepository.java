@@ -3,6 +3,7 @@ package com.example.backend.repository;
 
 import com.example.backend.model.RescueRequest;
 import com.example.backend.model.RescueService;
+import com.example.backend.model.User;
 import com.example.backend.model.enums.RescueRequestStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -17,4 +18,5 @@ public interface RescueRequestRepository extends JpaRepository<RescueRequest, St
 	
 	List<RescueRequest> findByCompanyId(String companyId);
 
+	List<RescueRequest> findByUser(User user);
 }

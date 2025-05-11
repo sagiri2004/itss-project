@@ -3,21 +3,22 @@ package com.example.backend.service.impl;
 import com.example.backend.dto.request.RescueRequestCreateRequest;
 import com.example.backend.dto.response.InvoiceResponse;
 import com.example.backend.dto.response.RescueRequestResponse;
+import com.example.backend.dto.response.RescueServiceResponse;
 import com.example.backend.event.NotificationEvent;
 import com.example.backend.event.enums.NotificationType;
 import com.example.backend.exception.AuthException;
+import com.example.backend.exception.GlobalExceptionHandler;
 import com.example.backend.exception.InvalidStatusException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.kafka.NotificationEventProducer;
 import com.example.backend.model.*;
-import com.example.backend.model.enums.InvoiceStatus;
-import com.example.backend.model.enums.RescueRequestStatus;
-import com.example.backend.model.enums.RescueVehicleDispatchStatus;
-import com.example.backend.model.enums.RescueVehicleStatus;
+import com.example.backend.model.enums.*;
 import com.example.backend.repository.*;
 import com.example.backend.service.RescueRequestService;
 import com.example.backend.utils.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -35,19 +36,43 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 	private final RescueServiceRepository serviceRepository;
 	private final RescueCompanyRepository rescueCompanyRepository;
 	private final RescueVehicleRepository rescueVehicleRepository;
+	private final MessageRepository messageRepository;
+	private final ConversationRepository conversationRepository;
 	private final InvoiceRepository invoiceRepository;
 	private final RescueVehicleDispatchRepository rescueVehicleDispatchRepository;
 	private final UserRepository userRepository;
 	private final NotificationEventProducer notificationEventProducer;
 	private final JwtUtil jwtUtil;
 
+	private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
 	@Override
-	public RescueRequestResponse createRescueRequest(RescueRequestCreateRequest request, String userId) {
+	public List<RescueRequestResponse> getUserRequests(String userId) {
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new ResourceNotFoundException("User not found"));
+		List<RescueRequest> requests = requestRepository.findByUser(user);
+		return requests.stream()
+				.map(this::toResponse)
+				.toList();
+	}
+
+	@Override
+	public RescueRequestResponse createRescueRequest(RescueRequestCreateRequest request, String userId) {
+		logger.info("Creating rescue request for userId: {} with serviceId: {}", userId, request.getRescueServiceId());
+
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> {
+					logger.error("User not found with id: {}", userId);
+					return new ResourceNotFoundException("User with ID " + userId + " does not exist");
+				});
+		logger.debug("Found user: {}", user.getId());
 
 		RescueService rescueService = serviceRepository.findById(request.getRescueServiceId())
-				.orElseThrow(() -> new ResourceNotFoundException("Service not found"));
+				.orElseThrow(() -> {
+					logger.error("Rescue service not found with id: {}", request.getRescueServiceId());
+					return new IllegalArgumentException("Rescue service with ID " + request.getRescueServiceId() + " does not exist");
+				});
+		logger.debug("Found rescue service: {}", rescueService.getId());
 
 		RescueRequest rescueRequest = RescueRequest.builder()
 				.user(user)
@@ -61,6 +86,7 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 				.build();
 
 		RescueRequest saved = requestRepository.save(rescueRequest);
+		logger.info("Saved rescue request with id: {}", saved.getId());
 
 		User companyOwner = rescueService.getCompany().getUser();
 		NotificationEvent event = NotificationEvent.builder()
@@ -70,11 +96,98 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 				.type(NotificationType.RESCUE_REQUEST)
 				.sentAt(LocalDateTime.now())
 				.build();
-		notificationEventProducer.sendNotificationEvent(event);
-
+		try {
+			notificationEventProducer.sendNotificationEvent(event);
+			logger.debug("Sent notification for rescue request: {}", saved.getId());
+		} catch (Exception e) {
+			logger.warn("Failed to send notification for rescue request: {}", saved.getId(), e);
+		}
 
 		return toResponse(saved);
 	}
+
+	@Override
+	public RescueRequestResponse getRescueRequestById(String id, String userId) {
+		logger.info("Fetching rescue request details for id: {} by userId: {}", id, userId);
+
+		RescueRequest rescueRequest = requestRepository.findById(id)
+				.orElseThrow(() -> {
+					logger.error("Rescue request not found with id: {}", id);
+					return new ResourceNotFoundException("Rescue request with ID " + id + " does not exist");
+				});
+
+		// Kiểm tra quyền truy cập
+		User requestingUser = userRepository.findById(userId)
+				.orElseThrow(() -> new ResourceNotFoundException("User with ID " + userId + " does not exist"));
+		if (!rescueRequest.getUser().getId().equals(userId) && !isCompanyUser(requestingUser, rescueRequest.getCompany())) {
+			logger.warn("Unauthorized access attempt to rescue request id: {} by userId: {}", id, userId);
+			throw new SecurityException("You do not have permission to view this rescue request");
+		}
+
+		// Lấy thông tin RescueService
+		RescueServiceResponse rescueServiceResponse = RescueServiceResponse.builder()
+				.id(rescueRequest.getRescueService().getId())
+				.name(rescueRequest.getRescueService().getName())
+				.description(rescueRequest.getRescueService().getDescription())
+				.price(rescueRequest.getRescueService().getPrice())
+				.type(rescueRequest.getRescueService().getType())
+				.companyId(rescueRequest.getCompany().getId())
+				.companyName(rescueRequest.getCompany().getName())
+				.build();
+
+		RescueVehicleDispatch dispatch = rescueVehicleDispatchRepository.findByRescueRequestId(rescueRequest.getId());
+
+		// Lấy thông tin RescueVehicle (nếu có)
+		String vehicleLicensePlate = null;
+		String vehicleModel = null;
+		List<RescueEquipment> vehicleEquipmentDetails = null;
+		RescueVehicleStatus vehicleStatus = null;
+
+		if (dispatch != null) {
+			// Lấy thông tin RescueVehicle (nếu có)
+			String vehicleId = dispatch.getRescueVehicle().getId();
+			if (vehicleId != null) {
+				RescueVehicle vehicle = rescueVehicleRepository.findById(vehicleId).orElse(null);
+				logger.info("Rescue vehicle found for id: {} by userId: {}", vehicle.getId(), vehicle);
+				if (vehicle != null) {
+					vehicleLicensePlate = vehicle.getLicensePlate();
+					vehicleModel = vehicle.getModel();
+					vehicleEquipmentDetails = vehicle.getEquipmentDetails();
+					vehicleStatus = vehicle.getStatus();
+				}
+			}
+		}
+
+//		logger.info("Rescue request details fetched successfully for id: {} by userId: {}", dispatch.getId(), dispatch);
+
+		return RescueRequestResponse.builder()
+				.id(rescueRequest.getId())
+				.userId(rescueRequest.getUser().getId())
+				.serviceId(rescueRequest.getRescueService().getId())
+				.serviceName(rescueRequest.getRescueService().getName())
+				.companyId(rescueRequest.getCompany().getId())
+				.companyName(rescueRequest.getCompany().getName())
+				.latitude(rescueRequest.getLatitude())
+				.longitude(rescueRequest.getLongitude())
+				.description(rescueRequest.getDescription())
+				.estimatedPrice(rescueRequest.getEstimatedPrice())
+				.finalPrice(rescueRequest.getFinalPrice()) // Giả định có trong model
+				.status(rescueRequest.getStatus())
+				.createdAt(rescueRequest.getCreatedAt())
+				.notes(rescueRequest.getNotes()) // Giả định có trong model
+				.rescueServiceDetails(rescueServiceResponse)
+				.vehicleLicensePlate(vehicleLicensePlate)
+				.vehicleModel(vehicleModel)
+				.vehicleEquipmentDetails(vehicleEquipmentDetails)
+				.vehicleStatus(vehicleStatus)
+				.build();
+	}
+
+	// Helper method để kiểm tra xem user có phải là chủ sở hữu công ty liên quan không
+	private boolean isCompanyUser(User user, RescueCompany company) {
+		return company != null && company.getUser() != null && company.getUser().getId().equals(user.getId());
+	}
+
 
 	@Override
 	@PreAuthorize("hasAnyRole('COMPANY', 'ADMIN')")
@@ -126,6 +239,33 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 		request.setStatus(RescueRequestStatus.ACCEPTED_BY_COMPANY);
 		RescueRequest saved = requestRepository.save(request);
 
+		// --- Tạo conversation và gửi tin nhắn chào ---
+		User user = request.getUser();
+		// 1. Kiểm tra đã có conversation chưa
+		Conversation conversation = conversationRepository.findByUserIdAndRescueCompanyId(user.getId(), company.getId())
+				.orElse(null);
+		if (conversation == null) {
+			conversation = Conversation.builder()
+					.user(user)
+					.rescueCompany(company)
+					.createdAt(LocalDateTime.now())
+					.build();
+			conversation = conversationRepository.save(conversation);
+		}
+
+		// 2. Tạo message chào
+		Message welcomeMsg = Message.builder()
+				.conversation(conversation)
+				.senderType(MessageSender.RESCUE_COMPANY)
+				.content("Xin chào, chúng tôi đã tiếp nhận yêu cầu cứu hộ của bạn. Vui lòng giữ liên lạc để được hỗ trợ nhanh nhất!")
+				.sentAt(LocalDateTime.now())
+				.isRead(false)
+				.build();
+		messageRepository.save(welcomeMsg);
+
+		// (Nếu có hệ thống WebSocket/chat realtime, có thể publish message này tại đây)
+
+		// --- Gửi notification như cũ ---
 		NotificationEvent event = NotificationEvent.builder()
 				.recipientId(request.getUser().getId())
 				.title("Yêu cầu được tiếp nhận")
@@ -134,6 +274,16 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 				.sentAt(LocalDateTime.now())
 				.build();
 		notificationEventProducer.sendNotificationEvent(event);
+
+		// --- Gui them message chào ---
+		NotificationEvent welcomeMsgEvent = NotificationEvent.builder()
+				.recipientId(request.getUser().getId())
+				.title("Chào mừng bạn đã được tiếp nhận yêu cầu cứu hộ")
+				.content(welcomeMsg.getContent())
+				.type(NotificationType.CHAT)
+				.conversationId(conversation.getId())
+				.sentAt(LocalDateTime.now())
+				.build();
 
 		return toResponse(saved);
 	}

@@ -1,7 +1,7 @@
 package com.example.backend.service;
-
 import com.example.backend.dto.request.InvoiceCreateRequest;
 import com.example.backend.dto.request.InvoiceUpdateRequest;
+import com.example.backend.dto.request.UserConfirmPaymentRequest;
 import com.example.backend.dto.response.InvoiceResponse;
 import com.example.backend.model.enums.InvoiceStatus;
 
@@ -9,7 +9,7 @@ import java.util.List;
 
 /**
  * Service interface for managing invoices in the system.
- * Provides methods for creating, retrieving, updating, and deleting invoices.
+ * Provides methods for creating, retrieving, updating, deleting, and confirming payment of invoices.
  */
 public interface InvoiceService {
 
@@ -112,6 +112,21 @@ public interface InvoiceService {
 	 * @throws IllegalStateException if the invoice is already marked as paid
 	 */
 	InvoiceResponse markInvoiceAsPaid(String id, String paymentMethod);
+
+	/**
+	 * Confirms payment of an invoice by a user.
+	 * Verifies user authorization, sets the status to PAID, records the payment date and method.
+	 * Also updates the associated rescue request status.
+	 *
+	 * @param id The ID of the invoice to confirm payment for
+	 * @param userId The ID of the user confirming payment
+	 * @param request The payment confirmation request containing payment details
+	 * @return The updated invoice
+	 * @throws com.example.backend.exception.ResourceNotFoundException if the invoice doesn't exist
+	 * @throws IllegalStateException if the invoice is already paid
+	 * @throws org.springframework.security.access.AccessDeniedException if the user is not authorized
+	 */
+	InvoiceResponse confirmPayment(String id, String userId, UserConfirmPaymentRequest request);
 
 	/**
 	 * Deletes an invoice from the system.

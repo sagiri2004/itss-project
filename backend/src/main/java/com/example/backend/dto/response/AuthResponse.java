@@ -1,14 +1,12 @@
 package com.example.backend.dto.response;
-import lombok.*;
+
+import lombok.Builder;
+import lombok.Data;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 @Builder
 public class AuthResponse {
 	private String message;
 	private String token;
-	private String userId;
-	// company neu co
-	private String companyId;
+	private UserResponse user;
 }

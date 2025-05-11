@@ -9,60 +9,87 @@ import java.util.List;
 
 /**
  * Service interface for managing chat functionality in the system.
- * Provides methods for handling messages and conversations.
+ * Provides methods for handling messages, conversations, conversation details, and unread message counts.
  */
 public interface ChatService {
-	/**
-	 * Get initial messages for a conversation with pagination.
-	 *
-	 * @param conversationId ID of the conversation
-	 * @param limit          Maximum number of messages to return
-	 * @return MessageCursorResponse containing messages and next cursor
-	 */
-	MessageCursorResponse getInitialMessages(String conversationId, int limit);
 
 	/**
-	 * Get messages before a specific cursor for pagination.
+	 * Retrieves initial messages for a conversation with pagination.
 	 *
-	 * @param conversationId ID of the conversation
-	 * @param cursor         Cursor indicating position for pagination
-	 * @param limit          Maximum number of messages to return
-	 * @return MessageCursorResponse containing messages and next cursor
+	 * @param conversationId The ID of the conversation.
+	 * @param limit          Maximum number of messages to return.
+	 * @param sort           Sort order for messages (asc/desc).
+	 * @return MessageCursorResponse containing messages and next cursor.
 	 */
-	MessageCursorResponse getMessagesBeforeCursor(String conversationId, String cursor, int limit);
+	MessageCursorResponse getInitialMessages(String conversationId, int limit, String sort);
 
 	/**
-	 * Mark all unread messages in a conversation as read.
+	 * Retrieves messages before a specific cursor for pagination.
 	 *
-	 * @param conversationId ID of the conversation
-	 * @param senderType     Type of the message sender to mark as read
+	 * @param conversationId The ID of the conversation.
+	 * @param cursor         Cursor indicating position for pagination.
+	 * @param limit          Maximum number of messages to return.
+	 * @param sort           Sort order for messages (asc/desc).
+	 * @return MessageCursorResponse containing messages and next cursor.
+	 */
+	MessageCursorResponse getMessagesBeforeCursor(String conversationId, String cursor, int limit, String sort);
+
+	/**
+	 * Marks all unread messages in a conversation as read.
+	 *
+	 * @param conversationId The ID of the conversation.
+	 * @param senderType     Type of the message sender to mark as read.
 	 */
 	void markAllMessagesAsRead(String conversationId, MessageSender senderType);
 
 	/**
-	 * Send a new message in a conversation.
+	 * Sends a new message in a conversation.
 	 *
-	 * @param userId          ID of the user
-	 * @param rescueCompanyId ID of the rescue company
-	 * @param content         Content of the message
-	 * @param senderType      Type of the sender (USER or RESCUE_COMPANY)
-	 * @return The created Message
+	 * @param userId          The ID of the user.
+	 * @param rescueCompanyId The ID of the rescue company.
+	 * @param content         The content of the message.
+	 * @param senderType      The type of the sender (USER or RESCUE_COMPANY).
+	 * @return The created Message.
 	 */
 	Message sendMessage(String userId, String rescueCompanyId, String content, MessageSender senderType);
 
 	/**
-	 * Get all conversations for a user.
+	 * Retrieves all conversations for a user.
 	 *
-	 * @param userId ID of the user
-	 * @return List of ConversationResponse objects
+	 * @param userId The ID of the user.
+	 * @return List of ConversationResponse objects.
 	 */
 	List<ConversationResponse> getUserConversations(String userId);
 
 	/**
-	 * Get all conversations for a rescue company.
+	 * Retrieves all conversations for a rescue company.
 	 *
-	 * @param rescueCompanyId ID of the rescue company
-	 * @return List of ConversationResponse objects
+	 * @param rescueCompanyId The ID of the rescue company.
+	 * @return List of ConversationResponse objects.
 	 */
 	List<ConversationResponse> getCompanyConversations(String rescueCompanyId);
+
+	/**
+	 * Retrieves details of a specific conversation by its ID.
+	 *
+	 * @param conversationId The ID of the conversation.
+	 * @return ConversationResponse containing conversation details.
+	 */
+	ConversationResponse getConversationById(String conversationId);
+
+	/**
+	 * Counts the total number of unread messages for a user across all their conversations.
+	 *
+	 * @param userId The ID of the user.
+	 * @return The total number of unread messages from rescue companies.
+	 */
+	long countTotalUnreadMessagesForUser(String userId);
+
+	/**
+	 * Counts the total number of unread messages for a rescue company across all their conversations.
+	 *
+	 * @param rescueCompanyId The ID of the rescue company.
+	 * @return The total number of unread messages from users.
+	 */
+	long countTotalUnreadMessagesForCompany(String rescueCompanyId);
 }

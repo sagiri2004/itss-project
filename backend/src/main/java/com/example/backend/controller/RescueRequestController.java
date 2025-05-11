@@ -14,7 +14,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +32,7 @@ public class RescueRequestController {
 
 	private final RescueRequestService rescueRequestService;
 	private final JwtUtil jwtUtil;
+	private static final Logger logger = LoggerFactory.getLogger(RescueRequestController.class);
 
 	@Operation(summary = "Tạo yêu cầu cứu hộ mới",
 			description = "API cho phép người dùng tạo yêu cầu cứu hộ mới",
@@ -44,14 +48,35 @@ public class RescueRequestController {
 	@PostMapping
 	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<RescueRequestResponse> createRequest(
-			@Parameter(description = "Thông tin yêu cầu cứu hộ", required = true)
-			@RequestBody RescueRequestCreateRequest request,
-			@Parameter(description = "Token xác thực", required = true)
+			@Valid @RequestBody RescueRequestCreateRequest request,
 			@RequestHeader("Authorization") String authHeader
 	) {
+		logger.info("Received POST request to create rescue request: {}", request);
 		String token = jwtUtil.extractTokenFromHeader(authHeader);
 		String userId = jwtUtil.extractUserId(token);
 		return ResponseEntity.ok(rescueRequestService.createRescueRequest(request, userId));
+	}
+
+	@Operation(summary = "Lấy danh sách tất cả yêu cầu cứu hộ của người dùng",
+			description = "API cho phép người dùng lấy danh sách tất cả các yêu cầu cứu hộ của mình",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Lấy danh sách thành công",
+					content = @Content(mediaType = "application/json",
+							array = @ArraySchema(schema = @Schema(implementation = RescueRequestResponse.class)))),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện")
+	})
+	@GetMapping("/user")
+	@PreAuthorize("hasRole('USER')")
+	public ResponseEntity<List<RescueRequestResponse>> getUserRequests(
+			@Parameter(description = "Token xác thực", required = true)
+			@RequestHeader("Authorization") String authHeader
+	) {
+		logger.info("Getting user requests");
+		String token = jwtUtil.extractTokenFromHeader(authHeader);
+		String userId = jwtUtil.extractUserId(token);
+		return ResponseEntity.ok(rescueRequestService.getUserRequests(userId));
 	}
 
 	@Operation(summary = "Lấy danh sách yêu cầu cứu hộ cho công ty",
@@ -321,5 +346,31 @@ public class RescueRequestController {
 			@Parameter(description = "Token xác thực", required = true)
 			@RequestHeader("Authorization") String token) {
 		return ResponseEntity.ok(rescueRequestService.completeRepair(id, token));
+	}
+
+	@Operation(summary = "Lấy thông tin chi tiết của yêu cầu cứu hộ",
+			description = "API cho phép lấy thông tin chi tiết của một yêu cầu cứu hộ dựa trên ID",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Lấy thông tin thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueRequestResponse.class))),
+			@ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu cứu hộ")
+	})
+	@GetMapping("/{id}")
+	@PreAuthorize("hasAnyRole('USER', 'COMPANY')")
+	public ResponseEntity<RescueRequestResponse> getRescueRequestById(
+			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
+			@PathVariable String id,
+			@Parameter(description = "Token xác thực", required = true)
+			@RequestHeader("Authorization") String authHeader
+	) {
+		logger.info("Getting rescue request details for id: {}", id);
+		String token = jwtUtil.extractTokenFromHeader(authHeader);
+		String userId = jwtUtil.extractUserId(token);
+		RescueRequestResponse response = rescueRequestService.getRescueRequestById(id, userId);
+		return ResponseEntity.ok(response);
 	}
 }
