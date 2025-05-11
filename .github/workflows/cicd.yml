@@ -18,6 +18,7 @@ env:
 
 jobs:
   build:
+    name: Build Docker images
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -75,10 +76,14 @@ jobs:
         with:
           kustomize-version: '5.4.3'
 
+      - name: Update image tags in Kustomize
+        run: |
+          cd ${{ env.K8S_DIR }}
+          kustomize edit set image sagiri2k4/backend=sagiri2k4/backend:latest sagiri2k4/notification-service=sagiri2k4/notification-service:latest
+
       - name: Deploy to GKE
         run: |
           cd ${{ env.K8S_DIR }}
-          kustomize edit set image sagiri2k4/backend=sagiri2k4/backend:${{ github.sha }} sagiri2k4/notification-service=sagiri2k4/notification-service:${{ github.sha }}
           kustomize build . | kubectl apply -f -
           kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME_BACKEND }}
           kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME_NOTIFICATION }}
