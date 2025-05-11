@@ -8,17 +8,6 @@ data:
       listen 80;
       server_name _;
 
-      # Redirect all HTTP to HTTPS
-      return 301 https://$host$request_uri;
-    }
-
-    server {
-      listen 443 ssl;
-      server_name _;
-
-      ssl_certificate /etc/nginx/ssl/tls.crt;
-      ssl_certificate_key /etc/nginx/ssl/tls.key;
-
       location /api/ {
         proxy_pass http://backend:8080/api/;
         proxy_set_header Host $host;
@@ -33,5 +22,10 @@ data:
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
+      }
+
+      location / {
+        return 200 "API Gateway is running!\n";
+        add_header Content-Type text/plain;
       }
     }
