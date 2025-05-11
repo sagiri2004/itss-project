@@ -22,14 +22,14 @@ export default defineConfig({
   server: {
     proxy: {
       '/ws': {
-        target: 'http://localhost:9006',
+        target: process.env.VITE_WS_BASE_URL || 'http://localhost:9006',
         ws: true,
         changeOrigin: true,
       },
       '/api': {
-        target: 'http://localhost:8080',
+        target: process.env.VITE_API_BASE_URL || 'http://localhost:8080',
         changeOrigin: true,
       },
     },
-  },
+  }
 })

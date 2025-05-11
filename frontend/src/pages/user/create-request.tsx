@@ -247,7 +247,7 @@ export default function CreateRequest() {
   });
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="mx-auto max-w-2xl space-y-6">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="w-full space-y-6 min-h-screen flex flex-col justify-start">
       <motion.div variants={itemVariants}>
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold tracking-tight">Create Rescue Request</h1>
@@ -355,7 +355,7 @@ export default function CreateRequest() {
                   </Button>
                   <div className="text-sm text-muted-foreground">You can select a service by clicking a marker on the map or choosing from the list below.</div>
                   {nearbyServices.length > 0 && (
-                    <div style={{ height: 350, width: "100%", marginBottom: 16 }}>
+                    <div style={{ height: 'calc(100vh - 320px)', width: "100vw", marginBottom: 16, minHeight: 300 }}>
                       <MapContainer
                         center={getMapCenter(nearbyServices)}
                         zoom={13}
