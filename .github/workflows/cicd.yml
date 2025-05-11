@@ -49,7 +49,7 @@ jobs:
   deploy-to-gke:
     name: Deploy to GKE
     runs-on: ubuntu-latest
-    needs: build-and-test
+    needs: build
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci/docker-build'
     environment: production
 
