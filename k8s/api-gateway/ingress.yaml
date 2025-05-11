@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-gateway-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-http"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - nguyenthang2k4dev.id.vn
+      secretName: api-gateway-tls
+  rules:
+    - host: nguyenthang2k4dev.id.vn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 80
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 9006
