@@ -145,7 +145,7 @@ axios.interceptors.request.use(
 // Add response interceptor for handling errors
 axios.interceptors.response.use(
   (response: AxiosResponse) => response,
-  (error: AxiosError) => {
+  () => {
     // if (error.response?.status === 401) {
     //   // Handle unauthorized access
     //   localStorage.removeItem('token');
