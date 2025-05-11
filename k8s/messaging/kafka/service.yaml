@@ -1,0 +1,22 @@
+# Kafka Broker Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: broker
+spec:
+  selector:
+    app: broker
+  ports:
+    - name: kafka-client
+      protocol: TCP
+      port: 9092
+      targetPort: 9092
+    - name: kafka-internal
+      protocol: TCP
+      port: 29092
+      targetPort: 29092
+    - name: kafka-jmx
+      protocol: TCP
+      port: 9101
+      targetPort: 9101
+  type: ClusterIP

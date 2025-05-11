@@ -1,0 +1,15 @@
+# notification Service Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - name: notification-port
+      protocol: TCP
+      port: 9006
+      targetPort: 9006
+      nodePort: 30006
+  type: NodePort
