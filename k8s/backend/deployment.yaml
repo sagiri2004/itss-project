@@ -1,0 +1,51 @@
+# notification Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: sagiri2k4/backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql.default.svc.cluster.local:3306/itss_db?createDatabaseIfNotExist=true"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "root"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "root"
+            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+              value: "update"
+            - name: SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT
+              value: "org.hibernate.dialect.MySQLDialect"
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: "broker.default.svc.cluster.local:9092"
+            - name: SPRING_MAIL_HOST
+              value: "smtp.gmail.com"
+            - name: SPRING_MAIL_PORT
+              value: "587"
+            - name: SPRING_MAIL_USERNAME
+              value: "it3180.devmail@gmail.com"
+            - name: SPRING_MAIL_PASSWORD
+              value: "yiuq gvhj bcsg kydv"
+            - name: JWT_SIGNER_KEY
+              value: "In this society, only those who work hard, diligently, and tirelessly will earn their share. Only by working can one eat. Those who expect to eat without working will end up eating sh*t."
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
