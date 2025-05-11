@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - backend/deployment.yml
+  - backend/service.yml
+  - notification-service/deployment.yml
+  - notification-service/service.yml
+images:
+  - name: sagiri2k4/backend
+    newTag: latest
+  - name: sagiri2k4/notification-service
+    newTag: latest
