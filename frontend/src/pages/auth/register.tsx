@@ -1,81 +1,76 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useNavigate, Link } from "react-router-dom"
-import { motion } from "framer-motion"
-import { useAuth } from "@/context/auth-context"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useToast } from "@/components/ui/use-toast"
-import { Loader2 } from "lucide-react"
-import api from "@/services/api"
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { useAuth } from "@/context/auth-context";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/components/ui/use-toast";
+import { Loader2 } from "lucide-react";
+import api from "@/services/api";
 
 export default function Register() {
-  const { register } = useAuth()
-  const navigate = useNavigate()
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
-  const [username, setUsername] = useState("")
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [role, setRole] = useState<"user" | "company">("user")
+  const { register } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [username, setUsername] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState<"user" | "company">("user");
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (password !== confirmPassword) {
       toast({
         variant: "destructive",
         title: "Passwords do not match",
         description: "Please make sure your passwords match.",
-      })
-      return
+      });
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
-      const response = await api.auth.register({
-        username,
-        name,
-        email,
-        password,
-        roles: [role.toUpperCase()],
-      })
-
-      const { token, user } = response.data
-
-      // Store token in localStorage
-      localStorage.setItem('token', token)
-
-      // Call register from auth context
-      await register(username, name, email, password, role)
+      // Call the register function from auth context
+      await register(username, name, email, password, role);
 
       toast({
         title: "Registration successful",
-        description: `Your ${user.role} account has been created.`,
-      })
+        description: `Your ${role} account has been created.`,
+      });
 
-      // Redirect based on role
-      navigate(`/${user.role}`)
+      // Redirect based on role from state instead of from return value
+      navigate(`/${role}`);
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Registration failed",
-        description: error.response?.data?.message || "There was an error creating your account.",
-      })
+        description:
+          error.response?.data?.message ||
+          "There was an error creating your account.",
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
-
+  };
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 to-blue-100 p-4 dark:from-gray-900 dark:to-gray-800">
       <motion.div
@@ -113,11 +108,18 @@ export default function Register() {
                 </svg>
               </motion.div>
             </div>
-            <CardTitle className="text-center text-2xl font-bold">Create an Account</CardTitle>
-            <CardDescription className="text-center">Enter your information to create your account</CardDescription>
+            <CardTitle className="text-center text-2xl font-bold">
+              Create an Account
+            </CardTitle>
+            <CardDescription className="text-center">
+              Enter your information to create your account
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Tabs defaultValue="user" onValueChange={(value) => setRole(value as "user" | "company")}>
+            <Tabs
+              defaultValue="user"
+              onValueChange={(value) => setRole(value as "user" | "company")}
+            >
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="user">User</TabsTrigger>
                 <TabsTrigger value="company">Company</TabsTrigger>
@@ -129,7 +131,8 @@ export default function Register() {
               </TabsContent>
               <TabsContent value="company">
                 <p className="text-sm text-muted-foreground">
-                  Create a company account to provide roadside assistance services.
+                  Create a company account to provide roadside assistance
+                  services.
                 </p>
               </TabsContent>
             </Tabs>
@@ -206,11 +209,12 @@ export default function Register() {
               </Link>
             </div>
             <div className="text-center text-xs text-muted-foreground">
-              By continuing, you agree to our Terms of Service and Privacy Policy.
+              By continuing, you agree to our Terms of Service and Privacy
+              Policy.
             </div>
           </CardFooter>
         </Card>
       </motion.div>
     </div>
-  )
+  );
 }
