@@ -57,7 +57,7 @@ export default function CompanyRequests() {
       setIsLoading(true)
       try {
         // ĐÚNG API: lấy danh sách yêu cầu cứu hộ của company (không truyền companyId, backend lấy từ token)
-        const res = await api.rescueRequests.getRequests()
+        const res = await api.rescueRequests.getCompanyRequests()
         setRequests(
           res.data.map((req: any) => ({
             id: req.id,

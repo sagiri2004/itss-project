@@ -50,7 +50,8 @@ export const rescueRequestApi = {
     axios.post(`${API_BASE_URL}/rescue-requests/${id}/reject`),
   completeRequest: (id: string) => 
     axios.post(`${API_BASE_URL}/rescue-requests/${id}/complete`),
-  // thêm
+  getCompanyRequests: (params?: any) =>
+    axios.get(`${API_BASE_URL}/rescue-requests/company`, { params }),
   dispatchVehicle: (id: string, vehicleId: string) =>
     axios.put(`${API_BASE_URL}/rescue-requests/${id}/dispatch-vehicle`, null, { params: { vehicleId } }),
   startRepair: (id: string) =>
@@ -123,6 +124,8 @@ export const invoiceApi = {
     axios.post(`${API_BASE_URL}/invoices/${id}/pay`, paymentData),
   sendInvoice: (id: string) => 
     axios.post(`${API_BASE_URL}/invoices/${id}/send`),
+  getCompanyInvoices: (params?: any) =>
+    axios.get(`${API_BASE_URL}/invoices/my-company-invoices`, { params }),
 };
 
 // Chat APIs

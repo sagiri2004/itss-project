@@ -1,10 +1,9 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
+import { useNavigate } from "react-router-dom"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,16 +20,77 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { Search, Eye, CheckCircle, XCircle, Calendar, Mail, Phone, Lock, Shield } from "lucide-react"
-import { mockUsers } from "@/data/mock-data"
+import api from "@/services/api"
+
+// Interfaces
+interface User {
+  id: string
+  name: string
+  email: string
+  phone: string
+  role: string
+  status: "ACTIVE" | "SUSPENDED" | "PENDING_VERIFICATION"
+  isVerified: boolean
+  lastLogin: string
+  joinDate: string
+  requestsCount: number
+  companyId?: string
+  companyName?: string
+}
 
 export default function AdminUsers() {
   const { user } = useAuth()
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState<string | null>(null)
-  const [users, setUsers] = useState(mockUsers)
+  const [users, setUsers] = useState<User[]>([])
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
-  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Fetch users when component mounts
+  useEffect(() => {
+    if (user?.role !== 'admin') {
+      navigate('/login')
+      return
+    }
+
+    const fetchUsers = async () => {
+      setIsLoading(true)
+      try {
+        const response = await api.users.getUsers()
+        
+        // Map response data to our interface
+        const mappedUsers: User[] = response.data.map((u: any) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          phone: u.phone || '',
+          role: u.role.toLowerCase(),
+          status: u.status,
+          isVerified: u.isVerified || false,
+          lastLogin: u.lastLogin || u.updatedAt,
+          joinDate: u.createdAt,
+          requestsCount: u.requestsCount || 0,
+          companyId: u.company?.id,
+          companyName: u.company?.name
+        }))
+
+        setUsers(mappedUsers)
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error loading users",
+          description: error.response?.data?.message || "Could not load users"
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [toast, user, navigate])
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
@@ -49,14 +109,21 @@ export default function AdminUsers() {
     return matchesSearch && matchesRole
   })
 
-  const openDetailDialog = (user: any) => {
+  const openDetailDialog = (user: User) => {
     setCurrentUser(user)
     setIsDetailDialogOpen(true)
   }
 
-  const verifyUser = (id: string) => {
-    setUsers(
-      users.map((user) =>
+  const verifyUser = async (id: string) => {
+    try {
+      // Call API to verify user
+      const response = await api.users.updateUser(id, {
+        isVerified: true,
+        status: "ACTIVE"
+      })
+
+      // Update local state
+      setUsers(users.map((user) =>
         user.id === id
           ? {
               ...user,
@@ -64,52 +131,100 @@ export default function AdminUsers() {
               status: "ACTIVE",
             }
           : user,
-      ),
-    )
+      ))
 
-    const targetUser = users.find((u) => u.id === id)
-    toast({
-      title: "User verified",
-      description: `${targetUser?.name} has been verified successfully.`,
-    })
+      const targetUser = users.find((u) => u.id === id)
+      toast({
+        title: "User verified",
+        description: `${targetUser?.name} has been verified successfully.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Could not verify user"
+      })
+    }
   }
 
-  const suspendUser = (id: string) => {
-    setUsers(
-      users.map((user) =>
+  const suspendUser = async (id: string) => {
+    try {
+      // Call API to suspend user
+      const response = await api.users.updateUser(id, {
+        status: "SUSPENDED"
+      })
+
+      // Update local state
+      setUsers(users.map((user) =>
         user.id === id
           ? {
               ...user,
               status: "SUSPENDED",
             }
           : user,
-      ),
-    )
+      ))
 
-    const targetUser = users.find((u) => u.id === id)
-    toast({
-      title: "User suspended",
-      description: `${targetUser?.name} has been suspended from the platform.`,
-    })
+      const targetUser = users.find((u) => u.id === id)
+      toast({
+        title: "User suspended",
+        description: `${targetUser?.name} has been suspended from the platform.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Could not suspend user"
+      })
+    }
   }
 
-  const activateUser = (id: string) => {
-    setUsers(
-      users.map((user) =>
+  const activateUser = async (id: string) => {
+    try {
+      // Call API to activate user
+      const response = await api.users.updateUser(id, {
+        status: "ACTIVE"
+      })
+
+      // Update local state
+      setUsers(users.map((user) =>
         user.id === id
           ? {
               ...user,
               status: "ACTIVE",
             }
           : user,
-      ),
-    )
+      ))
 
-    const targetUser = users.find((u) => u.id === id)
-    toast({
-      title: "User activated",
-      description: `${targetUser?.name} has been activated on the platform.`,
-    })
+      const targetUser = users.find((u) => u.id === id)
+      toast({
+        title: "User activated",
+        description: `${targetUser?.name} has been activated on the platform.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Could not activate user"
+      })
+    }
+  }
+
+  const resetPassword = async (id: string) => {
+    try {
+      // Call API to reset password
+      await api.users.resetPassword(id)
+      
+      toast({
+        title: "Password reset",
+        description: "A password reset email has been sent to the user.",
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Could not reset password"
+      })
+    }
   }
 
   // Helper to get badge variant based on user status
@@ -148,6 +263,17 @@ export default function AdminUsers() {
         damping: 20,
       },
     },
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-2">Loading users...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -268,7 +394,7 @@ export default function AdminUsers() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div>{userData.joinDate}</div>
+                          <div>{new Date(userData.joinDate).toLocaleDateString()}</div>
                           <div className="text-xs text-muted-foreground">{userData.requestsCount} requests</div>
                         </TableCell>
                         <TableCell className="text-right">
@@ -351,7 +477,7 @@ export default function AdminUsers() {
                   <div className="space-y-2">
                     <div className="flex items-center text-sm">
                       <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span>Joined: {currentUser.joinDate}</span>
+                      <span>Joined: {new Date(currentUser.joinDate).toLocaleDateString()}</span>
                     </div>
                     <div className="flex items-center text-sm">
                       <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
@@ -379,10 +505,19 @@ export default function AdminUsers() {
                   </div>
                 </div>
               </div>
+
+              {currentUser.companyId && (
+                <div className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium">Company</div>
+                    <div className="text-sm">{currentUser.companyName}</div>
+                  </div>
+                </div>
+              )}
             </div>
             <DialogFooter className="flex justify-between">
               <div>
-                <Button variant="outline" size="sm" className="mr-2">
+                <Button variant="outline" size="sm" className="mr-2" onClick={() => resetPassword(currentUser.id)}>
                   <Lock className="mr-2 h-4 w-4" />
                   Reset Password
                 </Button>

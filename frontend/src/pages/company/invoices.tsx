@@ -41,7 +41,7 @@ export default function CompanyInvoices() {
     const fetchInvoices = async () => {
       setIsLoading(true)
       try {
-        const response = await api.invoices.getUserInvoices()
+        const response = await api.invoices.getCompanyInvoices()
         // Map về interface chuẩn
         const mapped = response.data.map((inv: any) => ({
           id: inv.id,

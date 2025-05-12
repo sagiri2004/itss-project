@@ -12,23 +12,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, MessageSquare, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import api from "@/services/api"
-
-// Interface riêng cho company chat
-interface CompanyChat {
-  id: string
-  user: { id: string; name: string }
-  company: { id: string; name: string }
-  lastMessage?: { id: string; content: string; senderType: string; sentAt: string }
-  unreadCount: number
-  hasUnreadMessages: boolean
-  status: string
-  updatedAt: string
-}
+import type { Chat, ChatMessage, SenderType } from "@/types/chat"
 
 export default function CompanyChats() {
   const { user } = useAuth()
   const { toast } = useToast()
-  const [chats, setChats] = useState<CompanyChat[]>([])
+  const [chats, setChats] = useState<Chat[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
@@ -40,17 +29,33 @@ export default function CompanyChats() {
       setError(null)
       try {
         const response = await api.chats.getConversations()
-        // Map dữ liệu trả về về đúng interface CompanyChat
         setChats(
           response.data.map((item: any) => ({
             id: item.id,
-            user: item.user || { id: item.userId, name: item.userName },
-            company: item.company || { id: item.companyId, name: item.companyName },
-            lastMessage: item.lastMessage,
-            unreadCount: item.unreadCount ?? 0,
-            hasUnreadMessages: item.hasUnreadMessages ?? (item.unreadCount > 0),
+            participants: [
+              { 
+                id: item.user.id, 
+                name: item.user.name, 
+                role: "USER" as SenderType 
+              },
+              { 
+                id: item.company.id, 
+                name: item.company.name, 
+                role: "RESCUE_COMPANY" as SenderType 
+              }
+            ],
+            lastMessage: item.lastMessage ? {
+              id: item.lastMessage.id,
+              content: item.lastMessage.content,
+              senderType: item.lastMessage.senderType as SenderType,
+              senderId: item.lastMessage.senderId,
+              sentAt: item.lastMessage.sentAt,
+              conversationId: item.id
+            } : undefined,
+            unreadCount: item.unreadCount,
+            hasUnreadMessages: item.hasUnreadMessages,
             status: item.status,
-            updatedAt: item.updatedAt || item.lastUpdated || item.timestamp,
+            updatedAt: item.updatedAt
           }))
         )
       } catch (error: any) {
@@ -71,7 +76,7 @@ export default function CompanyChats() {
   const filteredChats = chats.filter(
     (chat) => {
       const matchesSearch =
-        chat.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        chat.participants.some(participant => participant.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (chat.lastMessage?.content || "").toLowerCase().includes(searchTerm.toLowerCase())
       if (activeTab === "all") return matchesSearch
       if (activeTab === "active") return matchesSearch && chat.status === "ACTIVE"
@@ -210,12 +215,12 @@ export default function CompanyChats() {
                     <Link to={`/company/chat/${chat.id}`} className="block">
                       <div className="flex items-start gap-4">
                         <Avatar>
-                          <AvatarImage src={`https://avatar.vercel.sh/${chat.user.name}`} />
-                          <AvatarFallback>{chat.user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                          <AvatarImage src={`https://avatar.vercel.sh/${chat.participants.find(p => p.role === "USER")?.name}`} />
+                          <AvatarFallback>{chat.participants.find(p => p.role === "USER")?.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 space-y-1">
                           <div className="flex items-center justify-between">
-                            <h4 className="font-medium">{chat.user.name}</h4>
+                            <h4 className="font-medium">{chat.participants.find(p => p.role === "USER")?.name}</h4>
                             <span className="text-xs text-muted-foreground">{formatDate(chat.updatedAt)}</span>
                           </div>
                           <p className="line-clamp-1 text-sm text-muted-foreground">{chat.lastMessage?.content}</p>

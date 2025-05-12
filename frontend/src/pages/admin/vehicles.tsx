@@ -1,10 +1,9 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
+import { useNavigate } from "react-router-dom"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,17 +11,99 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
-import { Search, Eye, Calendar, Truck, Building2, Wrench, AlertTriangle } from "lucide-react"
+import { Search, Eye, Calendar, Truck, Building2, Wrench, AlertTriangle, Loader2 } from "lucide-react"
+import api from "@/services/api"
 
-import { mockVehicles } from "@/data/mock-data"
+// Types
+interface Vehicle {
+  id: string
+  name: string
+  type: string
+  licensePlate: string
+  status: "AVAILABLE" | "IN_USE" | "MAINTENANCE" | "OUT_OF_SERVICE"
+  assignedDriver?: string
+  company: {
+    id: string
+    name: string
+  }
+  lastMaintenance?: string
+  nextMaintenanceDate?: string
+  equipment?: string[]
+  location?: {
+    latitude: number
+    longitude: number
+    lastUpdated: string
+  }
+  currentRequest?: {
+    id: string
+    serviceType: string
+    status: string
+  }
+}
 
 export default function AdminVehicles() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [companyFilter, setCompanyFilter] = useState<string | null>(null)
-  const [vehicles, setVehicles] = useState(mockVehicles)
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    // Check admin role
+    if (user?.role !== 'admin') {
+      navigate('/login')
+      return
+    }
+
+    const fetchVehicles = async () => {
+      setIsLoading(true)
+      try {
+        const response = await api.rescueVehicles.getVehicles()
+        
+        // Map response data to our interface
+        const mappedVehicles: Vehicle[] = response.data.map((v: any) => ({
+          id: v.id,
+          name: v.name || v.plate,
+          type: v.type,
+          licensePlate: v.licensePlate || v.plate,
+          status: v.status,
+          assignedDriver: v.driver?.name,
+          company: {
+            id: v.company?.id || v.companyId,
+            name: v.company?.name || v.companyName
+          },
+          lastMaintenance: v.lastMaintenance,
+          nextMaintenanceDate: v.nextMaintenanceDate,
+          equipment: v.equipment || [],
+          location: v.location ? {
+            latitude: v.location.latitude,
+            longitude: v.location.longitude,
+            lastUpdated: v.location.lastUpdated
+          } : undefined,
+          currentRequest: v.currentRequest ? {
+            id: v.currentRequest.id,
+            serviceType: v.currentRequest.serviceType,
+            status: v.currentRequest.status
+          } : undefined
+        }))
+
+        setVehicles(mappedVehicles)
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error loading vehicles",
+          description: error.response?.data?.message || "Could not load vehicles"
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchVehicles()
+  }, [toast, user, navigate])
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
@@ -51,7 +132,7 @@ export default function AdminVehicles() {
       vehicle.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vehicle.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.assignedDriver.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (vehicle.assignedDriver || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       vehicle.company.name.toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesStatus = !statusFilter || vehicle.status === statusFilter
@@ -78,6 +159,7 @@ export default function AdminVehicles() {
 
   // Flag vehicles with upcoming maintenance (within next 7 days)
   const isMaintenanceSoon = (dateStr: string) => {
+    if (!dateStr) return false
     const maintenanceDate = new Date(dateStr)
     const today = new Date()
     const diffTime = maintenanceDate.getTime() - today.getTime()
@@ -107,6 +189,14 @@ export default function AdminVehicles() {
         damping: 20,
       },
     },
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   return (

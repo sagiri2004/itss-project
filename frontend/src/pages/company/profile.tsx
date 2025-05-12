@@ -49,7 +49,8 @@ export default function CompanyProfile() {
     const fetchCompanyProfile = async () => {
       setIsLoading(true)
       try {
-        const response = await api.rescueCompanies.getCompanyById(user?.companyId)
+        if (!user?.companyId) throw new Error("Company ID is missing");
+        const response = await api.rescueCompanies.getCompanyById(user.companyId)
         setCompanyData(response.data)
         setFormData(response.data)
       } catch (error: any) {

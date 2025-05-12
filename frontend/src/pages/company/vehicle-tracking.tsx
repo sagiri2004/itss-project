@@ -62,7 +62,7 @@ export default function VehicleTracking() {
     try {
       const [vehicleRes, requestRes] = await Promise.all([
         api.rescueVehicles.getVehicles(),
-        api.rescueRequests.getRequests(),
+        api.rescueRequests.getCompanyRequests(),
       ])
       setVehicles(
         (vehicleRes.data || []).map((v: any) => ({

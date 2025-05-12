@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Car, Clock, AlertCircle, PlusCircle, Wrench, Truck, DollarSign, FileText, MessageSquare, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import api from "@/services/api"
+import axios from "axios"
 
 interface CompanyRequest {
   id: string
@@ -73,9 +74,9 @@ export default function CompanyDashboard() {
       setIsLoading(true)
       try {
         const [requestsRes, vehiclesRes, invoicesRes, chatsRes] = await Promise.all([
-          api.rescueRequests.getRequests(),
-          api.rescueVehicles.getVehicles ? api.rescueVehicles.getVehicles() : Promise.resolve({ data: [] }),
-          api.invoices.getUserInvoices ? api.invoices.getUserInvoices() : Promise.resolve({ data: [] }),
+          api.rescueRequests.getCompanyRequests(),
+          api.rescueVehicles.getVehicles(),
+          api.invoices.getCompanyInvoices(),
           api.chats.getConversations(),
         ])
         // Map requests
