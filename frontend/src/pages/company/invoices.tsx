@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -12,67 +10,84 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatDate } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
-import { Search, Filter, FileText, Clock, User, Download, Send, DollarSign } from "lucide-react"
-import { mockInvoices } from "@/data/mock-data"
+import { Search, Filter, FileText, Clock, User, Download, Send, DollarSign, Loader2 } from "lucide-react"
+import api from "@/services/api"
+
+interface Invoice {
+  id: string
+  invoiceNumber: string
+  rescueRequestId: string
+  user: { id: string; name: string; email?: string }
+  service: string
+  amount: number
+  invoiceDate: string
+  dueDate: string
+  paidDate: string | null
+  status: "PAID" | "PENDING" | "OVERDUE" | "SENT" | "DRAFT"
+  paymentMethod: string | null
+  notes: string | null
+  createdAt: string
+}
 
 export default function CompanyInvoices() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const [invoices, setInvoices] = useState(mockInvoices)
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchInvoices = async () => {
+      setIsLoading(true)
+      try {
+        const response = await api.invoices.getUserInvoices()
+        // Map về interface chuẩn
+        const mapped = response.data.map((inv: any) => ({
+          id: inv.id,
+          invoiceNumber: inv.invoiceNumber || inv.id,
+          rescueRequestId: inv.rescueRequestId || inv.requestId,
+          user: inv.user || { id: inv.userId, name: inv.userName, email: inv.userEmail },
+          service: inv.serviceName || inv.service || "",
+          amount: inv.amount,
+          invoiceDate: inv.invoiceDate || inv.date || inv.createdAt,
+          dueDate: inv.dueDate,
+          paidDate: inv.paidDate,
+          status: inv.status,
+          paymentMethod: inv.paymentMethod,
+          notes: inv.notes,
+          createdAt: inv.createdAt,
+        }))
+        setInvoices(mapped)
+        setFilteredInvoices(mapped)
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.response?.data?.message || "Failed to load invoices",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchInvoices()
+  }, [toast])
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value)
-  }
-
-  // Filter invoices based on search term
-  const filteredInvoices = invoices.filter(
-    (invoice) =>
-      invoice.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.service.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.status.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
-
-  // Handle sending an invoice
-  const handleSendInvoice = (id: string) => {
-    setInvoices(
-      invoices.map((invoice) =>
-        invoice.id === id
-          ? {
-              ...invoice,
-              status: "SENT",
-              sentDate: new Date().toISOString(),
-            }
-          : invoice,
-      ),
+    const term = e.target.value.toLowerCase()
+    setSearchTerm(term)
+    if (!term.trim()) {
+      setFilteredInvoices(invoices)
+      return
+    }
+    const filtered = invoices.filter(
+      (invoice) =>
+        (invoice.invoiceNumber?.toLowerCase() || "").includes(term) ||
+        (invoice.user?.name?.toLowerCase() || "").includes(term) ||
+        (invoice.service?.toLowerCase() || "").includes(term) ||
+        (invoice.status?.toLowerCase() || "").includes(term)
     )
-
-    toast({
-      title: "Invoice sent",
-      description: `Invoice #${id} has been sent to the customer.`,
-    })
-  }
-
-  // Handle marking an invoice as paid
-  const handleMarkAsPaid = (id: string) => {
-    setInvoices(
-      invoices.map((invoice) =>
-        invoice.id === id
-          ? {
-              ...invoice,
-              status: "PAID",
-              paidDate: new Date().toISOString(),
-              paymentMethod: "Manual Entry",
-            }
-          : invoice,
-      ),
-    )
-
-    toast({
-      title: "Invoice marked as paid",
-      description: `Invoice #${id} has been marked as paid.`,
-    })
+    setFilteredInvoices(filtered)
   }
 
   // Helper to get badge variant based on invoice status
@@ -86,6 +101,8 @@ export default function CompanyInvoices() {
         return "outline"
       case "OVERDUE":
         return "destructive"
+      case "PENDING":
+        return "default"
       default:
         return "outline"
     }
@@ -113,6 +130,17 @@ export default function CompanyInvoices() {
         damping: 20,
       },
     },
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading invoices...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -173,18 +201,18 @@ export default function CompanyInvoices() {
                     filteredInvoices.map((invoice) => (
                       <TableRow key={invoice.id}>
                         <TableCell>
-                          <div className="font-medium">{invoice.id}</div>
+                          <div className="font-medium">{invoice.invoiceNumber}</div>
                           <div className="flex items-center text-xs text-muted-foreground mt-1">
                             <FileText className="mr-1 h-3 w-3" />
-                            {invoice.requestId}
+                            {invoice.rescueRequestId}
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center">
                             <User className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{invoice.user.name}</span>
+                            <span>{invoice.user?.name}</span>
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1">{invoice.user.email}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{invoice.user?.email}</div>
                         </TableCell>
                         <TableCell>{invoice.service}</TableCell>
                         <TableCell>
@@ -199,24 +227,12 @@ export default function CompanyInvoices() {
                         <TableCell>
                           <div className="flex items-center">
                             <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                            <span>Created: {formatDate(invoice.date)}</span>
+                            <span>Created: {formatDate(invoice.invoiceDate)}</span>
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">Due: {formatDate(invoice.dueDate)}</div>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            {invoice.status === "DRAFT" && (
-                              <Button size="sm" onClick={() => handleSendInvoice(invoice.id)}>
-                                <Send className="mr-2 h-4 w-4" />
-                                Send
-                              </Button>
-                            )}
-                            {["SENT", "OVERDUE"].includes(invoice.status) && (
-                              <Button size="sm" onClick={() => handleMarkAsPaid(invoice.id)}>
-                                <DollarSign className="mr-2 h-4 w-4" />
-                                Mark Paid
-                              </Button>
-                            )}
                             <Button variant="outline" size="icon">
                               <Download className="h-4 w-4" />
                               <span className="sr-only">Download Invoice</span>

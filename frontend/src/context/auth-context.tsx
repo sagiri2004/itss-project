@@ -60,7 +60,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const register = async (username: string, name: string, email: string, password: string, role: "user" | "company") => {
+  const register = async (
+    username: string,
+    name: string,
+    email: string,
+    password: string,
+    role: "user" | "company",
+  ) => {
     setLoading(true)
     try {
       const response = await api.auth.register({

@@ -8,14 +8,8 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { ArrowLeft } from "lucide-react"
 import { ChatInterface } from "@/components/chat/chat-interface"
-import type { Chat, Message, RequestDetails, MessageType } from "@/types/chat"
-
-// Replace the mock data imports
-import { generateMockChat, mockChatRequestDetails } from "@/data/mock-data"
-
-// Remove the original mock data declarations
-// Replace:
-// const generateMockChat = (requestId: string, userId: string, companyId: string) => { ... }
+import type { Chat, Message, RequestDetails } from "@/types/chat"
+import api from "@/services/api"
 
 export default function CompanyChat() {
   const { user } = useAuth()
@@ -27,26 +21,25 @@ export default function CompanyChat() {
   const [chat, setChat] = useState<Chat | null>(null)
   const [requestDetails, setRequestDetails] = useState<RequestDetails | null>(null)
 
-  // Fetch chat data
+  // Fetch chat and request details from API
   useEffect(() => {
     const fetchChatData = async () => {
       setIsLoading(true)
       try {
-        // In a real app, fetch from API
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        // Lấy thông tin chat/conversation
+        const chatRes = await api.chats.getConversationById(requestId as string)
+        setChat(chatRes.data)
 
-        // Mock data
-        if (user) {
-          const mockChat = generateMockChat(requestId || "unknown", "user-001", user.id) as Chat
-          setChat(mockChat)
-
-          setRequestDetails(mockChatRequestDetails)
+        // Lấy chi tiết request liên quan (nếu có)
+        if (chatRes.data.requestId) {
+          const reqRes = await api.rescueRequests.getRequestById(chatRes.data.requestId)
+          setRequestDetails(reqRes.data)
         }
-      } catch (error) {
+      } catch (error: any) {
         toast({
           variant: "destructive",
           title: "Error loading chat",
-          description: "Could not load the chat. Please try again.",
+          description: error.response?.data?.message || "Could not load the chat. Please try again.",
         })
       } finally {
         setIsLoading(false)
@@ -56,121 +49,57 @@ export default function CompanyChat() {
     if (requestId) {
       fetchChatData()
     }
-  }, [requestId, user, toast])
+  }, [requestId, toast])
 
-  const handleSendMessage = async (message: Omit<Message, "id" | "timestamp">) => {
-    setIsLoading(true)
 
-    // In a real app, send to API
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    
-    const newMessage: Message = {
-      ...message,
-      id: `msg-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-    }
+  const handleSendMessage = async () => {}
+  const handlePriceResponse = async () => {}
 
-    setChat((prev) => {
-      if (!prev) return prev
-      return {
-        ...prev,
-        messages: [...prev.messages, newMessage],
-        lastUpdated: new Date().toISOString(),
-      }
-    })
+  // Gửi tin nhắn mới
+  // const handleSendMessage = async (message: Omit<Message, "id" | "timestamp">) => {
+  //   setIsLoading(true)
+  //   try {
+  //     await api.chats.sendMessage(chat?.id as string, {
+  //       ...message,
+  //       senderId: user?.id,
+  //     })
+  //     // Sau khi gửi, reload lại messages
+  //     const chatRes = await api.chats.getConversationById(requestId as string)
+  //     setChat(chatRes.data)
+  //   } catch (error) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Send message failed",
+  //       description: "Could not send the message.",
+  //     })
+  //   } finally {
+  //     setIsLoading(false)
+  //   }
+  // }
 
-    setIsLoading(false)
-  }
-
-  const handlePriceOffer = async (price: number) => {
-    setIsLoading(true)
-
-    // In a real app, send to API
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      content: `We're offering a price of $${price.toFixed(2)} for this service based on the details provided.`,
-      type: "PRICE_OFFER",
-      senderId: user?.id || "",
-      timestamp: new Date().toISOString(),
-      metadata: { price },
-    }
-
-    setChat((prev) => {
-      if (!prev) return null;
-      return {
-        ...prev,
-        messages: [...prev.messages, newMessage],
-        lastUpdated: new Date().toISOString(),
-      };
-    })
-
-    setIsLoading(false)
-
-    toast({
-      title: "Price offer sent",
-      description: `You've sent a price offer of $${price.toFixed(2)} to the customer.`,
-    })
-  }
-
-  const handlePriceResponse = async (accepted: boolean, reason?: string) => {
-    setIsLoading(true)
-
-    // In a real app, send to API
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    
-    const responseType: MessageType = accepted ? "PRICE_RESPONSE" : "PRICE_RESPONSE"
-    const responseContent = accepted
-      ? "I accept the price offer from the customer."
-      : "I cannot accept this price from the customer."
-
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      content: responseContent,
-      type: responseType,
-      senderId: user?.id || "",
-      timestamp: new Date().toISOString(),
-      metadata: accepted ? undefined : { reason },
-    }
-
-    setChat((prev) => {
-      if (!prev) return null;
-      return {
-        ...prev,
-        messages: [...prev.messages, newMessage],
-        lastUpdated: new Date().toISOString(),
-      };
-    })
-
-    // If rejected, add a system message about chat ending
-    if (!accepted) {
-      const systemMessage: Message = {
-        id: `msg-${Date.now() + 1}`,
-        content: "Price was rejected. This conversation will be archived.",
-        type: "SYSTEM",
-        senderId: "system",
-        timestamp: new Date().toISOString(),
-      }
-
-      setChat((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          messages: [...prev.messages, systemMessage],
-          status: "CLOSED",
-          lastUpdated: new Date().toISOString(),
-        };
-      });
-
-      toast({
-        title: "Price rejected",
-        description: "You have rejected the customer's price. This conversation will be archived.",
-      })
-    }
-
-    setIsLoading(false)
-  }
+  // Phản hồi đề nghị giá
+  // const handlePriceResponse = async (accepted: boolean, reason?: string) => {
+  //   setIsLoading(true)
+  //   try {
+  //     await api.chats.sendPriceResponse(chat?.id as string, { accepted, reason })
+  //     const chatRes = await api.chats.getConversationById(requestId as string)
+  //     setChat(chatRes.data)
+  //     if (!accepted) {
+  //       toast({
+  //         title: "Price rejected",
+  //         description: "You have rejected the customer's price. This conversation will be archived.",
+  //       })
+  //     }
+  //   } catch (error) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Send price response failed",
+  //       description: "Could not send the price response.",
+  //     })
+  //   } finally {
+  //     setIsLoading(false)
+  //   }
+  // }
 
   // Animation variants
   const containerVariants = {
@@ -196,7 +125,7 @@ export default function CompanyChat() {
     },
   }
 
-  if (!chat || !requestDetails) {
+  if (!chat) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
         <div className="text-center">
@@ -226,8 +155,8 @@ export default function CompanyChat() {
           onSendMessage={handleSendMessage}
           onPriceResponse={handlePriceResponse}
           isLoading={isLoading}
-          currentPrice={requestDetails.currentPrice}
-          requestStatus={requestDetails.status}
+          currentPrice={0}
+          requestStatus={""}
         />
       </motion.div>
     </motion.div>

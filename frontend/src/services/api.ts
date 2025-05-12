@@ -50,6 +50,15 @@ export const rescueRequestApi = {
     axios.post(`${API_BASE_URL}/rescue-requests/${id}/reject`),
   completeRequest: (id: string) => 
     axios.post(`${API_BASE_URL}/rescue-requests/${id}/complete`),
+  // thêm
+  dispatchVehicle: (id: string, vehicleId: string) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/dispatch-vehicle`, null, { params: { vehicleId } }),
+  startRepair: (id: string) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/start-repair`),
+  completeRepair: (id: string) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/complete-repair`),
+  cancelByCompany: (id: string) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/cancel-by-company`),
 };
 
 // Rescue Company APIs
@@ -164,4 +173,4 @@ export default {
   rescueServices: rescueServiceApi,
   invoices: invoiceApi,
   chats: chatApi,
-}; 
+};
