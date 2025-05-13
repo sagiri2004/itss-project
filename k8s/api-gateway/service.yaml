@@ -5,7 +5,7 @@ metadata:
 spec:
   type: LoadBalancer
   selector:
-    app: api-gateway
+    app: api-gatewayc
   ports:
     - port: 80
       targetPort: 80
