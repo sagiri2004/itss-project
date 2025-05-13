@@ -1,8 +1,7 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -14,15 +13,107 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getStatusVariant, formatDate } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { Search, Eye, Clock, MapPin, User, Building2, AlertTriangle, CheckCircle } from "lucide-react"
-import { mockRequests } from "@/data/mock-data"
+import api from "@/services/api"
+
+// Interfaces đồng bộ với user và company request
+interface Request {
+  id: string
+  userId: string
+  serviceId: string
+  serviceName: string
+  companyId?: string
+  companyName?: string
+  customerName: string
+  customerPhone: string
+  latitude: number
+  longitude: number
+  location: string
+  description: string
+  estimatedPrice: number
+  finalPrice: number | null
+  status: string
+  createdAt: string
+  notes: string | null
+  hasIssue?: boolean
+  rescueServiceDetails?: {
+    id: string
+    name: string
+    description: string
+    price: number
+    type: string
+    companyId: string
+    companyName: string
+  }
+  vehicleLicensePlate?: string
+  vehicleModel?: string
+  vehicleStatus?: string
+  vehicleEquipmentDetails?: string[]
+}
 
 export default function AdminRequests() {
   const { user } = useAuth()
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [issueFilter, setIssueFilter] = useState<string | null>(null)
-  const [requests, setRequests] = useState(mockRequests)
+  const [requests, setRequests] = useState<Request[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    // Check admin role
+    if (user?.role !== 'admin') {
+      navigate('/login')
+      return
+    }
+
+    const fetchRequests = async () => {
+      setIsLoading(true)
+      try {
+        // Admin API call to get all requests
+        const response = await api.rescueRequests.getRequests()
+        
+        // Map response data to our interface
+        const mappedRequests: Request[] = response.data.map((req: any) => ({
+          id: req.id,
+          userId: req.userId,
+          serviceId: req.serviceId,
+          serviceName: req.serviceName || req.rescueServiceDetails?.name || "",
+          companyId: req.companyId,
+          companyName: req.companyName,
+          customerName: req.customerName || req.user?.name || "",
+          customerPhone: req.customerPhone || req.user?.phone || "",
+          latitude: req.latitude,
+          longitude: req.longitude,
+          location: req.location || req.address || "",
+          description: req.description || "",
+          estimatedPrice: req.estimatedPrice || 0,
+          finalPrice: req.finalPrice,
+          status: req.status,
+          createdAt: req.createdAt,
+          notes: req.notes,
+          hasIssue: req.hasIssue || false,
+          rescueServiceDetails: req.rescueServiceDetails,
+          vehicleLicensePlate: req.vehicleLicensePlate,
+          vehicleModel: req.vehicleModel,
+          vehicleStatus: req.vehicleStatus,
+          vehicleEquipmentDetails: req.vehicleEquipmentDetails
+        }))
+
+        setRequests(mappedRequests)
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error loading requests",
+          description: error.response?.data?.message || "Could not load requests"
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchRequests()
+  }, [toast, user, navigate])
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
@@ -36,13 +127,38 @@ export default function AdminRequests() {
     setIssueFilter(value)
   }
 
+  const resolveIssue = async (id: string) => {
+    try {
+      // Admin API call to resolve issue
+      const response = await api.rescueRequests.resolveIssue(id)
+      
+      // Update local state
+      setRequests(prevRequests => 
+        prevRequests.map(request =>
+          request.id === id ? { ...request, hasIssue: false } : request
+        )
+      )
+
+      toast({
+        title: "Issue resolved",
+        description: `The issue with request #${id} has been marked as resolved.`
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Could not resolve issue"
+      })
+    }
+  }
+
   // Filter requests
   const filteredRequests = requests.filter((request) => {
     const matchesSearch =
-      request.service.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      request.serviceName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       request.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (request.company && request.company.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      request.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (request.companyName && request.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
 
     const matchesStatus = !statusFilter || request.status === statusFilter
     const matchesIssue =
@@ -52,24 +168,6 @@ export default function AdminRequests() {
 
     return matchesSearch && matchesStatus && matchesIssue
   })
-
-  const resolveIssue = (id: string) => {
-    setRequests(
-      requests.map((request) =>
-        request.id === id
-          ? {
-              ...request,
-              hasIssue: false,
-            }
-          : request,
-      ),
-    )
-
-    toast({
-      title: "Issue resolved",
-      description: `The issue with request #${id} has been marked as resolved.`,
-    })
-  }
 
   // Animation variants
   const containerVariants = {
@@ -93,6 +191,17 @@ export default function AdminRequests() {
         damping: 20,
       },
     },
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-2">Loading requests...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -128,9 +237,15 @@ export default function AdminRequests() {
                     <SelectItem value="ALL">All Statuses</SelectItem>
                     <SelectItem value="CREATED">Created</SelectItem>
                     <SelectItem value="ACCEPTED_BY_COMPANY">Accepted</SelectItem>
+                    <SelectItem value="RESCUE_VEHICLE_DISPATCHED">Vehicle Dispatched</SelectItem>
+                    <SelectItem value="RESCUE_VEHICLE_ARRIVED">Vehicle Arrived</SelectItem>
+                    <SelectItem value="INSPECTION_DONE">Inspection Done</SelectItem>
+                    <SelectItem value="PRICE_UPDATED">Price Updated</SelectItem>
+                    <SelectItem value="PRICE_CONFIRMED">Price Confirmed</SelectItem>
                     <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                     <SelectItem value="COMPLETED">Completed</SelectItem>
-                    <SelectItem value="CANCELLED_BY_USER">Cancelled</SelectItem>
+                    <SelectItem value="CANCELLED_BY_USER">Cancelled by User</SelectItem>
+                    <SelectItem value="CANCELLED_BY_COMPANY">Cancelled by Company</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select onValueChange={handleIssueFilterChange} defaultValue="ALL">
@@ -171,7 +286,7 @@ export default function AdminRequests() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div>
-                              <div className="font-medium">{request.service}</div>
+                              <div className="font-medium">{request.serviceName}</div>
                               <div className="text-xs text-muted-foreground mt-1">{request.id}</div>
                             </div>
                             {request.hasIssue && (
@@ -184,29 +299,29 @@ export default function AdminRequests() {
                         <TableCell>
                           <div className="flex items-center">
                             <User className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{request.user.name}</span>
+                            <span>{request.customerName}</span>
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1">{request.user.phone}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{request.customerPhone}</div>
                         </TableCell>
                         <TableCell>
-                          {request.company ? (
+                          {request.companyName ? (
                             <div className="flex items-center">
                               <Building2 className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                              <span>{request.company.name}</span>
+                              <span>{request.companyName}</span>
                             </div>
                           ) : (
                             <span className="text-muted-foreground">Not assigned</span>
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={getStatusVariant(request.status) || "outline"}>
+                          <Badge variant={getStatusVariant(request.status)}>
                             {request.status.replace(/_/g, " ")}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center">
                             <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{formatDate(request.date)}</span>
+                            <span>{formatDate(request.createdAt)}</span>
                           </div>
                           <div className="flex items-center text-xs text-muted-foreground mt-1">
                             <MapPin className="mr-1 h-3 w-3" />
@@ -215,12 +330,16 @@ export default function AdminRequests() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" title="View Details">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => navigate(`/admin/requests/${request.id}`)}
+                            >
                               <Eye className="mr-2 h-4 w-4" />
                               Details
                             </Button>
                             {request.hasIssue && (
-                              <Button size="sm" onClick={() => resolveIssue(request.id)} title="Resolve Issue">
+                              <Button size="sm" onClick={() => resolveIssue(request.id)}>
                                 <CheckCircle className="mr-2 h-4 w-4" />
                                 Resolve
                               </Button>
@@ -251,20 +370,22 @@ export default function AdminRequests() {
               </div>
               <div className="rounded-lg border p-4 text-center">
                 <div className="text-2xl font-bold">
-                  {
-                    requests.filter((r) =>
-                      ["CREATED", "ACCEPTED_BY_COMPANY", "RESCUE_VEHICLE_DISPATCHED", "IN_PROGRESS"].includes(r.status),
-                    ).length
-                  }
+                  {requests.filter((r) =>
+                    ["CREATED", "ACCEPTED_BY_COMPANY", "RESCUE_VEHICLE_DISPATCHED", "IN_PROGRESS"].includes(r.status)
+                  ).length}
                 </div>
                 <div className="text-xs text-muted-foreground">Active Requests</div>
               </div>
               <div className="rounded-lg border p-4 text-center">
-                <div className="text-2xl font-bold">{requests.filter((r) => r.status === "COMPLETED").length}</div>
+                <div className="text-2xl font-bold">
+                  {requests.filter((r) => r.status === "COMPLETED").length}
+                </div>
                 <div className="text-xs text-muted-foreground">Completed</div>
               </div>
               <div className="rounded-lg border p-4 text-center">
-                <div className="text-2xl font-bold text-red-500">{requests.filter((r) => r.hasIssue).length}</div>
+                <div className="text-2xl font-bold text-red-500">
+                  {requests.filter((r) => r.hasIssue).length}
+                </div>
                 <div className="text-xs text-muted-foreground">Issues</div>
               </div>
             </div>

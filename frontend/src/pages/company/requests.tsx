@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
@@ -15,8 +13,34 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getStatusVariant, formatDate } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { Search, Clock, MapPin, User, Truck, CheckCircle, AlertTriangle, MessageSquare } from "lucide-react"
+import api from "@/services/api"
 
-import { mockRequests, vehicleOptions, statusOptions } from "@/data/mock-data"
+const statusOptions = [
+  "CREATED",
+  "ACCEPTED_BY_COMPANY",
+  "RESCUE_VEHICLE_DISPATCHED",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "CANCELLED_BY_COMPANY",
+  "CANCELLED_BY_USER",
+]
+
+interface Request {
+  id: string
+  service: string
+  status: string
+  date: string
+  location: string
+  user: { name: string; phone: string }
+  assignedVehicle?: string
+  price?: number
+  hasChat?: boolean
+}
+
+interface Vehicle {
+  id: string
+  name: string
+}
 
 export default function CompanyRequests() {
   const { user } = useAuth()
@@ -24,7 +48,55 @@ export default function CompanyRequests() {
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
-  const [requests, setRequests] = useState(mockRequests)
+  const [requests, setRequests] = useState<Request[]>([])
+  const [vehicleOptions, setVehicleOptions] = useState<Vehicle[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchRequests = async () => {
+      setIsLoading(true)
+      try {
+        // ĐÚNG API: lấy danh sách yêu cầu cứu hộ của company (không truyền companyId, backend lấy từ token)
+        const res = await api.rescueRequests.getCompanyRequests()
+        setRequests(
+          res.data.map((req: any) => ({
+            id: req.id,
+            service: req.serviceName || req.service?.name || "",
+            status: req.status,
+            date: req.createdAt,
+            location: req.location || req.address || "",
+            user: {
+              name: req.user?.name || req.customerName || "",
+              phone: req.user?.phone || req.customerPhone || "",
+            },
+            assignedVehicle: req.assignedVehicle?.name || req.vehicleName || "",
+            price: req.finalPrice || req.price,
+            hasChat: !!req.hasChat || ["ACCEPTED_BY_COMPANY", "RESCUE_VEHICLE_DISPATCHED", "IN_PROGRESS", "COMPLETED"].includes(req.status),
+          }))
+        )
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.response?.data?.message || "Failed to load requests",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    const fetchVehicles = async () => {
+      try {
+        const res = await api.rescueVehicles.getVehicles()
+        setVehicleOptions(res.data.map((v: any) => ({ id: v.id, name: v.name })))
+      } catch {
+        setVehicleOptions([])
+      }
+    }
+
+    fetchRequests()
+    fetchVehicles()
+  }, [toast])
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
@@ -34,44 +106,69 @@ export default function CompanyRequests() {
     setStatusFilter(value === "ALL" ? null : value)
   }
 
-  const assignVehicle = (requestId: string, vehicleId: string) => {
-    const vehicle = vehicleOptions.find((v) => v.id === vehicleId)
-
-    setRequests(
-      requests.map((request) =>
-        request.id === requestId
-          ? {
-              ...request,
-              assignedVehicle: vehicle?.name || null,
-              status: "RESCUE_VEHICLE_DISPATCHED",
-            }
-          : request,
-      ),
-    )
-
-    toast({
-      title: "Vehicle assigned",
-      description: `${vehicle?.name} has been dispatched for this request.`,
-    })
+  // ĐÚNG API: Gán xe cho yêu cầu cứu hộ
+  const assignVehicle = async (requestId: string, vehicleId: string) => {
+    try {
+      // Bạn cần thêm hàm dispatchVehicle vào api.rescueRequests
+      await api.rescueRequests.dispatchVehicle(requestId, vehicleId)
+      setRequests((prev) =>
+        prev.map((request) =>
+          request.id === requestId
+            ? {
+                ...request,
+                assignedVehicle: vehicleOptions.find((v) => v.id === vehicleId)?.name || "",
+                status: "RESCUE_VEHICLE_DISPATCHED",
+              }
+            : request
+        )
+      )
+      toast({
+        title: "Vehicle assigned",
+        description: `${vehicleOptions.find((v) => v.id === vehicleId)?.name} has been dispatched for this request.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to assign vehicle",
+      })
+    }
   }
 
-  const updateRequestStatus = (requestId: string, newStatus: string) => {
-    setRequests(
-      requests.map((request) =>
-        request.id === requestId
-          ? {
-              ...request,
-              status: newStatus,
-              hasChat: newStatus !== "CREATED" && newStatus !== "CANCELLED_BY_COMPANY",
-            }
-          : request,
-      ),
-    )
-
-    toast({
-      title: "Status updated",
-      description: `Request status has been updated to ${newStatus.replace(/_/g, " ")}.`,
-    })
+  // ĐÚNG API: Chuyển trạng thái yêu cầu cứu hộ
+  const updateRequestStatus = async (requestId: string, newStatus: string) => {
+    try {
+      if (newStatus === "ACCEPTED_BY_COMPANY") {
+        await api.rescueRequests.acceptRequest(requestId)
+      } else if (newStatus === "IN_PROGRESS") {
+        await api.rescueRequests.startRepair(requestId)
+      } else if (newStatus === "COMPLETED") {
+        await api.rescueRequests.completeRepair(requestId)
+      } else if (newStatus === "CANCELLED_BY_COMPANY") {
+        await api.rescueRequests.cancelByCompany(requestId)
+      }
+      setRequests((prev) =>
+        prev.map((request) =>
+          request.id === requestId
+            ? {
+                ...request,
+                status: newStatus,
+                hasChat: newStatus !== "CREATED" && newStatus !== "CANCELLED_BY_COMPANY",
+              }
+            : request
+        )
+      )
+      toast({
+        title: "Status updated",
+        description: `Request status has been updated to ${newStatus.replace(/_/g, " ")}.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to update request status",
+      })
+    }
   }
 
   // Filter requests based on search term and status filter
@@ -82,7 +179,6 @@ export default function CompanyRequests() {
       request.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (request.assignedVehicle && request.assignedVehicle.toLowerCase().includes(searchTerm.toLowerCase()))
 
-    // If no status filter is set, or it matches the current request status
     const matchesStatus = !statusFilter || request.status === statusFilter
 
     return matchesSearch && matchesStatus
@@ -166,7 +262,13 @@ export default function CompanyRequests() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRequests.length === 0 ? (
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                        Loading...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredRequests.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                         No requests found. Try adjusting your search criteria.

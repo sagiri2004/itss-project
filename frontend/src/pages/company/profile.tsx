@@ -1,10 +1,6 @@
 "use client"
 
-import { Badge } from "@/components/ui/badge"
-
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,44 +11,104 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/components/ui/use-toast"
+import { Badge } from "@/components/ui/badge"
 import { Building2, Camera, MapPin, Mail, Phone, Shield, Clock, Trash } from "lucide-react"
+import api from "@/services/api"
 
-// Replace the mock data imports
-import { mockCompanyData } from "@/data/mock-data"
-
-// Remove the original mock data declarations
-// Replace:
-// const mockCompanyData = { ... }
+interface CompanyProfileData {
+  id: string
+  name: string
+  logo?: string
+  isVerified: boolean
+  foundedYear?: string
+  employees?: number
+  address: string
+  phone: string
+  email: string
+  website?: string
+  operatingHours?: string
+  insuranceInfo: {
+    provider: string
+    policyNumber: string
+    expiryDate: string
+  }
+  serviceTypes: string[]
+  serviceArea: string
+  description: string
+}
 
 export default function CompanyProfile() {
   const { user } = useAuth()
   const { toast } = useToast()
-  const [companyData, setCompanyData] = useState(mockCompanyData)
+  const [companyData, setCompanyData] = useState<CompanyProfileData | null>(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [formData, setFormData] = useState(mockCompanyData)
+  const [formData, setFormData] = useState<CompanyProfileData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchCompanyProfile = async () => {
+      setIsLoading(true)
+      try {
+        if (!user?.companyId) throw new Error("Company ID is missing");
+        const response = await api.rescueCompanies.getCompanyById(user.companyId)
+        setCompanyData(response.data)
+        setFormData(response.data)
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.response?.data?.message || "Failed to load company profile",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    if (user?.companyId) fetchCompanyProfile()
+  }, [user, toast])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (!formData) return
     const { name, value } = e.target
-    setFormData({ ...formData, [name]: value })
+    if (name.startsWith("insuranceInfo.")) {
+      const key = name.split(".")[1]
+      setFormData({
+        ...formData,
+        insuranceInfo: { ...formData.insuranceInfo, [key]: value },
+      })
+    } else {
+      setFormData({ ...formData, [name]: value })
+    }
   }
 
   const handleSwitchChange = (name: string, checked: boolean) => {
+    if (!formData) return
     setFormData({ ...formData, [name]: checked })
   }
 
-  const handleSave = () => {
-    // Update the company data
-    setCompanyData(formData)
-    setIsEditing(false)
-
-    toast({
-      title: "Profile updated",
-      description: "Your company profile has been updated successfully.",
-    })
+  const handleSave = async () => {
+    if (!formData) return
+    setIsLoading(true)
+    try {
+      const response = await api.rescueCompanies.updateCompany(formData.id, formData)
+      setCompanyData(response.data)
+      setFormData(response.data)
+      setIsEditing(false)
+      toast({
+        title: "Profile updated",
+        description: "Your company profile has been updated successfully.",
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: error.response?.data?.message || "There was an error updating your profile.",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleCancel = () => {
-    // Reset form data to current company data
     setFormData(companyData)
     setIsEditing(false)
   }
@@ -81,6 +137,14 @@ export default function CompanyProfile() {
     },
   }
 
+  if (isLoading || !formData) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <span className="text-muted-foreground">Loading company profile...</span>
+      </div>
+    )
+  }
+
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
       <motion.div variants={itemVariants} className="flex items-center justify-between">
@@ -92,7 +156,9 @@ export default function CompanyProfile() {
             <Button variant="outline" onClick={handleCancel}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>Save Changes</Button>
+            <Button onClick={handleSave} disabled={isLoading}>
+              {isLoading ? "Saving..." : "Save Changes"}
+            </Button>
           </div>
         )}
       </motion.div>
@@ -106,8 +172,8 @@ export default function CompanyProfile() {
             </CardHeader>
             <CardContent className="flex flex-col items-center">
               <Avatar className="h-24 w-24 mb-4">
-                <AvatarImage src={companyData.logo || `https://avatar.vercel.sh/${companyData.name}`} />
-                <AvatarFallback className="text-lg">{companyData.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarImage src={formData.logo || `https://avatar.vercel.sh/${formData.name}`} />
+                <AvatarFallback className="text-lg">{formData.name.substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               {isEditing && (
                 <Button variant="outline" size="sm">
@@ -124,7 +190,7 @@ export default function CompanyProfile() {
               <CardDescription>Your company's verification status</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center">
-              {companyData.isVerified ? (
+              {formData.isVerified ? (
                 <div className="flex flex-col items-center">
                   <div className="rounded-full bg-success/20 p-3 mb-2">
                     <Shield className="h-6 w-6 text-success" />
@@ -161,15 +227,15 @@ export default function CompanyProfile() {
                 <div className="space-y-2">
                   <div>
                     <p className="text-sm font-medium">Provider</p>
-                    <p className="text-sm text-muted-foreground">{companyData.insuranceInfo.provider}</p>
+                    <p className="text-sm text-muted-foreground">{formData.insuranceInfo.provider}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium">Policy Number</p>
-                    <p className="text-sm text-muted-foreground">{companyData.insuranceInfo.policyNumber}</p>
+                    <p className="text-sm text-muted-foreground">{formData.insuranceInfo.policyNumber}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium">Expiry Date</p>
-                    <p className="text-sm text-muted-foreground">{companyData.insuranceInfo.expiryDate}</p>
+                    <p className="text-sm text-muted-foreground">{formData.insuranceInfo.expiryDate}</p>
                   </div>
                 </div>
               ) : (
@@ -220,9 +286,9 @@ export default function CompanyProfile() {
                   <div className="flex items-start gap-3">
                     <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
-                      <p className="font-medium">{companyData.name}</p>
+                      <p className="font-medium">{formData.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        Established {companyData.foundedYear} • {companyData.employees} employees
+                        Established {formData.foundedYear} • {formData.employees} employees
                       </p>
                     </div>
                   </div>
@@ -230,28 +296,28 @@ export default function CompanyProfile() {
                     <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="font-medium">Address</p>
-                      <p className="text-sm text-muted-foreground">{companyData.address}</p>
+                      <p className="text-sm text-muted-foreground">{formData.address}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="font-medium">Phone</p>
-                      <p className="text-sm text-muted-foreground">{companyData.phone}</p>
+                      <p className="text-sm text-muted-foreground">{formData.phone}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="font-medium">Email</p>
-                      <p className="text-sm text-muted-foreground">{companyData.email}</p>
+                      <p className="text-sm text-muted-foreground">{formData.email}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="font-medium">Operating Hours</p>
-                      <p className="text-sm text-muted-foreground">{companyData.operatingHours}</p>
+                      <p className="text-sm text-muted-foreground">{formData.operatingHours}</p>
                     </div>
                   </div>
                 </div>
@@ -321,7 +387,7 @@ export default function CompanyProfile() {
                     <div>
                       <p className="font-medium">Services Offered</p>
                       <div className="flex flex-wrap gap-2 mt-1">
-                        {companyData.serviceTypes.map((service, index) => (
+                        {formData.serviceTypes.map((service, index) => (
                           <Badge key={index} variant="outline">
                             {service}
                           </Badge>
@@ -333,14 +399,14 @@ export default function CompanyProfile() {
                     <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="font-medium">Service Area</p>
-                      <p className="text-sm text-muted-foreground">{companyData.serviceArea}</p>
+                      <p className="text-sm text-muted-foreground">{formData.serviceArea}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="font-medium">Description</p>
-                      <p className="text-sm text-muted-foreground">{companyData.description}</p>
+                      <p className="text-sm text-muted-foreground">{formData.description}</p>
                     </div>
                   </div>
                 </div>

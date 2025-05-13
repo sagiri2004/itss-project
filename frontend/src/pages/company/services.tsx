@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -22,16 +20,26 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { Plus, Search, Edit, Trash, Check, X } from "lucide-react"
-import { mockCompanyServices } from "@/data/mock-data"
+import api from "@/services/api"
+
+interface Service {
+  id: string
+  name: string
+  description: string
+  basePrice: number
+  duration: number
+  isActive: boolean
+}
 
 export default function CompanyServices() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const [services, setServices] = useState(mockCompanyServices)
+  const [services, setServices] = useState<Service[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [currentService, setCurrentService] = useState<any>(null)
+  const [currentService, setCurrentService] = useState<Service | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   const [formData, setFormData] = useState({
     name: "",
@@ -39,6 +47,28 @@ export default function CompanyServices() {
     basePrice: "",
     duration: "",
   })
+
+  // Fetch services from API
+  const fetchServices = async () => {
+    setIsLoading(true)
+    try {
+      const res = await api.rescueServices.getServices()
+      setServices(res.data)
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to load services",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchServices()
+    // eslint-disable-next-line
+  }, [])
 
   const filteredServices = services.filter(
     (service) =>
@@ -66,7 +96,7 @@ export default function CompanyServices() {
     setIsEditing(false)
   }
 
-  const handleOpenDialog = (service?: any) => {
+  const handleOpenDialog = (service?: Service) => {
     if (service) {
       setFormData({
         name: service.name,
@@ -87,7 +117,7 @@ export default function CompanyServices() {
     resetForm()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     // Validate inputs
@@ -100,63 +130,75 @@ export default function CompanyServices() {
       return
     }
 
-    // Create or update service
-    if (isEditing && currentService) {
-      const updatedServices = services.map((service) =>
-        service.id === currentService.id
-          ? {
-              ...service,
-              name: formData.name,
-              description: formData.description,
-              basePrice: Number.parseFloat(formData.basePrice),
-              duration: Number.parseInt(formData.duration),
-            }
-          : service,
-      )
-      setServices(updatedServices)
-
-      toast({
-        title: "Service updated",
-        description: `${formData.name} has been updated successfully.`,
-      })
-    } else {
-      const newService = {
-        id: `serv-${Date.now()}`,
-        name: formData.name,
-        description: formData.description,
-        basePrice: Number.parseFloat(formData.basePrice),
-        duration: Number.parseInt(formData.duration),
-        isActive: true,
+    try {
+      if (isEditing && currentService) {
+        // Update service
+        await api.rescueServices.updateService(currentService.id, {
+          name: formData.name,
+          description: formData.description,
+          basePrice: Number.parseFloat(formData.basePrice),
+          duration: Number.parseInt(formData.duration),
+        })
+        toast({
+          title: "Service updated",
+          description: `${formData.name} has been updated successfully.`,
+        })
+      } else {
+        // Create new service
+        await api.rescueServices.createService({
+          name: formData.name,
+          description: formData.description,
+          basePrice: Number.parseFloat(formData.basePrice),
+          duration: Number.parseInt(formData.duration),
+        })
+        toast({
+          title: "Service created",
+          description: `${formData.name} has been created successfully.`,
+        })
       }
-      setServices([...services, newService])
-
+      fetchServices()
+      handleCloseDialog()
+    } catch (error: any) {
       toast({
-        title: "Service created",
-        description: `${formData.name} has been created successfully.`,
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to save service",
       })
     }
-
-    handleCloseDialog()
   }
 
-  const toggleServiceStatus = (id: string) => {
-    setServices(services.map((service) => (service.id === id ? { ...service, isActive: !service.isActive } : service)))
-
-    const service = services.find((s) => s.id === id)
-    toast({
-      title: service?.isActive ? "Service deactivated" : "Service activated",
-      description: `${service?.name} has been ${service?.isActive ? "deactivated" : "activated"}.`,
-    })
+  const toggleServiceStatus = async (id: string, isActive: boolean) => {
+    try {
+      await api.rescueServices.updateService(id, { isActive: !isActive })
+      fetchServices()
+      toast({
+        title: isActive ? "Service deactivated" : "Service activated",
+        description: `Service has been ${isActive ? "deactivated" : "activated"}.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to update service status",
+      })
+    }
   }
 
-  const deleteService = (id: string) => {
-    const service = services.find((s) => s.id === id)
-    setServices(services.filter((service) => service.id !== id))
-
-    toast({
-      title: "Service removed",
-      description: `${service?.name} has been removed from your services.`,
-    })
+  const deleteService = async (id: string) => {
+    try {
+      await api.rescueServices.deleteService(id)
+      fetchServices()
+      toast({
+        title: "Service removed",
+        description: `Service has been removed from your services.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to delete service",
+      })
+    }
   }
 
   // Animation variants
@@ -225,7 +267,13 @@ export default function CompanyServices() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredServices.length === 0 ? (
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                        Loading...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredServices.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
                         No services found. Try adjusting your search or add a new service.
@@ -250,7 +298,7 @@ export default function CompanyServices() {
                             <Button
                               variant="outline"
                               size="icon"
-                              onClick={() => toggleServiceStatus(service.id)}
+                              onClick={() => toggleServiceStatus(service.id, service.isActive)}
                               title={service.isActive ? "Deactivate" : "Activate"}
                             >
                               {service.isActive ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}

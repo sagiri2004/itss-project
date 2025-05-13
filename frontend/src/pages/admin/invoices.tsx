@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -13,14 +11,89 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { formatDate } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { Search, Filter, FileText, Clock, User, Download, Building2, DollarSign, CalendarDays } from "lucide-react"
-import { mockInvoices } from "@/data/mock-data"
+import api from "@/services/api"
+import { useNavigate } from "react-router-dom"
+
+// Interfaces
+interface Invoice {
+  id: string
+  invoiceNumber: string
+  requestId: string
+  user: {
+    id: string
+    name: string
+    email: string
+  }
+  company: {
+    id: string
+    name: string
+  }
+  service: string
+  amount: number
+  status: string
+  date: string
+  dueDate: string
+  paymentMethod?: string
+}
 
 export default function AdminInvoices() {
   const { user } = useAuth()
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
-  const [invoices, setInvoices] = useState(mockInvoices)
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    // Kiểm tra quyền admin
+    if (user?.role !== 'admin') {
+      navigate('/login')
+      return
+    }
+
+    const fetchInvoices = async () => {
+      setIsLoading(true)
+      try {
+        // Gọi API với token admin
+        const response = await api.invoices.getUserInvoices()
+        
+        // Map dữ liệu về đúng interface
+        const mappedInvoices: Invoice[] = response.data.map((inv: any) => ({
+          id: inv.id,
+          invoiceNumber: inv.invoiceNumber || inv.id,
+          requestId: inv.rescueRequestId || inv.requestId,
+          user: {
+            id: inv.user?.id || inv.userId,
+            name: inv.user?.name || inv.userName,
+            email: inv.user?.email || inv.userEmail
+          },
+          company: {
+            id: inv.company?.id || inv.companyId,
+            name: inv.company?.name || inv.companyName
+          },
+          service: inv.service || inv.serviceName || "",
+          amount: inv.amount || 0,
+          status: inv.status,
+          date: inv.date || inv.createdAt,
+          dueDate: inv.dueDate || "",
+          paymentMethod: inv.paymentMethod
+        }))
+
+        setInvoices(mappedInvoices)
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.response?.data?.message || "Could not load invoices"
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchInvoices()
+  }, [toast, user, navigate])
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
@@ -88,6 +161,17 @@ export default function AdminInvoices() {
         damping: 20,
       },
     },
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-2">Loading invoices...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -190,7 +274,7 @@ export default function AdminInvoices() {
                     filteredInvoices.map((invoice) => (
                       <TableRow key={invoice.id}>
                         <TableCell>
-                          <div className="font-medium">{invoice.id}</div>
+                          <div className="font-medium">{invoice.invoiceNumber}</div>
                           <div className="flex items-center text-xs text-muted-foreground mt-1">
                             <FileText className="mr-1 h-3 w-3" />
                             {invoice.requestId}

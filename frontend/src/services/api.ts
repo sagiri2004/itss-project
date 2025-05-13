@@ -50,6 +50,16 @@ export const rescueRequestApi = {
     axios.post(`${API_BASE_URL}/rescue-requests/${id}/reject`),
   completeRequest: (id: string) => 
     axios.post(`${API_BASE_URL}/rescue-requests/${id}/complete`),
+  getCompanyRequests: (params?: any) =>
+    axios.get(`${API_BASE_URL}/rescue-requests/company`, { params }),
+  dispatchVehicle: (id: string, vehicleId: string) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/dispatch-vehicle`, null, { params: { vehicleId } }),
+  startRepair: (id: string) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/start-repair`),
+  completeRepair: (id: string) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/complete-repair`),
+  cancelByCompany: (id: string) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/cancel-by-company`),
 };
 
 // Rescue Company APIs
@@ -114,6 +124,8 @@ export const invoiceApi = {
     axios.post(`${API_BASE_URL}/invoices/${id}/pay`, paymentData),
   sendInvoice: (id: string) => 
     axios.post(`${API_BASE_URL}/invoices/${id}/send`),
+  getCompanyInvoices: (params?: any) =>
+    axios.get(`${API_BASE_URL}/invoices/my-company-invoices`, { params }),
 };
 
 // Chat APIs
@@ -145,7 +157,7 @@ axios.interceptors.request.use(
 // Add response interceptor for handling errors
 axios.interceptors.response.use(
   (response: AxiosResponse) => response,
-  (error: AxiosError) => {
+  () => {
     // if (error.response?.status === 401) {
     //   // Handle unauthorized access
     //   localStorage.removeItem('token');
@@ -164,4 +176,4 @@ export default {
   rescueServices: rescueServiceApi,
   invoices: invoiceApi,
   chats: chatApi,
-}; 
+};

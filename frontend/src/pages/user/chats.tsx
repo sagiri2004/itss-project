@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
-import { motion } from "framer-motion"
+import { motion }  from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"

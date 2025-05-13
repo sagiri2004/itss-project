@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -22,16 +20,31 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { Plus, Search, Edit, Trash, Calendar, Wrench, CalendarCheck } from "lucide-react"
-import { mockCompanyVehicles, vehicleTypes, vehicleStatuses } from "@/data/mock-data"
+import api from "@/services/api"
+
+const vehicleTypes = ["Tow Truck", "Flatbed", "Motorbike", "Van", "Other"]
+const vehicleStatuses = ["AVAILABLE", "IN_USE", "MAINTENANCE", "OUT_OF_SERVICE"]
+
+interface Vehicle {
+  id: string
+  name: string
+  type: string
+  licensePlate: string
+  status: string
+  assignedDriver?: string
+  capacity?: string
+  lastMaintenance?: string
+  nextMaintenanceDate?: string
+}
 
 export default function CompanyVehicles() {
-  const { user } = useAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const [vehicles, setVehicles] = useState(mockCompanyVehicles)
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [currentVehicle, setCurrentVehicle] = useState<any>(null)
+  const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   const [formData, setFormData] = useState({
     name: "",
@@ -44,13 +57,35 @@ export default function CompanyVehicles() {
     nextMaintenanceDate: "",
   })
 
+  // Fetch vehicles from API
+  const fetchVehicles = async () => {
+    setIsLoading(true)
+    try {
+      const res = await api.rescueVehicles.getVehicles()
+      setVehicles(res.data)
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to load vehicles",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchVehicles()
+    // eslint-disable-next-line
+  }, [])
+
   const filteredVehicles = vehicles.filter(
     (vehicle) =>
-      vehicle.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.assignedDriver.toLowerCase().includes(searchTerm.toLowerCase()),
+      vehicle.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.licensePlate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (vehicle.assignedDriver || "").toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,17 +116,17 @@ export default function CompanyVehicles() {
     setIsEditing(false)
   }
 
-  const handleOpenDialog = (vehicle?: any) => {
+  const handleOpenDialog = (vehicle?: Vehicle) => {
     if (vehicle) {
       setFormData({
         name: vehicle.name,
         type: vehicle.type,
         licensePlate: vehicle.licensePlate,
         status: vehicle.status,
-        assignedDriver: vehicle.assignedDriver,
-        capacity: vehicle.capacity,
-        lastMaintenance: vehicle.lastMaintenance,
-        nextMaintenanceDate: vehicle.nextMaintenanceDate,
+        assignedDriver: vehicle.assignedDriver || "",
+        capacity: vehicle.capacity || "",
+        lastMaintenance: vehicle.lastMaintenance || "",
+        nextMaintenanceDate: vehicle.nextMaintenanceDate || "",
       })
       setCurrentVehicle(vehicle)
       setIsEditing(true)
@@ -106,10 +141,8 @@ export default function CompanyVehicles() {
     resetForm()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    // Validate inputs
     if (!formData.name || !formData.type || !formData.licensePlate) {
       toast({
         variant: "destructive",
@@ -118,71 +151,63 @@ export default function CompanyVehicles() {
       })
       return
     }
-
-    // Create or update vehicle
-    if (isEditing && currentVehicle) {
-      const updatedVehicles = vehicles.map((vehicle) =>
-        vehicle.id === currentVehicle.id
-          ? {
-              ...vehicle,
-              name: formData.name,
-              type: formData.type,
-              licensePlate: formData.licensePlate,
-              status: formData.status,
-              assignedDriver: formData.assignedDriver,
-              capacity: formData.capacity,
-              lastMaintenance: formData.lastMaintenance,
-              nextMaintenanceDate: formData.nextMaintenanceDate,
-            }
-          : vehicle,
-      )
-      setVehicles(updatedVehicles)
-
-      toast({
-        title: "Vehicle updated",
-        description: `${formData.name} has been updated successfully.`,
-      })
-    } else {
-      const newVehicle = {
-        id: `veh-${Date.now()}`,
-        name: formData.name,
-        type: formData.type,
-        licensePlate: formData.licensePlate,
-        status: formData.status,
-        assignedDriver: formData.assignedDriver,
-        capacity: formData.capacity,
-        lastMaintenance: formData.lastMaintenance,
-        nextMaintenanceDate: formData.nextMaintenanceDate,
+    try {
+      if (isEditing && currentVehicle) {
+        await api.rescueVehicles.updateVehicle(currentVehicle.id, formData)
+        toast({
+          title: "Vehicle updated",
+          description: `${formData.name} has been updated successfully.`,
+        })
+      } else {
+        await api.rescueVehicles.createVehicle(formData)
+        toast({
+          title: "Vehicle added",
+          description: `${formData.name} has been added to your fleet.`,
+        })
       }
-      setVehicles([...vehicles, newVehicle])
-
+      fetchVehicles()
+      handleCloseDialog()
+    } catch (error: any) {
       toast({
-        title: "Vehicle added",
-        description: `${formData.name} has been added to your fleet.`,
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to save vehicle",
       })
     }
-
-    handleCloseDialog()
   }
 
-  const deleteVehicle = (id: string) => {
-    const vehicle = vehicles.find((v) => v.id === id)
-    setVehicles(vehicles.filter((vehicle) => vehicle.id !== id))
-
-    toast({
-      title: "Vehicle removed",
-      description: `${vehicle?.name} has been removed from your fleet.`,
-    })
+  const deleteVehicle = async (id: string) => {
+    try {
+      await api.rescueVehicles.deleteVehicle(id)
+      fetchVehicles()
+      toast({
+        title: "Vehicle removed",
+        description: `Vehicle has been removed from your fleet.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to delete vehicle",
+      })
+    }
   }
 
-  const markForMaintenance = (id: string) => {
-    setVehicles(vehicles.map((vehicle) => (vehicle.id === id ? { ...vehicle, status: "MAINTENANCE" } : vehicle)))
-
-    const vehicle = vehicles.find((v) => v.id === id)
-    toast({
-      title: "Maintenance scheduled",
-      description: `${vehicle?.name} has been marked for maintenance.`,
-    })
+  const markForMaintenance = async (id: string) => {
+    try {
+      await api.rescueVehicles.updateVehicleStatus(id, "MAINTENANCE")
+      fetchVehicles()
+      toast({
+        title: "Maintenance scheduled",
+        description: `Vehicle has been marked for maintenance.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to update vehicle status",
+      })
+    }
   }
 
   // Helper function to get status badge variant
@@ -268,7 +293,13 @@ export default function CompanyVehicles() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredVehicles.length === 0 ? (
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                        Loading...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredVehicles.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                         No vehicles found. Try adjusting your search or add a new vehicle.
