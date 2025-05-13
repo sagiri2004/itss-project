@@ -31,10 +31,10 @@ import { useWebSocketContext } from "@/context/websocket-context"
 import { userNavItems, companyNavItems, adminNavItems } from "@/config/navigation"
 
 type DashboardLayoutProps = {
-  role: "user" | "company" | "admin"
+  role?: "user" | "company" | "admin"
 }
 
-export default function DashboardLayout({ role }: DashboardLayoutProps) {
+export default function DashboardLayout({ role = "user" }: DashboardLayoutProps) {
   const { user, logout, loading, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -50,7 +50,7 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
     setIsMounted(true)
 
     // Redirect if not authenticated or wrong role
-    if (!loading && (!isAuthenticated)) {
+    if (!loading && !isAuthenticated) {
       // console.log("Not authenticated or wrong role")
       // console.log("Loading:", loading)
       // console.log("Is authenticated:", isAuthenticated)
@@ -201,7 +201,9 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
                         <div key={idx} className="p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-muted/50">
                           <div className="font-medium">{noti.title}</div>
                           <div className="text-xs text-muted-foreground">{noti.content}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{new Date(noti.sentAt).toLocaleString()}</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {new Date(noti.sentAt).toLocaleString()}
+                          </div>
                         </div>
                       ))
                     )}
