@@ -32,6 +32,7 @@ import { userNavItems, companyNavItems, adminNavItems } from "@/config/navigatio
 
 type DashboardLayoutProps = {
   role?: "user" | "company" | "admin"
+  children?: React.ReactNode // Add this line
 }
 
 export default function DashboardLayout({ role = "user" }: DashboardLayoutProps) {

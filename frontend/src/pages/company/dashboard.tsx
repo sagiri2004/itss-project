@@ -90,7 +90,7 @@ export default function CompanyDashboard() {
           api.rescueVehicles.getVehicles(),
           api.invoices.getCompanyInvoices(),
           api.chats.getConversations(),
-          api.reviews.getCompanyReviews(),
+          api.reviews.getCompanyReviews(user?.companyId || ""),
         ])
         // Map requests
         const mappedRequests: CompanyRequest[] = requestsRes.data.map((req: any) => ({

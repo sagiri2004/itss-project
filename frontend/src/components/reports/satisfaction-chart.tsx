@@ -103,7 +103,7 @@ export function SatisfactionChart({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>{title}</CardTitle>
-        <Select value={selectedTimeRange} onValueChange={setSelectedTimeRange}>
+        <Select value={selectedTimeRange} onValueChange={(value) => setSelectedTimeRange(value as "week" | "month" | "year" | "all")}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Chọn khoảng thời gian" />
           </SelectTrigger>

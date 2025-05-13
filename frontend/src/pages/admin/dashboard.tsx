@@ -113,31 +113,31 @@ export default function AdminDashboard() {
         // Set stats
         setStats({
           totalRequests: requestsRes.data.length,
-          activeRequests: requestsRes.data.filter((req) => ["PENDING", "ACCEPTED", "IN_PROGRESS"].includes(req.status))
+          activeRequests: requestsRes.data.filter((req: { status: string }) => ["PENDING", "ACCEPTED", "IN_PROGRESS"].includes(req.status))
             .length,
           totalCompanies: companiesRes.data.length,
-          totalVehicles: companiesRes.data.reduce((acc, company) => acc + (company.vehicles?.length || 0), 0),
+          totalVehicles: companiesRes.data.reduce((acc: number, company: { vehicles?: { length: number }[] }) => acc + (company.vehicles?.length || 0), 0),
           totalUsers: usersRes.data.length,
-          totalRevenue: invoicesRes.data.reduce((acc, inv) => acc + (inv.amount || 0), 0),
+          totalRevenue: invoicesRes.data.reduce((acc: number, inv: { amount?: number }) => acc + (inv.amount || 0), 0),
           newUsersThisWeek: newUsers.length,
-          revenueThisWeek: newInvoices.reduce((acc, inv) => acc + (inv.amount || 0), 0),
+          revenueThisWeek: newInvoices.reduce((acc: number, inv: { amount?: number }) => acc + (inv.amount || 0), 0),
         })
 
         // Tính request stats
         const requestsByStatus = Object.entries(
           requestsRes.data.reduce(
-            (acc, req) => {
+            (acc: Record<string, number>, req: { status: string }) => {
               acc[req.status] = (acc[req.status] || 0) + 1
               return acc
             },
             {} as Record<string, number>,
           ),
-        ).map(([status, count]) => ({ status, count }))
+        ).map(([status, count]) => ({ status, count: count as number }))
         setRequestStats(requestsByStatus)
 
         // Tạo activity log
         const activities = [
-          ...requestsRes.data.map((req) => ({
+          ...requestsRes.data.map((req: { id: string; status: string; user?: { name: string }; company?: { name: string }; updatedAt?: string; createdAt: string }) => ({
             id: req.id,
             type: "request" as const,
             user: req.user?.name,
@@ -145,7 +145,7 @@ export default function AdminDashboard() {
             details: `Rescue request ${req.status.toLowerCase()}`,
             date: req.updatedAt || req.createdAt,
           })),
-          ...invoicesRes.data.map((inv) => ({
+          ...invoicesRes.data.map((inv: { id: string; status: string; user?: { name: string }; company?: { name: string }; updatedAt?: string; createdAt: string }) => ({
             id: inv.id,
             type: "invoice" as const,
             user: inv.user?.name,
