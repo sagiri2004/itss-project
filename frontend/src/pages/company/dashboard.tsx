@@ -8,10 +8,21 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Car, Clock, AlertCircle, PlusCircle, Wrench, Truck, DollarSign, FileText, MessageSquare, Loader2 } from "lucide-react"
+import {
+  Car,
+  Clock,
+  AlertCircle,
+  PlusCircle,
+  Wrench,
+  Truck,
+  DollarSign,
+  FileText,
+  MessageSquare,
+  Loader2,
+  Star,
+} from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import api from "@/services/api"
-import axios from "axios"
 
 interface CompanyRequest {
   id: string
@@ -68,16 +79,18 @@ export default function CompanyDashboard() {
   const [pendingInvoices, setPendingInvoices] = useState(0)
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [unreadMessages, setUnreadMessages] = useState(0)
+  const [averageRating, setAverageRating] = useState<number | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        const [requestsRes, vehiclesRes, invoicesRes, chatsRes] = await Promise.all([
+        const [requestsRes, vehiclesRes, invoicesRes, chatsRes, reviewsRes] = await Promise.all([
           api.rescueRequests.getCompanyRequests(),
           api.rescueVehicles.getVehicles(),
           api.invoices.getCompanyInvoices(),
           api.chats.getConversations(),
+          api.reviews.getCompanyReviews(user?.companyId || ""),
         ])
         // Map requests
         const mappedRequests: CompanyRequest[] = requestsRes.data.map((req: any) => ({
@@ -130,17 +143,25 @@ export default function CompanyDashboard() {
               "PRICE_UPDATED",
               "IN_PROGRESS",
             ].includes(req.status),
-          ).length
+          ).length,
         )
-        setCompletedRequests(mappedRequests.filter((req) => ["COMPLETED", "INVOICED", "PAID"].includes(req.status)).length)
+        setCompletedRequests(
+          mappedRequests.filter((req) => ["COMPLETED", "INVOICED", "PAID"].includes(req.status)).length,
+        )
         setAvailableVehicles(mappedVehicles.filter((veh) => veh.status === "AVAILABLE").length)
         setPendingInvoices(mappedInvoices.filter((inv) => inv.status === "PENDING").length)
         setTotalRevenue(
           mappedRequests
             .filter((req) => ["COMPLETED", "INVOICED", "PAID"].includes(req.status))
-            .reduce((sum, req) => sum + (req.price || 0), 0)
+            .reduce((sum, req) => sum + (req.price || 0), 0),
         )
         setUnreadMessages(mappedChats.reduce((total, chat) => total + (chat.unreadCount || 0), 0))
+
+        // Calculate average rating
+        if (reviewsRes.data && reviewsRes.data.length > 0) {
+          const totalRating = reviewsRes.data.reduce((sum: number, review: any) => sum + review.rating, 0)
+          setAverageRating(totalRating / reviewsRes.data.length)
+        }
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -286,6 +307,19 @@ export default function CompanyDashboard() {
               <div className="flex items-center justify-between">
                 <div className="text-2xl font-bold">{unreadMessages}</div>
                 <MessageSquare className="h-5 w-5 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <Card className="border-l-4 border-l-green-500">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Average Rating</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="text-2xl font-bold">{averageRating ? averageRating.toFixed(1) : "N/A"}</div>
+                <Star className="h-5 w-5 text-green-500" />
               </div>
             </CardContent>
           </Card>
@@ -445,9 +479,10 @@ export default function CompanyDashboard() {
                       )}
                     </div>
                     <CardDescription>
-                      {chat.updatedAt ? new Date(chat.updatedAt).toLocaleDateString() : ''} • {chat.lastMessage?.content || ''}
+                      {chat.updatedAt ? new Date(chat.updatedAt).toLocaleDateString() : ""} •{" "}
+                      {chat.lastMessage?.content || ""}
                     </CardDescription>
-                    </CardHeader>
+                  </CardHeader>
                   <CardFooter>
                     <Button asChild variant="ghost" size="sm" className="w-full">
                       <Link to={`/company/chat/${chat.id}`}>View Chat</Link>
@@ -491,9 +526,9 @@ export default function CompanyDashboard() {
                 </Link>
               </Button>
               <Button asChild variant="outline" className="h-24 flex-col">
-                <Link to="/company/invoices">
-                  <FileText className="mb-2 h-6 w-6" />
-                  <span>View Invoices</span>
+                <Link to="/company/reviews">
+                  <Star className="mb-2 h-6 w-6" />
+                  <span>Customer Reviews</span>
                 </Link>
               </Button>
             </div>

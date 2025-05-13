@@ -12,6 +12,9 @@ import {
   CreditCard,
   User,
   Lock,
+  Star,
+  MessageCircle,
+  BarChart,
 } from "lucide-react"
 
 // User navigation
@@ -33,6 +36,16 @@ export const userNavItems = [
         title: "Chats",
         href: "/user/chats",
         icon: MessageSquare,
+      },
+      {
+        title: "Topics",
+        href: "/user/topics",
+        icon: MessageCircle,
+      },
+      {
+        title: "Reviews",
+        href: "/user/reviews",
+        icon: Star,
       },
       {
         title: "Invoices",
@@ -87,6 +100,11 @@ export const companyNavItems = [
         title: "Requests",
         href: "/company/requests",
         icon: Bell,
+      },
+      {
+        title: "Reviews",
+        href: "/company/reviews",
+        icon: Star,
       },
       {
         title: "Chats",
@@ -151,6 +169,21 @@ export const adminNavItems = [
         title: "Requests",
         href: "/admin/requests",
         icon: Bell,
+      },
+      {
+        title: "Topics",
+        href: "/admin/topics",
+        icon: MessageCircle,
+      },
+      {
+        title: "Reviews",
+        href: "/admin/reviews",
+        icon: Star,
+      },
+      {
+        title: "Reports",
+        href: "/admin/reports",
+        icon: BarChart,
       },
       {
         title: "Invoices",
