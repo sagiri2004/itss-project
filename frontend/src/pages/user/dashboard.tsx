@@ -8,7 +8,18 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Car, FileText, Clock, CheckCircle2, PlusCircle, Wrench, MessageSquare, Loader2 } from "lucide-react"
+import {
+  Car,
+  FileText,
+  Clock,
+  CheckCircle2,
+  PlusCircle,
+  Wrench,
+  MessageSquare,
+  Loader2,
+  MessageCircle,
+  Star,
+} from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import api from "@/services/api"
 
@@ -44,13 +55,11 @@ interface Chat {
 // Hàm lấy địa chỉ từ lat/lon bằng Nominatim
 async function getAddressFromLatLon(lat: number, lon: number): Promise<string> {
   try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
-    );
-    const data = await response.json();
-    return data.display_name || `${lat}, ${lon}`;
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
+    const data = await response.json()
+    return data.display_name || `${lat}, ${lon}`
   } catch {
-    return `${lat}, ${lon}`;
+    return `${lat}, ${lon}`
   }
 }
 
@@ -84,9 +93,9 @@ export default function UserDashboard() {
         // Map requests và lấy địa chỉ từ lat/lon
         const mappedRequests = await Promise.all(
           requestsRes.data.map(async (req: any) => {
-            let address = req.description;
+            let address = req.description
             if (!address && req.latitude && req.longitude) {
-              address = await getAddressFromLatLon(req.latitude, req.longitude);
+              address = await getAddressFromLatLon(req.latitude, req.longitude)
             }
             return {
               id: req.id,
@@ -96,9 +105,9 @@ export default function UserDashboard() {
               location: address || `${req.latitude}, ${req.longitude}`,
               company: req.companyName,
               price: req.finalPrice ?? req.estimatedPrice,
-            };
-          })
-        );
+            }
+          }),
+        )
 
         setRequests(mappedRequests)
         setInvoices(invoicesRes.data)
@@ -354,10 +363,11 @@ export default function UserDashboard() {
           >
             {chats.slice(0, 4).map((chat) => {
               // Fallbacks for compatibility with both old and new chat data
-              const companyName = typeof chat.company === 'string' ? chat.company : chat.company?.name || 'Unknown';
-              const unreadCount = chat.unreadCount ?? chat.unread ?? 0;
-              const updatedAt = chat.updatedAt ?? chat.timestamp ?? '';
-              const lastMessageContent = typeof chat.lastMessage === 'string' ? chat.lastMessage : chat.lastMessage?.content || '';
+              const companyName = typeof chat.company === "string" ? chat.company : chat.company?.name || "Unknown"
+              const unreadCount = chat.unreadCount ?? chat.unread ?? 0
+              const updatedAt = chat.updatedAt ?? chat.timestamp ?? ""
+              const lastMessageContent =
+                typeof chat.lastMessage === "string" ? chat.lastMessage : chat.lastMessage?.content || ""
               return (
               <motion.div key={chat.id} variants={itemVariants}>
                 <Card>
@@ -367,20 +377,20 @@ export default function UserDashboard() {
                         {unreadCount > 0 && (
                           <Badge variant="default" className="ml-2">
                             {unreadCount} new
-                        </Badge>
-                      )}
-                    </div>
-                    <CardDescription>
+                          </Badge>
+                        )}
+                      </div>
+                      <CardDescription>
                         {updatedAt ? new Date(updatedAt).toLocaleDateString() : ''} • {lastMessageContent}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardFooter>
-                    <Button asChild variant="ghost" size="sm" className="w-full">
+                      </CardDescription>
+                    </CardHeader>
+                    <CardFooter>
+                      <Button asChild variant="ghost" size="sm" className="w-full">
                         <Link to={`/user/chat/${chat.id}`}>View Chat</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </motion.div>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                </motion.div>
               );
             })}
           </motion.div>
@@ -413,15 +423,15 @@ export default function UserDashboard() {
                 </Link>
               </Button>
               <Button asChild variant="outline" className="h-24 flex-col">
-                <Link to="/user/chats">
-                  <MessageSquare className="mb-2 h-6 w-6" />
-                  <span>View Chats</span>
+                <Link to="/user/topics">
+                  <MessageCircle className="mb-2 h-6 w-6" />
+                  <span>Community Topics</span>
                 </Link>
               </Button>
               <Button asChild variant="outline" className="h-24 flex-col">
-                <Link to="/user/invoices">
-                  <FileText className="mb-2 h-6 w-6" />
-                  <span>View Invoices</span>
+                <Link to="/user/reviews">
+                  <Star className="mb-2 h-6 w-6" />
+                  <span>My Reviews</span>
                 </Link>
               </Button>
             </div>
