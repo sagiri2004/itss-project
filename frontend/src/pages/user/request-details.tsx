@@ -43,6 +43,9 @@ interface Request {
   vehicleModel: string | null
   vehicleEquipmentDetails: string[] | null
   vehicleStatus: string | null
+  vehicleMake: string | null
+  vehicleYear: string | null
+  vehicleImageUrl: string | null
 }
 
 // Status steps mapping (simple)
@@ -379,6 +382,27 @@ export default function RequestMap() {
               <CardDescription>Information about your assigned vehicle</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {(request.vehicleMake || request.vehicleModel || request.vehicleYear || request.vehicleImageUrl) && (
+                <div className="space-y-2">
+                  {request.vehicleImageUrl && (
+                    <img
+                      src={request.vehicleImageUrl}
+                      alt="Vehicle"
+                      className="w-full max-w-xs rounded border mb-2"
+                      style={{objectFit: 'cover'}}
+                    />
+                  )}
+                  <div>
+                    <span className="font-medium">Make:</span> {request.vehicleMake || 'N/A'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Model:</span> {request.vehicleModel || 'N/A'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Year:</span> {request.vehicleYear || 'N/A'}
+                  </div>
+                </div>
+              )}
               {request.rescueServiceDetails ? (
                 <div className="flex items-start gap-2">
                   <Car className="mt-0.5 h-4 w-4 text-muted-foreground" />
@@ -393,22 +417,6 @@ export default function RequestMap() {
                   <div className="text-sm text-muted-foreground">N/A</div>
                 </div>
               )}
-
-              {request.rescueServiceDetails ? (
-                <div className="flex items-start gap-2">
-                  <Phone className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="font-medium">{request.rescueServiceDetails.companyName || "N/A"}</div>
-                    <div className="text-sm text-muted-foreground">{request.rescueServiceDetails.companyId || "N/A"}</div>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="font-medium">Company Info</div>
-                  <div className="text-sm text-muted-foreground">N/A</div>
-                </div>
-              )}
-
               {request.vehicleModel ? (
                 <div>
                   <div className="font-medium">{request.vehicleModel} ({request.vehicleLicensePlate || "N/A"})</div>

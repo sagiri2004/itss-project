@@ -17,6 +17,9 @@ public class CompanyRatingRequest {
     @NotNull(message = "Company ID is required")
     private String companyId;
     
+    @NotNull(message = "Service ID is required")
+    private String serviceId;
+    
     @NotNull(message = "Star rating is required")
     @Min(value = 1, message = "Rating must be at least 1 star")
     @Max(value = 5, message = "Rating must be at most 5 stars")

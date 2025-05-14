@@ -20,6 +20,8 @@ public class RescueServiceResponse {
 	private String companyId;
 	private String companyName;
 	private CompanyInfo company;
+	private Double averageRating;
+	private Long totalRatings;
 
 	@Data
 	@Builder

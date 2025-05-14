@@ -116,4 +116,17 @@ public class RescueVehicleController {
 	public RescueEquipment[] getEquipmentTypes() {
 		return RescueEquipment.values();
 	}
+
+	@Operation(summary = "Lấy danh sách xe cứu hộ theo công ty",
+			description = "API cho phép lấy danh sách tất cả các xe cứu hộ của một công ty",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Lấy danh sách thành công",
+					content = @Content(mediaType = "application/json",
+							array = @ArraySchema(schema = @Schema(implementation = RescueVehicleResponse.class))))
+	})
+	@GetMapping("/company/{companyId}")
+	public List<RescueVehicleResponse> getByCompany(@PathVariable String companyId) {
+		return vehicleService.getByCompany(companyId);
+	}
 }

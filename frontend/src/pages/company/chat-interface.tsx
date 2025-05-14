@@ -2,14 +2,15 @@
 
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
-import { Button } from "../ui/button"
-import { Input } from "../ui/input"
-import { ScrollArea } from "../ui/scroll-area"
-import { Avatar } from "../ui/avatar"
-import { useAuth } from "../../context/auth-context"
-import { useWebSocketContext } from "../../context/websocket-context"
-import type { ChatMessage } from "../../services/websocket-service"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Avatar } from "@/components/ui/avatar"
+import { useAuth } from "@/context/auth-context"
+import { useWebSocketContext } from "@/context/websocket-context"
+import type { ChatMessage } from "@/services/websocket-service"
 import type { Message } from "@/types/chat"
+import api from "@/services/api"
 
 type ChatHistoryItem = ChatMessage & { id: string }
 
@@ -86,7 +87,11 @@ export function ChatInterface({
               existingMsg.sentAt === newMsg.sentAt &&
               existingMsg.senderType === newMsg.senderType
           )
-          ).map((msg) => ({ ...msg, id: msg.id || Math.random().toString(36).slice(2) })) as ChatHistoryItem[]
+          ).map((msg) => ({
+            ...msg,
+            sentAt: msg.sentAt || new Date().toISOString(),
+            id: msg.id || Math.random().toString(36).slice(2)
+          })) as ChatHistoryItem[]
           return [...prev, ...newMessages]
         })
       }
@@ -100,17 +105,26 @@ export function ChatInterface({
     }
   }, [chatHistory])
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!message.trim() || !connected || !user) return
 
+    // Get the chat data to find the correct user ID
+    const chatResponse = await api.chats.getConversationById(requestId);
+    const chatData = chatResponse.data;
+    
+    // The userId should be the ID of the user in the conversation
+    const userId = chatData.userId || chatData.user?.id;
+
+    if (!userId) return;
+
     const newMessage: ChatMessage = {
       content: message,
       conversationId: requestId,
-      userId: currentUserId,
-      rescueCompanyId: currentUserRole === "RESCUE_COMPANY" ? currentUserId : rescueCompanyId,
-      senderType: user.role === "company" ? "RESCUE_COMPANY" : "USER",
+      userId: userId,
+      rescueCompanyId: user.companyId || undefined,
+      senderType: "RESCUE_COMPANY",
       isRead: false,
       sentAt: new Date().toISOString(),
     }

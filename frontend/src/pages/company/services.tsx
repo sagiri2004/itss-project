@@ -21,25 +21,30 @@ import {
 import { useToast } from "@/components/ui/use-toast"
 import { Plus, Search, Edit, Trash, Check, X } from "lucide-react"
 import api from "@/services/api"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface Service {
   id: string
   name: string
   description: string
-  basePrice: number
-  duration: number
+  price: number
+  type: RescueServiceType
   isActive: boolean
-  price?: number
-  type?: string
   company?: {
+    id: string
     name: string
-    phone: string
-    address?: {
-      fullAddress: string
-    }
   }
-  companyName?: string
 }
+
+type RescueServiceType = 
+  | 'TIRE_REPLACEMENT'
+  | 'TIRE_REPAIR'
+  | 'FUEL_DELIVERY'
+  | 'TOWING'
+  | 'ON_SITE_REPAIR'
+  | 'BATTERY_JUMP_START'
+  | 'LOCKOUT_SERVICE'
+  | 'OTHER'
 
 export default function CompanyServices() {
   const { user } = useAuth()
@@ -54,15 +59,25 @@ export default function CompanyServices() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    basePrice: "",
-    duration: "",
+    price: "",
+    type: "OTHER" as RescueServiceType,
   })
 
   // Fetch services from API
   const fetchServices = async () => {
     setIsLoading(true)
     try {
-      const res = await api.rescueServices.getServices()
+      // Get company ID from user context
+      const companyId = user?.companyId
+      if (!companyId) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Company ID not found",
+        })
+        return
+      }
+      const res = await api.rescueServices.getCompanyServices(companyId)
       setServices(res.data)
     } catch (error: any) {
       toast({
@@ -99,8 +114,8 @@ export default function CompanyServices() {
     setFormData({
       name: "",
       description: "",
-      basePrice: "",
-      duration: "",
+      price: "",
+      type: "OTHER",
     })
     setCurrentService(null)
     setIsEditing(false)
@@ -111,8 +126,8 @@ export default function CompanyServices() {
       setFormData({
         name: service.name,
         description: service.description,
-        basePrice: service.basePrice.toString(),
-        duration: service.duration.toString(),
+        price: service.price.toString(),
+        type: service.type,
       })
       setCurrentService(service)
       setIsEditing(true)
@@ -131,7 +146,7 @@ export default function CompanyServices() {
     e.preventDefault()
 
     // Validate inputs
-    if (!formData.name || !formData.description || !formData.basePrice || !formData.duration) {
+    if (!formData.name || !formData.description || !formData.price || !formData.type) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -146,8 +161,8 @@ export default function CompanyServices() {
         await api.rescueServices.updateService(currentService.id, {
           name: formData.name,
           description: formData.description,
-          basePrice: Number.parseFloat(formData.basePrice),
-          duration: Number.parseInt(formData.duration),
+          price: Number.parseFloat(formData.price),
+          type: formData.type,
         })
         toast({
           title: "Service updated",
@@ -158,8 +173,9 @@ export default function CompanyServices() {
         await api.rescueServices.createService({
           name: formData.name,
           description: formData.description,
-          basePrice: Number.parseFloat(formData.basePrice),
-          duration: Number.parseInt(formData.duration),
+          price: Number.parseFloat(formData.price),
+          type: formData.type,
+          companyId: user?.companyId,
         })
         toast({
           title: "Service created",
@@ -273,7 +289,6 @@ export default function CompanyServices() {
                     <TableHead>Price</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Company</TableHead>
-                    <TableHead>Address</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -298,17 +313,11 @@ export default function CompanyServices() {
                           <div className="text-xs text-muted-foreground mt-1">{service.description}</div>
                         </TableCell>
                         <TableCell>
-                          {typeof service.price === "number" ? `$${service.price.toFixed(2)}` : "N/A"}
+                          ${service.price.toFixed(2)}
                         </TableCell>
-                        <TableCell>{service.type || "N/A"}</TableCell>
+                        <TableCell>{service.type}</TableCell>
                         <TableCell>
-                          {service.company?.name || service.companyName || "N/A"}
-                          {service.company?.phone && (
-                            <div className="text-xs text-muted-foreground">{service.company.phone}</div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {service.company?.address?.fullAddress || "N/A"}
+                          {service.company?.name || "N/A"}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
@@ -379,32 +388,39 @@ export default function CompanyServices() {
                   rows={3}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="basePrice">Base Price ($)</Label>
-                  <Input
-                    id="basePrice"
-                    name="basePrice"
-                    type="number"
-                    value={formData.basePrice}
-                    onChange={handleInputChange}
-                    placeholder="75.00"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="duration">Duration (minutes)</Label>
-                  <Input
-                    id="duration"
-                    name="duration"
-                    type="number"
-                    value={formData.duration}
-                    onChange={handleInputChange}
-                    placeholder="30"
-                    min="1"
-                  />
-                </div>
+              <div className="grid gap-2">
+                <Label htmlFor="type">Service Type</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) => setFormData({ ...formData, type: value as RescueServiceType })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select service type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TIRE_REPLACEMENT">Tire Replacement</SelectItem>
+                    <SelectItem value="TIRE_REPAIR">Tire Repair</SelectItem>
+                    <SelectItem value="FUEL_DELIVERY">Fuel Delivery</SelectItem>
+                    <SelectItem value="TOWING">Towing</SelectItem>
+                    <SelectItem value="ON_SITE_REPAIR">On-site Repair</SelectItem>
+                    <SelectItem value="BATTERY_JUMP_START">Battery Jump Start</SelectItem>
+                    <SelectItem value="LOCKOUT_SERVICE">Lockout Service</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="price">Price ($)</Label>
+                <Input
+                  id="price"
+                  name="price"
+                  type="number"
+                  value={formData.price}
+                  onChange={handleInputChange}
+                  placeholder="75.00"
+                  min="0"
+                  step="0.01"
+                />
               </div>
             </div>
             <DialogFooter>

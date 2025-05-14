@@ -14,6 +14,7 @@ import api from "@/services/api"
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import { useToast } from "@/components/ui/use-toast"
+import { useAuth } from "@/context/auth-context"
 
 interface Request {
   id: string
@@ -38,6 +39,9 @@ interface Request {
     price: number
     type: string
   }
+  vehicleMake?: string
+  vehicleYear?: string
+  vehicleImageUrl?: string
 }
 
 interface Vehicle {
@@ -47,10 +51,8 @@ interface Vehicle {
   status: string
   equipmentDetails: string[]
   companyId: string
-  currentLocation?: {
-    latitude: number
-    longitude: number
-  }
+  currentLatitude?: number
+  currentLongitude?: number
 }
 
 interface Invoice {
@@ -127,6 +129,16 @@ const vehicleIcon = new L.Icon({
   shadowSize: [41, 41]
 })
 
+// Add icon for company and available vehicles
+const companyIcon = new L.Icon({
+  iconUrl: 'https://cdn.jsdelivr.net/gh/pointhi/leaflet-color-markers@master/img/marker-icon-green.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  shadowSize: [41, 41]
+})
+
 export default function CompanyRequestDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -145,6 +157,7 @@ export default function CompanyRequestDetail() {
   const [mapCenter, setMapCenter] = useState<[number, number]>([21.006791527347836, 105.8436614805358])
   const [mapZoom, setMapZoom] = useState(13)
   const { toast } = useToast()
+  const { user } = useAuth()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -152,7 +165,7 @@ export default function CompanyRequestDetail() {
       try {
         const [reqRes, vehRes] = await Promise.all([
           api.rescueRequests.getRequestById(id!),
-          api.rescueVehicles.getVehicles(),
+          user?.companyId ? api.rescueVehicles.getCompanyVehicles(user.companyId) : Promise.resolve({ data: [] }),
         ])
         setRequest(reqRes.data)
         setVehicles(vehRes.data)
@@ -170,7 +183,7 @@ export default function CompanyRequestDetail() {
       }
     }
     fetchData()
-  }, [id])
+  }, [id, user])
 
   // Action handlers
   const handleDispatchVehicle = async () => {
@@ -194,7 +207,7 @@ export default function CompanyRequestDetail() {
 
   const handleArrived = async () => {
     try {
-      await api.rescueRequests.vehicleArrived(request!.id)
+      await api.rescueRequests.markVehicleArrived(request!.id)
       setRequest((prev) => prev ? { ...prev, status: "RESCUE_VEHICLE_ARRIVED" } : null)
       toast({ title: "Đã đánh dấu xe đã đến nơi" })
     } catch (error: any) {
@@ -204,7 +217,7 @@ export default function CompanyRequestDetail() {
 
   const handleInspection = async () => {
     try {
-      await api.rescueRequests.inspectionDone(request!.id)
+      await api.rescueRequests.markInspectionDone(request!.id)
       setRequest((prev) => prev ? { ...prev, status: "INSPECTION_DONE" } : null)
       toast({ title: "Đã đánh dấu đã kiểm tra xe" })
     } catch (error: any) {
@@ -215,10 +228,7 @@ export default function CompanyRequestDetail() {
   const handleUpdatePrice = async () => {
     if (!newPrice) return
     try {
-      await api.rescueRequests.updatePrice(request!.id, {
-        newPrice: parseFloat(newPrice),
-        notes: priceNotes
-      })
+      await api.rescueRequests.updatePrice(request!.id, parseFloat(newPrice), priceNotes)
       setRequest((prev) => prev ? {
         ...prev,
         status: "PRICE_UPDATED",
@@ -253,6 +263,26 @@ export default function CompanyRequestDetail() {
     }
   }
 
+  const handleAccept = async () => {
+    try {
+      await api.rescueRequests.acceptRequest(request!.id)
+      setRequest((prev) => prev ? { ...prev, status: "ACCEPTED_BY_COMPANY" } : null)
+      toast({ title: "Đã chấp nhận yêu cầu cứu hộ" })
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Lỗi", description: error.response?.data?.message || "Thao tác thất bại." })
+    }
+  }
+
+  const handleCancel = async () => {
+    try {
+      await api.rescueRequests.cancelByCompany(request!.id)
+      setRequest((prev) => prev ? { ...prev, status: "CANCELLED_BY_COMPANY" } : null)
+      toast({ title: "Đã hủy yêu cầu cứu hộ" })
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Lỗi", description: error.response?.data?.message || "Thao tác thất bại." })
+    }
+  }
+
   // Prepare vehicle filter
   const allEquipment = Array.from(new Set(vehicles.flatMap(v => v.equipmentDetails)))
   const filteredVehicles = vehicles.filter(v => {
@@ -271,12 +301,12 @@ export default function CompanyRequestDetail() {
       type: "request" as const,
       label: "Request Location",
     },
-    ...(request.vehicleLicensePlate ? [{
-      id: "vehicle-location",
-      position: [request.latitude, request.longitude] as [number, number],
+    ...(request.vehicleLicensePlate && vehicles.length > 0 ? vehicles.filter(v => v.licensePlate === request.vehicleLicensePlate && v.currentLatitude && v.currentLongitude).map(vehicle => ({
+      id: `vehicle-location-${vehicle.id}`,
+      position: [vehicle.currentLatitude, vehicle.currentLongitude] as [number, number],
       type: "vehicle" as const,
-      label: `${request.vehicleModel} (${request.vehicleLicensePlate})`,
-    }] : []),
+      label: `${vehicle.model} (${vehicle.licensePlate})`,
+    })) : []),
   ] : []
 
   if (isLoading) return (
@@ -369,6 +399,29 @@ export default function CompanyRequestDetail() {
               <CardDescription>Assign and track rescue vehicles</CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Thông tin xe mới */}
+              {(request.vehicleMake || request.vehicleModel || request.vehicleYear || request.vehicleImageUrl) && (
+                <div className="space-y-2 mb-4">
+                  {request.vehicleImageUrl && (
+                    <img
+                      src={request.vehicleImageUrl}
+                      alt="Vehicle"
+                      className="w-full max-w-xs rounded border mb-2"
+                      style={{objectFit: 'cover'}}
+                    />
+                  )}
+                  <div>
+                    <span className="font-medium">Make:</span> {request.vehicleMake || 'N/A'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Model:</span> {request.vehicleModel || 'N/A'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Year:</span> {request.vehicleYear || 'N/A'}
+                  </div>
+                </div>
+              )}
+              {/* Thông tin xe được gán (nếu có) */}
               {request.vehicleModel && request.vehicleLicensePlate ? (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
@@ -449,28 +502,36 @@ export default function CompanyRequestDetail() {
                         </div>
                         <div className="flex-1 min-w-[250px]">
                           <MapContainer
-                            center={
-                              selectedVehicle && selectedVehicle.currentLocation && typeof selectedVehicle.currentLocation.latitude === 'number' && typeof selectedVehicle.currentLocation.longitude === 'number'
-                                ? [selectedVehicle.currentLocation.latitude, selectedVehicle.currentLocation.longitude]
-                                : [request.latitude, request.longitude]
-                            }
+                            center={request.latitude && request.longitude ? [request.latitude, request.longitude] : [21.0285, 105.8542]}
                             zoom={13}
-                            style={{ height: 250, width: '100%', borderRadius: 8, zIndex: 0 }}
-                            scrollWheelZoom={false}
+                            style={{ height: 300, width: '100%', borderRadius: 8, zIndex: 0 }}
+                            scrollWheelZoom={true}
                             dragging={true}
                           >
-                            <TileLayer
-                              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                              attribution="&copy; OpenStreetMap contributors"
-                            />
-                            <Marker position={[request.latitude, request.longitude]} icon={requestIcon}>
-                              <Popup>Vị trí yêu cầu</Popup>
-                            </Marker>
-                            {selectedVehicle && selectedVehicle.currentLocation && typeof selectedVehicle.currentLocation.latitude === 'number' && typeof selectedVehicle.currentLocation.longitude === 'number' && (
-                              <Marker position={[selectedVehicle.currentLocation.latitude, selectedVehicle.currentLocation.longitude]} icon={vehicleIcon}>
-                                <Popup>Vị trí xe cứu hộ</Popup>
+                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                            {/* Request location */}
+                            {request.latitude && request.longitude && (
+                              <Marker position={[request.latitude, request.longitude]} icon={requestIcon}>
+                                <Popup>Vị trí yêu cầu cứu hộ</Popup>
                               </Marker>
                             )}
+                            {/* All company vehicles with location */}
+                            {vehicles.map(vehicle => (
+                              vehicle.currentLatitude && vehicle.currentLongitude && (
+                                <Marker
+                                  key={vehicle.id}
+                                  position={[vehicle.currentLatitude, vehicle.currentLongitude]}
+                                  icon={vehicleIcon}
+                                  eventHandlers={{
+                                    click: () => setSelectedVehicle(vehicle)
+                                  }}
+                                >
+                                  <Popup>
+                                    {vehicle.model} ({vehicle.licensePlate})
+                                  </Popup>
+                                </Marker>
+                              )
+                            ))}
                           </MapContainer>
                         </div>
                       </div>
@@ -480,6 +541,112 @@ export default function CompanyRequestDetail() {
               )}
             </CardContent>
             <CardFooter className="flex flex-wrap gap-2 justify-between">
+              {request.status === "CREATED" && (
+                <Button className="w-full" onClick={handleAccept}>Chấp nhận yêu cầu</Button>
+              )}
+              {request.status === "ACCEPTED_BY_COMPANY" && (
+                <Dialog open={showDispatchDialog} onOpenChange={setShowDispatchDialog}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full">Cử xe đi</Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl w-full">
+                    <DialogHeader>
+                      <DialogTitle>Chọn xe cứu hộ để điều phối</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col md:flex-row gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex gap-2 mb-2">
+                          <Input
+                            placeholder="Tìm theo biển số, model..."
+                            value={vehicleSearch}
+                            onChange={e => setVehicleSearch(e.target.value)}
+                            className="bg-background text-foreground border border-input focus:ring-2 focus:ring-primary"
+                          />
+                          <select
+                            className="border border-input rounded px-2 py-1 text-sm bg-background text-foreground focus:ring-2 focus:ring-primary"
+                            value={equipmentFilter || ''}
+                            onChange={e => setEquipmentFilter(e.target.value || null)}
+                          >
+                            <option value="">Tất cả thiết bị</option>
+                            {allEquipment.map(eq => (
+                              <option key={eq} value={eq}>{eq}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto space-y-2">
+                          {filteredVehicles.length === 0 && (
+                            <div className="text-xs text-muted-foreground text-center py-4">Không có xe phù hợp</div>
+                          )}
+                          {filteredVehicles.map(vehicle => (
+                            <div
+                              key={vehicle.id}
+                              className={`border rounded-lg p-2 flex items-center gap-3 cursor-pointer transition ${selectedVehicle?.id === vehicle.id ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}
+                              onClick={() => setSelectedVehicle(vehicle)}
+                            >
+                              <Car className="h-5 w-5 text-muted-foreground" />
+                              <div className="flex-1">
+                                <div className="font-medium">{vehicle.model}</div>
+                                <div className="text-xs text-muted-foreground">{vehicle.licensePlate}</div>
+                                <div className="flex gap-1 flex-wrap text-xs mt-1">
+                                  {vehicle.equipmentDetails.map(eq => (
+                                    <Badge key={eq} variant="secondary">{eq}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                              <Badge variant={vehicle.status === "AVAILABLE" ? "default" : "secondary"}>{vehicle.status}</Badge>
+                              {selectedVehicle?.id === vehicle.id && <CheckCircle className="h-4 w-4 text-primary ml-2" />}
+                            </div>
+                          ))}
+                        </div>
+                        <Button
+                          disabled={!selectedVehicle || assigning}
+                          onClick={handleDispatchVehicle}
+                          className="w-full mt-2"
+                        >
+                          {assigning ? 'Đang điều phối...' : 'Xác nhận cử xe này'}
+                        </Button>
+                      </div>
+                      <div className="flex-1 min-w-[250px]">
+                        <MapContainer
+                          center={request.latitude && request.longitude ? [request.latitude, request.longitude] : [21.0285, 105.8542]}
+                          zoom={13}
+                          style={{ height: 300, width: '100%', borderRadius: 8, zIndex: 0 }}
+                          scrollWheelZoom={true}
+                          dragging={true}
+                        >
+                          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                          {/* Request location */}
+                          {request.latitude && request.longitude && (
+                            <Marker position={[request.latitude, request.longitude]} icon={requestIcon}>
+                              <Popup>Vị trí yêu cầu cứu hộ</Popup>
+                            </Marker>
+                          )}
+                          {/* All company vehicles with location */}
+                          {vehicles.map(vehicle => (
+                            vehicle.currentLatitude && vehicle.currentLongitude && (
+                              <Marker
+                                key={vehicle.id}
+                                position={[vehicle.currentLatitude, vehicle.currentLongitude]}
+                                icon={vehicleIcon}
+                                eventHandlers={{
+                                  click: () => setSelectedVehicle(vehicle)
+                                }}
+                              >
+                                <Popup>
+                                  {vehicle.model} ({vehicle.licensePlate})
+                                </Popup>
+                              </Marker>
+                            )
+                          ))}
+                        </MapContainer>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+              {request.status !== "CANCELLED_BY_COMPANY" && request.status !== "CANCELLED_BY_USER" && (
+                <Button className="w-full" variant="destructive" onClick={handleCancel}>Hủy yêu cầu</Button>
+              )}
               {request.status === "RESCUE_VEHICLE_DISPATCHED" && (
                 <Dialog>
                   <DialogTrigger asChild>

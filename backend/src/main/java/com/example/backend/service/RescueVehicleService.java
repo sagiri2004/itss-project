@@ -11,4 +11,5 @@ public interface RescueVehicleService {
 	void delete(String id);
 	RescueVehicleResponse getById(String id);
 	List<RescueVehicleResponse> getAll();
+	List<RescueVehicleResponse> getByCompany(String companyId);
 }
