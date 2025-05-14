@@ -181,8 +181,8 @@ export default function UserDashboard() {
   }
 
   return (
-    <motion.div style={{ opacity, scale }} className="w-full h-full p-0 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="w-full h-full p-0 space-y-6">
+      <motion.div style={{ opacity, scale }} className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <Button asChild>
           <Link to="/user/requests/new">
@@ -190,7 +190,7 @@ export default function UserDashboard() {
             New Request
           </Link>
         </Button>
-      </div>
+      </motion.div>
 
       <motion.div
         variants={containerVariants}
@@ -438,6 +438,6 @@ export default function UserDashboard() {
           </CardContent>
         </Card>
       </motion.div>
-    </motion.div>
+    </div>
   )
 }

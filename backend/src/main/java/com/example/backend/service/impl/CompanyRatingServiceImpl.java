@@ -6,9 +6,11 @@ import com.example.backend.dto.response.CompanyRatingSummary;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.CompanyRating;
 import com.example.backend.model.RescueCompany;
+import com.example.backend.model.RescueService;
 import com.example.backend.model.User;
 import com.example.backend.repository.CompanyRatingRepository;
 import com.example.backend.repository.RescueCompanyRepository;
+import com.example.backend.repository.RescueServiceRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.service.CompanyRatingService;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 public class CompanyRatingServiceImpl implements CompanyRatingService {
     private final CompanyRatingRepository ratingRepository;
     private final RescueCompanyRepository companyRepository;
+    private final RescueServiceRepository serviceRepository;
     private final UserRepository userRepository;
 
     @Override
@@ -33,11 +36,14 @@ public class CompanyRatingServiceImpl implements CompanyRatingService {
         RescueCompany company = companyRepository.findById(request.getCompanyId())
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found"));
         
+        RescueService service = serviceRepository.findById(request.getServiceId())
+                .orElseThrow(() -> new ResourceNotFoundException("Service not found"));
+        
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
-        // Check if the user has already rated this company
-        CompanyRating existingRating = ratingRepository.findByCompanyAndUser(company, user)
+        // Check if the user has already rated this company for this service
+        CompanyRating existingRating = ratingRepository.findByCompanyAndServiceAndUser(company, service, user)
                 .orElse(null);
         
         CompanyRating rating;
@@ -50,6 +56,7 @@ public class CompanyRatingServiceImpl implements CompanyRatingService {
             // Create new rating
             rating = CompanyRating.builder()
                     .company(company)
+                    .service(service)
                     .user(user)
                     .stars(request.getStars())
                     .comment(request.getComment())
@@ -116,6 +123,8 @@ public class CompanyRatingServiceImpl implements CompanyRatingService {
                 .id(rating.getId())
                 .companyId(rating.getCompany().getId())
                 .companyName(rating.getCompany().getName())
+                .serviceId(rating.getService().getId())
+                .serviceName(rating.getService().getName())
                 .userId(rating.getUser().getId())
                 .userName(rating.getUser().getName())
                 .stars(rating.getStars())

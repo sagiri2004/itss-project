@@ -85,12 +85,12 @@ export default function CompanyDashboard() {
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        const [requestsRes, vehiclesRes, invoicesRes, chatsRes, reviewsRes] = await Promise.all([
+        const [requestsRes, vehiclesRes, invoicesRes, chatsRes, ratingsRes] = await Promise.all([
           api.rescueRequests.getCompanyRequests(),
           api.rescueVehicles.getVehicles(),
           api.invoices.getCompanyInvoices(),
           api.chats.getConversations(),
-          api.reviews.getCompanyReviews(user?.companyId || ""),
+          api.ratings.getCompanyRatings(user?.companyId || ""),
         ])
         // Map requests
         const mappedRequests: CompanyRequest[] = requestsRes.data.map((req: any) => ({
@@ -158,9 +158,9 @@ export default function CompanyDashboard() {
         setUnreadMessages(mappedChats.reduce((total, chat) => total + (chat.unreadCount || 0), 0))
 
         // Calculate average rating
-        if (reviewsRes.data && reviewsRes.data.length > 0) {
-          const totalRating = reviewsRes.data.reduce((sum: number, review: any) => sum + review.rating, 0)
-          setAverageRating(totalRating / reviewsRes.data.length)
+        if (ratingsRes.data && ratingsRes.data.length > 0) {
+          const totalRating = ratingsRes.data.reduce((sum: number, review: any) => sum + review.stars, 0)
+          setAverageRating(totalRating / ratingsRes.data.length)
         }
       } catch (error: any) {
         toast({

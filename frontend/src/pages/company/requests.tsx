@@ -36,6 +36,8 @@ interface Request {
   notes?: string | null
   vehicleLicensePlate?: string | null
   vehicleModel?: string | null
+  vehicleMake?: string | null
+  vehicleYear?: string | null
 }
 
 interface Vehicle {
@@ -296,13 +298,13 @@ export default function CompanyRequests() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center py-6 text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
                   ) : filteredRequests.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center py-6 text-muted-foreground">
                         No requests found. Try adjusting your search criteria.
                       </TableCell>
                     </TableRow>
@@ -321,10 +323,14 @@ export default function CompanyRequests() {
                         <TableCell>{formatDate(request.createdAt)}</TableCell>
                         <TableCell>{request.notes || "-"}</TableCell>
                         <TableCell>
-                          {request.vehicleModel && request.vehicleLicensePlate ? (
-                            `${request.vehicleModel} (${request.vehicleLicensePlate})`
+                          {request.vehicleMake || request.vehicleModel || request.vehicleYear ? (
+                            <span>
+                              {request.vehicleMake ? `${request.vehicleMake} ` : ''}
+                              {request.vehicleModel ? `${request.vehicleModel} ` : ''}
+                              {request.vehicleYear ? `(${request.vehicleYear})` : ''}
+                            </span>
                           ) : (
-                            <span className="text-xs text-muted-foreground italic">Not assigned</span>
+                            <span className="text-xs text-muted-foreground italic">N/A</span>
                           )}
                         </TableCell>
                         <TableCell className="text-right">

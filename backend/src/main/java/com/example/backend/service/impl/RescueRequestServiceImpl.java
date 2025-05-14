@@ -83,6 +83,12 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 				.description(request.getDescription())
 				.estimatedPrice(rescueService.getPrice())
 				.status(RescueRequestStatus.CREATED)
+				.vehicleImageUrl(request.getVehicleImageUrl())
+				.vehicleMake(request.getVehicleMake())
+				.vehicleModel(request.getVehicleModel())
+				.vehicleYear(request.getVehicleYear())
+				.vehicleLicensePlate(request.getVehicleLicensePlate())
+				.vehicleColor(request.getVehicleColor())
 				.build();
 
 		RescueRequest saved = requestRepository.save(rescueRequest);
@@ -176,8 +182,12 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 				.createdAt(rescueRequest.getCreatedAt())
 				.notes(rescueRequest.getNotes()) // Giả định có trong model
 				.rescueServiceDetails(rescueServiceResponse)
-				.vehicleLicensePlate(vehicleLicensePlate)
-				.vehicleModel(vehicleModel)
+				.vehicleLicensePlate(rescueRequest.getVehicleLicensePlate())
+				.vehicleModel(rescueRequest.getVehicleModel())
+				.vehicleImageUrl(rescueRequest.getVehicleImageUrl())
+				.vehicleMake(rescueRequest.getVehicleMake())
+				.vehicleYear(rescueRequest.getVehicleYear())
+				.vehicleColor(rescueRequest.getVehicleColor())
 				.vehicleEquipmentDetails(vehicleEquipmentDetails)
 				.vehicleStatus(vehicleStatus)
 				.build();
@@ -530,6 +540,14 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 			dispatch.setArrivedAt(LocalDateTime.now());
 			dispatch.setStatus(RescueVehicleDispatchStatus.ARRIVED);
 			rescueVehicleDispatchRepository.save(dispatch);
+
+			// DEMO: cập nhật vị trí xe cứu hộ = vị trí yêu cầu cứu hộ
+			RescueVehicle vehicle = dispatch.getRescueVehicle();
+			if (vehicle != null) {
+				vehicle.setCurrentLatitude(request.getLatitude());
+				vehicle.setCurrentLongitude(request.getLongitude());
+				rescueVehicleRepository.save(vehicle);
+			}
 		}
 
 		NotificationEvent event = NotificationEvent.builder()
@@ -855,7 +873,13 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 				.estimatedPrice(request.getEstimatedPrice())
 				.finalPrice(request.getFinalPrice())
 				.status(request.getStatus())
-				.createdAt(request.getCreatedAt());
+				.createdAt(request.getCreatedAt())
+				.vehicleImageUrl(request.getVehicleImageUrl())
+				.vehicleMake(request.getVehicleMake())
+				.vehicleModel(request.getVehicleModel())
+				.vehicleYear(request.getVehicleYear())
+				.vehicleLicensePlate(request.getVehicleLicensePlate())
+				.vehicleColor(request.getVehicleColor());
 
 		// Add notes if they exist
 		if (request.getNotes() != null && !request.getNotes().isEmpty()) {

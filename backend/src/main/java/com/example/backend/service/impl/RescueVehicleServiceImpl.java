@@ -28,10 +28,17 @@ public class RescueVehicleServiceImpl implements RescueVehicleService {
 				.orElseThrow(() -> new ResourceNotFoundException("Rescue company not found"));
 
 		RescueVehicle vehicle = RescueVehicle.builder()
+				.name(request.getName())
 				.licensePlate(request.getLicensePlate())
 				.model(request.getModel())
+				.make(request.getMake())
 				.equipmentDetails(request.getEquipmentDetails())
 				.status(request.getStatus() != null ? request.getStatus() : RescueVehicleStatus.AVAILABLE)
+				.currentLatitude(request.getCurrentLatitude())
+				.currentLongitude(request.getCurrentLongitude())
+				.assignedDriverName(request.getAssignedDriverName())
+				.lastMaintenanceDate(request.getLastMaintenanceDate())
+				.nextMaintenanceDate(request.getNextMaintenanceDate())
 				.company(company)
 				.build();
 
@@ -46,11 +53,18 @@ public class RescueVehicleServiceImpl implements RescueVehicleService {
 		RescueCompany company = companyRepository.findById(request.getCompanyId())
 				.orElseThrow(() -> new ResourceNotFoundException("Rescue company not found"));
 
+		vehicle.setName(request.getName());
 		vehicle.setLicensePlate(request.getLicensePlate());
 		vehicle.setModel(request.getModel());
+		vehicle.setMake(request.getMake());
 		vehicle.setEquipmentDetails(request.getEquipmentDetails());
-		vehicle.setCompany(company);
 		vehicle.setStatus(request.getStatus());
+		vehicle.setCurrentLatitude(request.getCurrentLatitude());
+		vehicle.setCurrentLongitude(request.getCurrentLongitude());
+		vehicle.setAssignedDriverName(request.getAssignedDriverName());
+		vehicle.setLastMaintenanceDate(request.getLastMaintenanceDate());
+		vehicle.setNextMaintenanceDate(request.getNextMaintenanceDate());
+		vehicle.setCompany(company);
 
 		return toResponse(vehicleRepository.save(vehicle));
 	}
@@ -62,7 +76,7 @@ public class RescueVehicleServiceImpl implements RescueVehicleService {
 		}
 		vehicleRepository.deleteById(id);
 	}
-
+	
 	@Override
 	public RescueVehicleResponse getById(String id) {
 		return vehicleRepository.findById(id)
@@ -77,15 +91,30 @@ public class RescueVehicleServiceImpl implements RescueVehicleService {
 				.collect(Collectors.toList());
 	}
 
+	@Override
+	public List<RescueVehicleResponse> getByCompany(String companyId) {
+		return vehicleRepository.findAll().stream()
+				.filter(v -> v.getCompany() != null && companyId.equals(v.getCompany().getId()))
+				.map(this::toResponse)
+				.collect(Collectors.toList());
+	}
+
 	private RescueVehicleResponse toResponse(RescueVehicle vehicle) {
 		return RescueVehicleResponse.builder()
 				.id(vehicle.getId())
+				.name(vehicle.getName())
 				.licensePlate(vehicle.getLicensePlate())
 				.model(vehicle.getModel())
-				.companyId(vehicle.getCompany().getId())
-				.companyName(vehicle.getCompany().getName())
+				.make(vehicle.getMake())
 				.equipmentDetails(vehicle.getEquipmentDetails())
 				.status(vehicle.getStatus())
+				.currentLatitude(vehicle.getCurrentLatitude())
+				.currentLongitude(vehicle.getCurrentLongitude())
+				.assignedDriverName(vehicle.getAssignedDriverName())
+				.companyId(vehicle.getCompany() != null ? vehicle.getCompany().getId() : null)
+				.companyName(vehicle.getCompany() != null ? vehicle.getCompany().getName() : null)
+				.lastMaintenanceDate(vehicle.getLastMaintenanceDate())
+				.nextMaintenanceDate(vehicle.getNextMaintenanceDate())
 				.build();
 	}
 }

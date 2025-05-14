@@ -5,6 +5,7 @@ import com.example.backend.model.enums.RescueVehicleStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -19,9 +20,13 @@ public class RescueVehicle {
 	@GeneratedValue(strategy = GenerationType.UUID)
 	private String id;
 
+	private String name;
+
 	private String licensePlate;
 
 	private String model;
+
+	private String make; // Hãng xe
 
 	@ElementCollection(targetClass = RescueEquipment.class)
 	@Enumerated(EnumType.STRING)
@@ -32,7 +37,32 @@ public class RescueVehicle {
 	@Enumerated(EnumType.STRING)
 	private RescueVehicleStatus status;
 
+	// Vị trí hiện tại
+	private Double currentLatitude;
+	private Double currentLongitude;
+
+	// Thông tin lái xe
+	private String assignedDriverName;
+
+	// Thông tin bảo trì
+	private LocalDateTime lastMaintenanceDate;
+	private LocalDateTime nextMaintenanceDate;
+
 	@ManyToOne
 	@JoinColumn(name = "company_id")
 	private RescueCompany company;
+
+	private LocalDateTime createdAt;
+	private LocalDateTime updatedAt;
+
+	@PrePersist
+	protected void onCreate() {
+		createdAt = LocalDateTime.now();
+		updatedAt = LocalDateTime.now();
+	}
+
+	@PreUpdate
+	protected void onUpdate() {
+		updatedAt = LocalDateTime.now();
+	}
 }

@@ -25,33 +25,24 @@ export const userApi = {
 
 // Rescue Request APIs
 export const rescueRequestApi = {
-  createRequest: (requestData: any) => 
-    axios.post(`${API_BASE_URL}/rescue-requests`, requestData),
-  getRequests: (params?: any) => 
-    axios.get(`${API_BASE_URL}/rescue-requests/user`, { params }),
-  getRequestById: (id: string) => 
-    axios.get(`${API_BASE_URL}/rescue-requests/${id}`),
-  updateRequest: (id: string, requestData: any) => 
-    axios.put(`${API_BASE_URL}/rescue-requests/${id}`, requestData),
-  cancelRequest: (id: string) => 
-    axios.post(`${API_BASE_URL}/rescue-requests/${id}/cancel`),
-  acceptRequest: (id: string) => 
-    axios.post(`${API_BASE_URL}/rescue-requests/${id}/accept`),
-  rejectRequest: (id: string) => 
-    axios.post(`${API_BASE_URL}/rescue-requests/${id}/reject`),
-  completeRequest: (id: string) => 
-    axios.post(`${API_BASE_URL}/rescue-requests/${id}/complete`),
-  getCompanyRequests: (params?: any) =>
-    axios.get(`${API_BASE_URL}/rescue-requests/company`, { params }),
-  dispatchVehicle: (id: string, vehicleId: string) =>
-    axios.put(`${API_BASE_URL}/rescue-requests/${id}/dispatch-vehicle`, null, { params: { vehicleId } }),
-  startRepair: (id: string) =>
-    axios.put(`${API_BASE_URL}/rescue-requests/${id}/start-repair`),
-  completeRepair: (id: string) =>
-    axios.put(`${API_BASE_URL}/rescue-requests/${id}/complete-repair`),
-  cancelByCompany: (id: string) =>
-    axios.put(`${API_BASE_URL}/rescue-requests/${id}/cancel-by-company`),
-};
+  createRequest: (requestData: any) => axios.post(`${API_BASE_URL}/rescue-requests`, requestData),
+  getRequests: (params?: any) => axios.get(`${API_BASE_URL}/rescue-requests/user`, { params }),
+  getRequestById: (id: string) => axios.get(`${API_BASE_URL}/rescue-requests/${id}`),
+  updateRequest: (id: string, requestData: any) => axios.put(`${API_BASE_URL}/rescue-requests/${id}`, requestData),
+  cancelRequest: (id: string) => axios.post(`${API_BASE_URL}/rescue-requests/${id}/cancel`),
+  acceptRequest: (id: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/accept`),
+  rejectRequest: (id: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/reject`),
+  completeRequest: (id: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/complete`),
+  getCompanyRequests: (params?: any) => axios.get(`${API_BASE_URL}/rescue-requests/company`, { params }),
+  dispatchVehicle: (id: string, vehicleId: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/dispatch-vehicle`, null, { params: { vehicleId } }),
+  markVehicleArrived: (id: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/vehicle-arrived`),
+  markInspectionDone: (id: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/inspection-done`),
+  updatePrice: (id: string, newPrice: number, notes?: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/update-price`, null, { params: { newPrice, notes } }),
+  confirmPrice: (id: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/confirm-price`),
+  cancelByCompany: (id: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/cancel-by-company`),
+  startRepair: (id: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/start-repair`),
+  completeRepair: (id: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/complete-repair`),
+}
 
 // Rescue Company APIs
 export const rescueCompanyApi = {
@@ -65,7 +56,7 @@ export const rescueCompanyApi = {
 
 // Rescue Vehicle APIs
 export const rescueVehicleApi = {
-  getVehicles: (params?: any) => axios.get(`${API_BASE_URL}/rescue-vehicles`, { params }),
+  getCompanyVehicles: (companyId: string) => axios.get(`${API_BASE_URL}/rescue-vehicles/company/${companyId}`),
   getVehicleById: (id: string) => axios.get(`${API_BASE_URL}/rescue-vehicles/${id}`),
   createVehicle: (vehicleData: any) => axios.post(`${API_BASE_URL}/rescue-vehicles`, vehicleData),
   updateVehicle: (id: string, vehicleData: any) => axios.put(`${API_BASE_URL}/rescue-vehicles/${id}`, vehicleData),
@@ -77,6 +68,7 @@ export const rescueVehicleApi = {
 // Rescue Service APIs
 export const rescueServiceApi = {
   getServices: (params?: any) => axios.get(`${API_BASE_URL}/rescue-services`, { params }),
+  getCompanyServices: (companyId: string) => axios.get(`${API_BASE_URL}/rescue-services/company/${companyId}`),
   getServiceById: (id: string) => axios.get(`${API_BASE_URL}/rescue-services/${id}`),
   createService: (serviceData: any) => axios.post(`${API_BASE_URL}/rescue-services`, serviceData),
   updateService: (id: string, serviceData: any) => axios.put(`${API_BASE_URL}/rescue-services/${id}`, serviceData),
@@ -159,19 +151,44 @@ export const reportApi = {
   getOverallStats: () => axios.get(`${API_BASE_URL}/reports/overall`),
 }
 
+// Ratings APIs
+export const ratingsApi = {
+  createRating: (data: {
+    companyId: string;
+    serviceId: string;
+    stars: number;
+    comment: string;
+  }) => axios.post(`${API_BASE_URL}/ratings`, data),
+  getCompanyRatings: (companyId: string) =>
+    axios.get(`${API_BASE_URL}/ratings/company/${companyId}`),
+  getCompanyRatingSummary: (companyId: string) =>
+    axios.get(`${API_BASE_URL}/ratings/summary/company/${companyId}`),
+  deleteRating: (ratingId: string) => axios.delete(`${API_BASE_URL}/ratings/${ratingId}`),
+}
+
 // Configure axios defaults
 axios.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem("token")
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`
+  (config) => {
+    const url = config.url || "";
+    // Nếu là upload Cloudinary thì KHÔNG thêm Authorization
+    if (
+      url.includes('api.cloudinary.com')
+    ) {
+      // Xóa Authorization nếu có
+      if (config.headers && config.headers.Authorization) {
+        delete config.headers.Authorization;
+      }
+    } else {
+      // Thêm Authorization cho API backend của bạn
+      const token = localStorage.getItem("token");
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
-    return config
+    return config;
   },
-  (error: AxiosError) => {
-    return Promise.reject(error)
-  },
-)
+  (error) => Promise.reject(error)
+);
 
 // Add response interceptor for handling errors
 axios.interceptors.response.use(
@@ -199,4 +216,5 @@ export default {
   topics: topicApi,
   reviews: reviewApi,
   reports: reportApi,
+  ratings: ratingsApi,
 }
