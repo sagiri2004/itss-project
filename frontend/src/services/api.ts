@@ -155,7 +155,7 @@ export const reportApi = {
 export const ratingsApi = {
   createRating: (data: {
     companyId: string;
-    serviceId: string;
+    serviceId?: string;
     stars: number;
     comment: string;
   }) => axios.post(`${API_BASE_URL}/ratings`, data),
@@ -164,22 +164,27 @@ export const ratingsApi = {
   getCompanyRatingSummary: (companyId: string) =>
     axios.get(`${API_BASE_URL}/ratings/summary/company/${companyId}`),
   deleteRating: (ratingId: string) => axios.delete(`${API_BASE_URL}/ratings/${ratingId}`),
+  getUserRatings: (userId: string) => axios.get(`${API_BASE_URL}/ratings/user/${userId}`),
+  getServiceRatings: (serviceId: string) => axios.get(`${API_BASE_URL}/ratings/service/${serviceId}`),
+  searchRatings: (params: { userId?: string; companyId?: string; serviceId?: string }) =>
+    axios.get(`${API_BASE_URL}/ratings/search`, { params }),
+  getReviewedServices: () => axios.get(`${API_BASE_URL}/ratings/reviewed-services`),
+  getUnreviewedServices: () => axios.get(`${API_BASE_URL}/ratings/unreviewed-services`),
+  getReviewedServicesByCompany: (companyId: string) =>
+    axios.get(`${API_BASE_URL}/ratings/reviewed-services/company/${companyId}`),
+  getUnreviewedServicesByCompany: (companyId: string) =>
+    axios.get(`${API_BASE_URL}/ratings/unreviewed-services/company/${companyId}`),
 }
 
 // Configure axios defaults
 axios.interceptors.request.use(
   (config) => {
     const url = config.url || "";
-    // Nếu là upload Cloudinary thì KHÔNG thêm Authorization
-    if (
-      url.includes('api.cloudinary.com')
-    ) {
-      // Xóa Authorization nếu có
+    if (url.includes('api.cloudinary.com')) {
       if (config.headers && config.headers.Authorization) {
         delete config.headers.Authorization;
       }
     } else {
-      // Thêm Authorization cho API backend của bạn
       const token = localStorage.getItem("token");
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -194,13 +199,8 @@ axios.interceptors.request.use(
 axios.interceptors.response.use(
   (response: AxiosResponse) => response,
   () => {
-    // if (error.response?.status === 401) {
-    //   // Handle unauthorized access
-    //   localStorage.removeItem('token');
-    //   window.location.href = '/login';
-    // }
-    // return Promise.reject(error);
-  },
+    // Handle errors as needed
+  }
 )
 
 export default {

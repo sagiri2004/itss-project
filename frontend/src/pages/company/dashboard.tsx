@@ -87,7 +87,7 @@ export default function CompanyDashboard() {
       try {
         const [requestsRes, vehiclesRes, invoicesRes, chatsRes, ratingsRes] = await Promise.all([
           api.rescueRequests.getCompanyRequests(),
-          api.rescueVehicles.getVehicles(),
+          api.rescueVehicles.getCompanyVehicles(user?.companyId || ""),
           api.invoices.getCompanyInvoices(),
           api.chats.getConversations(),
           api.ratings.getCompanyRatings(user?.companyId || ""),
@@ -208,7 +208,7 @@ export default function CompanyDashboard() {
   }
 
   return (
-    <motion.div style={{ opacity, scale }} className="space-y-6">
+    <motion.div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Company Dashboard</h1>
         <Button asChild>

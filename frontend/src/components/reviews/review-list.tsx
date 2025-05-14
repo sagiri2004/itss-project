@@ -1,146 +1,99 @@
-"use client"
-
 import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { RatingStars } from "@/components/rating-stars"
-import { formatDistanceToNow } from "date-fns"
-import { Button } from "@/components/ui/button"
-import { Trash2 } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
 import api from "@/services/api"
-
-interface Review {
-  id: string;
-  userId: string;
-  userName: string;
-  companyId: string;
-  companyName: string;
-  serviceId: string;
-  serviceName: string;
-  stars: number;
-  comment: string;
-  createdAt: string;
-}
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/ui/use-toast"
+import { StarRating } from "@/components/reviews/star-rating"
 
 interface ReviewListProps {
-  companyId: string;
-  currentUserId?: string;
-  limit?: number;
-  filter?: "all" | "recent" | "highest" | "lowest";
+  companyId: string
+  currentUserId: string
+  filter: "all" | "recent" | "highest" | "lowest"
+  serviceId?: string
 }
 
-export function ReviewList({ companyId, currentUserId, limit = 10, filter = "all" }: ReviewListProps) {
-  const { toast } = useToast()
-  const [reviews, setReviews] = useState<Review[]>([])
+export function ReviewList({ companyId, currentUserId, filter, serviceId }: ReviewListProps) {
+  const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     const fetchReviews = async () => {
-      if (!companyId) {
-        setReviews([])
-        setLoading(false)
-        return
-      }
+      setLoading(true)
       try {
-        const response = await api.ratings.getCompanyRatings(companyId)
-        let data: Review[] = response.data
-        // Filter/sort
-        if (filter === "recent") {
-          data = data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        } else if (filter === "highest") {
-          data = data.sort((a, b) => b.stars - a.stars)
-        } else if (filter === "lowest") {
-          data = data.sort((a, b) => a.stars - b.stars)
-        }
-        setReviews(data.slice(0, limit))
+        let params: any = { companyId }
+        if (serviceId) params.serviceId = serviceId
+        if (filter === "recent") params.sortBy = "createdAt.desc"
+        else if (filter === "highest") params.sortBy = "stars.desc"
+        else if (filter === "lowest") params.sortBy = "stars.asc"
+        
+        const res = await api.ratings.searchRatings(params)
+        setReviews(res.data)
       } catch (err: any) {
-        setError(err.response?.data?.message || "Failed to fetch reviews")
         toast({
           variant: "destructive",
-          title: "Error",
-          description: "Failed to load reviews",
+          title: "Lỗi",
+          description: err.response?.data?.message || "Không thể tải đánh giá",
         })
       } finally {
         setLoading(false)
       }
     }
-    fetchReviews()
-  }, [companyId, filter, limit, toast])
+    if (companyId) fetchReviews()
+  }, [companyId, filter, serviceId, toast])
 
-  const handleDelete = async (reviewId: string) => {
+  const handleDelete = async (ratingId: string) => {
     try {
-      await api.ratings.deleteRating(reviewId)
-      setReviews(reviews.filter(review => review.id !== reviewId))
-      toast({
-        title: "Success",
-        description: "Review deleted successfully",
-      })
+      await api.ratings.deleteRating(ratingId)
+      setReviews(reviews.filter(r => r.id !== ratingId))
+      toast({ title: "Đã xóa đánh giá!" })
     } catch (err: any) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: err.response?.data?.message || "Failed to delete review",
+        title: "Lỗi",
+        description: err.response?.data?.message || "Không thể xóa đánh giá",
       })
     }
   }
 
-  if (loading) {
-    return <div>Loading...</div>
-  }
-
-  if (error) {
-    return <div className="text-red-500">{error}</div>
-  }
-
-  if (reviews.length === 0) {
-    return <div className="text-center text-muted-foreground">No reviews found</div>
-  }
-
   return (
     <div className="space-y-4">
-      {reviews.map((review) => (
-        <Card key={review.id}>
-          <CardContent className="pt-6">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{review.userName}</span>
-                  {review.serviceName && (
-                    <span className="text-sm text-muted-foreground">
-                      reviewed {review.serviceName}
-                    </span>
-                  )}
+      {loading ? (
+        <div>Đang tải...</div>
+      ) : reviews.length === 0 ? (
+        <div>Chưa có đánh giá nào.</div>
+      ) : (
+        reviews.map(review => (
+          <Card key={review.id}>
+            <CardContent className="pt-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="font-medium">{review.userName}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {new Date(review.createdAt).toLocaleDateString()}
+                  </div>
+                  <div className="mt-2">
+                    <StarRating rating={review.stars} size="sm" />
+                  </div>
+                  <div className="mt-2">{review.comment}</div>
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Dịch vụ: {review.serviceName}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <RatingStars rating={review.stars} size="sm" />
-                  <span className="text-sm text-muted-foreground">
-                    {formatDistanceToNow(new Date(review.createdAt), {
-                      addSuffix: true,
-                    })}
-                  </span>
-                </div>
-                {review.comment && (
-                  <p className="mt-2 text-sm text-muted-foreground">{review.comment}</p>
+                {review.userId === currentUserId && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDelete(review.id)}
+                  >
+                    Xóa
+                  </Button>
                 )}
-                <div className="mt-2 text-sm text-muted-foreground">
-                  <span>Company: {review.companyName}</span>
-                </div>
               </div>
-              {currentUserId === review.userId && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDelete(review.id)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        ))
+      )}
     </div>
   )
 }

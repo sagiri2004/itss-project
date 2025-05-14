@@ -26,7 +26,7 @@ import UserProfile from "./pages/user/profile"
 import UserChangePassword from "./pages/user/change-password"
 import UserChat from "./pages/user/chat"
 import UserChats from "./pages/user/chats"
-import UserReviews from "./pages/user/reviews"
+import UserReviewManager from "./pages/user/review-manager"
 
 // Company Pages
 import CompanyDashboard from "./pages/company/dashboard"
@@ -92,7 +92,7 @@ function App() {
                 <Route path="change-password" element={<UserChangePassword />} />
                 <Route path="chat/:id" element={<UserChat />} />
                 <Route path="chats" element={<UserChats />} />
-                <Route path="reviews" element={<UserReviews />} />
+                <Route path="reviews" element={<UserReviewManager />} />
               </Route>
 
               {/* Company Routes */}
