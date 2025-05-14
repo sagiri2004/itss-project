@@ -127,7 +127,7 @@ export default function UserRequests() {
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="w-full h-full p-0 space-y-6">
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">My Requests</h1>
         <Button asChild>

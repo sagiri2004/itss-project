@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, MapPin, AlertTriangle } from "lucide-react"
+import { Loader2, MapPin, AlertTriangle, Maximize2, X } from "lucide-react"
 import api from "@/services/api"
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet"
 import L from "leaflet"
@@ -63,6 +63,7 @@ export default function CreateRequest() {
   })
   const [nearbyServices, setNearbyServices] = useState<Service[]>([])
   const [isLoadingNearby, setIsLoadingNearby] = useState(false)
+  const [isMapFullScreen, setIsMapFullScreen] = useState(false)
 
   useEffect(() => {
     fetchServices()
@@ -95,7 +96,7 @@ export default function CreateRequest() {
         serviceTypeEnum: selected?.type || "",
       }))
     } else {
-      setFormData((prev) => ({ ...prev, [name]: value }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
     }
   }
 
@@ -104,16 +105,16 @@ export default function CreateRequest() {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords
-          setFormData((prev) => ({
-            ...prev,
-            useCurrentLocation: true,
+    setFormData((prev) => ({
+      ...prev,
+      useCurrentLocation: true,
             location: `${latitude},${longitude}`,
-          }))
+    }))
 
-          toast({
-            title: "Location detected",
-            description: "Using your current location for this request.",
-          })
+    toast({
+      title: "Location detected",
+      description: "Using your current location for this request.",
+    })
         },
         (error) => {
           toast({
@@ -196,7 +197,7 @@ export default function CreateRequest() {
 
   const nextStep = () => {
     if (currentStep < 4) {
-      setCurrentStep((prev) => prev + 1)
+    setCurrentStep((prev) => prev + 1)
     }
   }
 
@@ -255,24 +256,26 @@ export default function CreateRequest() {
         <p className="text-muted-foreground">Fill out the form below to request roadside assistance.</p>
       </motion.div>
 
-      <motion.div variants={itemVariants} className="flex justify-between">
-        {[1, 2, 3, 4].map((step) => (
-          <div
-            key={step}
-            className={`flex flex-1 items-center ${step < 4 ? "after:content-[''] after:h-[2px] after:flex-1 after:mx-2 after:bg-muted" : ""}`}
-          >
-            <div
-              className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
-                currentStep === step
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : currentStep > step
-                    ? "border-primary bg-primary/20 text-primary"
-                    : "border-muted bg-muted/20 text-muted-foreground"
-              }`}
-            >
-              {step}
+      <motion.div variants={itemVariants} className="flex items-center justify-between max-w-xl mx-auto w-full mb-8">
+        {[1, 2, 3, 4].map((step, idx, arr) => (
+          <React.Fragment key={step}>
+            <div className="flex flex-col items-center">
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-full border-2
+                  ${currentStep === step
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : currentStep > step
+                      ? "border-primary bg-primary/20 text-primary"
+                      : "border-muted bg-muted/20 text-muted-foreground"
+                  }`}
+              >
+                {step}
+              </div>
             </div>
-          </div>
+            {idx < arr.length - 1 && (
+              <div className="flex-1 h-0.5 bg-muted mx-2" />
+            )}
+          </React.Fragment>
         ))}
       </motion.div>
 
@@ -355,70 +358,159 @@ export default function CreateRequest() {
                   </Button>
                   <div className="text-sm text-muted-foreground">You can select a service by clicking a marker on the map or choosing from the list below.</div>
                   {nearbyServices.length > 0 && (
-                    <div style={{ height: 'calc(100vh - 320px)', width: "100vw", marginBottom: 16, minHeight: 300 }}>
-                      <MapContainer
-                        center={getMapCenter(nearbyServices)}
-                        zoom={13}
-                        style={{ height: "100%", width: "100%" }}
-                        scrollWheelZoom={true}
-                      >
-                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                        {/* User vehicle position marker */}
-                        {formData.location && formData.location.includes(',') && (() => {
-                          const [userLat, userLng] = formData.location.split(',').map(Number)
-                          return (
-                            <Marker position={[userLat, userLng]} icon={userIcon}>
-                              <Popup>
-                                <div><b>Your vehicle location</b></div>
-                              </Popup>
-                            </Marker>
-                          )
-                        })()}
-                        {nearbyServices.map((service) =>
-                          service.company?.latitude && service.company?.longitude ? (
-                            <Marker
-                              key={service.id}
-                              position={[service.company.latitude, service.company.longitude]}
-                              eventHandlers={{
-                                click: () => {
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    selectedNearbyService: service.id,
-                                  }))
-                                },
-                              }}
-                              icon={
-                                formData.selectedNearbyService === service.id
-                                  ? new L.Icon.Default({ className: "selected-marker" })
-                                  : new L.Icon.Default()
-                              }
+                    <>
+                      {isMapFullScreen ? (
+                        <div className="fixed inset-x-0 top-16 bottom-0 z-40 bg-black/80 flex flex-col">
+                          <div className="flex justify-end p-2">
+                            <Button variant="ghost" size="icon" onClick={() => setIsMapFullScreen(false)}>
+                              <X className="h-6 w-6 text-white" />
+                            </Button>
+                          </div>
+                          <div className="flex-1">
+                            <MapContainer
+                              center={getMapCenter(nearbyServices)}
+                              zoom={13}
+                              style={{ height: "100%", width: "100%" }}
+                              scrollWheelZoom={true}
                             >
-                              <Popup>
-                                <div>
-                                  <div className="font-semibold">{service.name}</div>
-                                  <div>{service.description}</div>
-                                  <div>Price: {service.price}</div>
-                                  <div>Company: {service.company?.name}</div>
-                                  <button
-                                    className="mt-2 px-2 py-1 bg-primary text-white rounded"
-                                    type="button"
-                                    onMouseDown={e => {
-                                      e.stopPropagation();
-                                      setFormData(prev => ({
-                                        ...prev,
-                                        selectedNearbyService: service.id,
-                                      }));
+                              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                              {formData.location && formData.location.includes(',') && (() => {
+                                const [userLat, userLng] = formData.location.split(',').map(Number)
+                                return (
+                                  <Marker position={[userLat, userLng]} icon={userIcon}>
+                                    <Popup>
+                                      <div><b>Your vehicle location</b></div>
+                                    </Popup>
+                                  </Marker>
+                                )
+                              })()}
+                              {nearbyServices.map((service) =>
+                                service.company?.latitude && service.company?.longitude ? (
+                                  <Marker
+                                    key={service.id}
+                                    position={[service.company.latitude, service.company.longitude]}
+                                    eventHandlers={{
+                                      click: () => {
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          selectedNearbyService: service.id,
+                                        }))
+                                      },
                                     }}
+                                    icon={
+                                      formData.selectedNearbyService === service.id
+                                        ? new L.Icon.Default({ className: "selected-marker" })
+                                        : new L.Icon.Default()
+                                    }
                                   >
-                                    Select this service
-                                  </button>
-                                </div>
-                              </Popup>
-                            </Marker>
-                          ) : null
-                        )}
-                      </MapContainer>
-                    </div>
+                                    <Popup>
+                                      <div>
+                                        <div className="font-semibold">{service.name}</div>
+                                        <div>{service.description}</div>
+                                        <div>Price: {service.price}</div>
+                                        <div>Company: {service.company?.name}</div>
+                                        <button
+                                          className="mt-2 px-2 py-1 bg-primary text-white rounded"
+                                          type="button"
+                                          onMouseDown={e => {
+                                            e.stopPropagation();
+                                            setFormData(prev => ({
+                                              ...prev,
+                                              selectedNearbyService: service.id,
+                                            }));
+                                          }}
+                                        >
+                                          Select this service
+                                        </button>
+                                      </div>
+                                    </Popup>
+                                  </Marker>
+                                ) : null
+                              )}
+                            </MapContainer>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex justify-end mb-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="md:hidden"
+                              onClick={() => setIsMapFullScreen(true)}
+                              title="Phóng to bản đồ"
+                            >
+                              <Maximize2 className="h-5 w-5" />
+                            </Button>
+                          </div>
+                          <div style={{ height: '400px', width: "100%", marginBottom: 16, minHeight: 300 }}>
+                            <MapContainer
+                              center={getMapCenter(nearbyServices)}
+                              zoom={13}
+                              style={{ height: "100%", width: "100%" }}
+                              scrollWheelZoom={true}
+                            >
+                              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                              {/* User vehicle position marker */}
+                              {formData.location && formData.location.includes(',') && (() => {
+                                const [userLat, userLng] = formData.location.split(',').map(Number)
+                                return (
+                                  <Marker position={[userLat, userLng]} icon={userIcon}>
+                                    <Popup>
+                                      <div><b>Your vehicle location</b></div>
+                                    </Popup>
+                                  </Marker>
+                                )
+                              })()}
+                              {nearbyServices.map((service) =>
+                                service.company?.latitude && service.company?.longitude ? (
+                                  <Marker
+                                    key={service.id}
+                                    position={[service.company.latitude, service.company.longitude]}
+                                    eventHandlers={{
+                                      click: () => {
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          selectedNearbyService: service.id,
+                                        }))
+                                      },
+                                    }}
+                                    icon={
+                                      formData.selectedNearbyService === service.id
+                                        ? new L.Icon.Default({ className: "selected-marker" })
+                                        : new L.Icon.Default()
+                                    }
+                                  >
+                                    <Popup>
+                                      <div>
+                                        <div className="font-semibold">{service.name}</div>
+                                        <div>{service.description}</div>
+                                        <div>Price: {service.price}</div>
+                                        <div>Company: {service.company?.name}</div>
+                                        <button
+                                          className="mt-2 px-2 py-1 bg-primary text-white rounded"
+                                          type="button"
+                                          onMouseDown={e => {
+                                            e.stopPropagation();
+                                            setFormData(prev => ({
+                                              ...prev,
+                                              selectedNearbyService: service.id,
+                                            }));
+                                          }}
+                                        >
+                                          Select this service
+                                        </button>
+                                      </div>
+                                    </Popup>
+                                  </Marker>
+                                ) : null
+                              )}
+                            </MapContainer>
+                          </div>
+                        </>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -507,7 +599,7 @@ export default function CreateRequest() {
                         <p className="text-sm text-yellow-700">
                           By submitting this request, you agree to our terms of service and privacy policy. A service fee
                           may be charged based on the type of service and distance.
-                        </p>
+                    </p>
                       </div>
                     </div>
                   </div>
@@ -516,20 +608,20 @@ export default function CreateRequest() {
 
               <div className="mt-6 flex justify-between">
                 {currentStep > 1 && (
-                  <Button type="button" variant="outline" onClick={prevStep}>
-                    Previous
-                  </Button>
-                )}
+              <Button type="button" variant="outline" onClick={prevStep}>
+                Previous
+              </Button>
+            )}
                 {currentStep < 4 ? (
                   <Button type="button" onClick={nextStep} disabled={currentStep === 2 && !formData.selectedNearbyService}>
-                    Next
-                  </Button>
-                ) : (
+                Next
+              </Button>
+            ) : (
                   <Button type="button" onClick={handleSubmit} disabled={isLoading}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Submit Request
-                  </Button>
-                )}
+              </Button>
+            )}
               </div>
             </form>
           </CardContent>

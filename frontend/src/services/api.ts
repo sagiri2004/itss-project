@@ -45,7 +45,7 @@ export const rescueRequestApi = {
   cancelRequest: (id: string) => 
     axios.post(`${API_BASE_URL}/rescue-requests/${id}/cancel`),
   acceptRequest: (id: string) => 
-    axios.post(`${API_BASE_URL}/rescue-requests/${id}/accept`),
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/accept`),
   rejectRequest: (id: string) => 
     axios.post(`${API_BASE_URL}/rescue-requests/${id}/reject`),
   completeRequest: (id: string) => 
@@ -60,6 +60,19 @@ export const rescueRequestApi = {
     axios.put(`${API_BASE_URL}/rescue-requests/${id}/complete-repair`),
   cancelByCompany: (id: string) =>
     axios.put(`${API_BASE_URL}/rescue-requests/${id}/cancel-by-company`),
+  vehicleArrived: (id: string) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/vehicle-arrived`),
+  inspectionDone: (id: string) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/inspection-done`),
+  updatePrice: (id: string, data: { newPrice: number; notes?: string }) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/update-price`, null, { 
+      params: { 
+        newPrice: data.newPrice,
+        notes: data.notes 
+      } 
+    }),
+  confirmPrice: (id: string) => 
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/confirm-price`),
 };
 
 // Rescue Company APIs

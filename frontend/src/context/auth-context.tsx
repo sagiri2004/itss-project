@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import api from "@/services/api"
+import { toast } from "@/components/ui/use-toast"
 
 type User = {
   id: string
@@ -41,19 +42,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     try {
       const response = await api.auth.login({ username, password })
-      // console.log("Login API response:", response)
+      // Check response structure
+      if (!response || !response.data || !response.data.token || !response.data.user) {
+        throw {
+          error: "InvalidResponse",
+          message: "Server did not return valid login data.",
+          status: 500
+        }
+      }
       const { token, user } = response.data
-
       // Store token in localStorage
       localStorage.setItem("token", token)
-
       setUser(user)
       localStorage.setItem("roadside-user", JSON.stringify(user))
     } catch (error: any) {
-      console.error("Login error:", error)
-      if (error.response) {
-        console.error("Error response data:", error.response.data)
-      }
+      // Only throw error, do not toast here
       throw error
     } finally {
       setLoading(false)
@@ -76,12 +79,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         roles: [role.toUpperCase()],
       })
-
+      // Check response structure
+      if (!response || !response.data || !response.data.token || !response.data.userId) {
+        throw {
+          error: "InvalidResponse",
+          message: "Server did not return valid registration data.",
+          status: 500
+        }
+      }
       const { token, userId, companyId } = response.data
-
       // Store token in localStorage
       localStorage.setItem("token", token)
-
       const user: User = {
         id: userId,
         username,
@@ -90,11 +98,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role,
         companyId: companyId,
       }
-
       setUser(user)
       localStorage.setItem("roadside-user", JSON.stringify(user))
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Registration failed:", error)
+      if (error && typeof error === 'object' && 'response' in error && 
+          error.response && typeof error.response === 'object' && 'data' in error.response) {
+        throw error.response.data
+      }
       throw error
     } finally {
       setLoading(false)

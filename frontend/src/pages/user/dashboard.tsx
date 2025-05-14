@@ -105,23 +105,23 @@ export default function UserDashboard() {
         setChats(chatsRes.data)
 
         // Các thống kê giữ nguyên
-        setActiveRequests(
+    setActiveRequests(
           mappedRequests.filter((req: any) =>
-            [
-              "CREATED",
-              "ACCEPTED_BY_COMPANY",
-              "RESCUE_VEHICLE_DISPATCHED",
-              "RESCUE_VEHICLE_ARRIVED",
-              "INSPECTION_DONE",
-              "PRICE_UPDATED",
-              "IN_PROGRESS",
-            ].includes(req.status),
-          ).length,
-        )
+        [
+          "CREATED",
+          "ACCEPTED_BY_COMPANY",
+          "RESCUE_VEHICLE_DISPATCHED",
+          "RESCUE_VEHICLE_ARRIVED",
+          "INSPECTION_DONE",
+          "PRICE_UPDATED",
+          "IN_PROGRESS",
+        ].includes(req.status),
+      ).length,
+    )
 
-        setCompletedRequests(
+    setCompletedRequests(
           mappedRequests.filter((req: any) => ["COMPLETED", "INVOICED", "PAID"].includes(req.status)).length,
-        )
+    )
 
         setPendingInvoices(invoicesRes.data.filter((inv: any) => inv.status === "PENDING").length)
         setUnreadMessages(chatsRes.data.reduce((total: number, chat: any) => total + (chat.unreadCount || 0), 0))
@@ -172,7 +172,7 @@ export default function UserDashboard() {
   }
 
   return (
-    <motion.div style={{ opacity, scale }} className="space-y-6">
+    <motion.div style={{ opacity, scale }} className="w-full h-full p-0 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <Button asChild>
@@ -359,28 +359,28 @@ export default function UserDashboard() {
               const updatedAt = chat.updatedAt ?? chat.timestamp ?? '';
               const lastMessageContent = typeof chat.lastMessage === 'string' ? chat.lastMessage : chat.lastMessage?.content || '';
               return (
-                <motion.div key={chat.id} variants={itemVariants}>
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
+              <motion.div key={chat.id} variants={itemVariants}>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
                         <CardTitle className="text-base">{companyName}</CardTitle>
                         {unreadCount > 0 && (
                           <Badge variant="default" className="ml-2">
                             {unreadCount} new
-                          </Badge>
-                        )}
-                      </div>
-                      <CardDescription>
+                        </Badge>
+                      )}
+                    </div>
+                    <CardDescription>
                         {updatedAt ? new Date(updatedAt).toLocaleDateString() : ''} • {lastMessageContent}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardFooter>
-                      <Button asChild variant="ghost" size="sm" className="w-full">
+                    </CardDescription>
+                  </CardHeader>
+                  <CardFooter>
+                    <Button asChild variant="ghost" size="sm" className="w-full">
                         <Link to={`/user/chat/${chat.id}`}>View Chat</Link>
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                </motion.div>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </motion.div>
               );
             })}
           </motion.div>
