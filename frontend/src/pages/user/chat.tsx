@@ -74,7 +74,7 @@ export default function UserChat() {
         setIsLoading(false)
       }
     }
-    fetchChatData()
+      fetchChatData()
   }, [conversationId, toast])
 
   useEffect(() => {
@@ -125,7 +125,7 @@ export default function UserChat() {
   }
 
   return (
-    <motion.div className="h-[calc(100vh-12rem)]">
+    <motion.div className="w-full h-full p-0">
       <motion.div className="flex items-center mb-4">
         <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />

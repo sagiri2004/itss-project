@@ -37,23 +37,42 @@ export default function Login() {
         description: "Welcome back! You are now logged in.",
       })
 
-      // Redirect based on role
+      // Redirect based on role and companyId
       const user = JSON.parse(localStorage.getItem("roadside-user") || "{}")
       if (user.role === "admin") {
         navigate("/admin")
       } else if (user.role === "company") {
-        navigate("/company")
+        // Check if company profile exists
+        if (!user.companyId) {
+          navigate("/create-company")
+        } else {
+          navigate("/company")
+        }
       } else {
         navigate("/user")
       }
     } catch (error: any) {
+      let errorTitle = "Login failed"
       let errorMsg = "Please check your credentials and try again."
-      if (error.response?.data?.message) {
-        errorMsg = error.response.data.message
+      
+      // Debug: xem cấu trúc error object thực tế
+      console.log("Login error:", error)
+
+      // An toàn tuyệt đối khi truy cập error.response.data
+      if (error && typeof error === "object" && 'response' in error && error.response && 'data' in error.response && error.response.data) {
+        if (typeof error.response.data === "object") {
+          const { error: errorType, message, status } = error.response.data
+          errorTitle = errorType || "Login failed"
+          errorMsg = message || errorMsg
+          if (status) errorMsg += ` (Status: ${status})`
+        } else if (typeof error.response.data === "string") {
+          errorMsg = error.response.data
+        }
       }
+
       toast({
         variant: "destructive",
-        title: "Login failed",
+        title: errorTitle,
         description: errorMsg,
       })
     } finally {

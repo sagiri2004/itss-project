@@ -25,21 +25,33 @@ export const userApi = {
 
 // Rescue Request APIs
 export const rescueRequestApi = {
-  createRequest: (requestData: any) => axios.post(`${API_BASE_URL}/rescue-requests`, requestData),
-  getRequests: (params?: any) => axios.get(`${API_BASE_URL}/rescue-requests/user`, { params }),
-  getRequestById: (id: string) => axios.get(`${API_BASE_URL}/rescue-requests/${id}`),
-  updateRequest: (id: string, requestData: any) => axios.put(`${API_BASE_URL}/rescue-requests/${id}`, requestData),
-  cancelRequest: (id: string) => axios.post(`${API_BASE_URL}/rescue-requests/${id}/cancel`),
-  acceptRequest: (id: string) => axios.post(`${API_BASE_URL}/rescue-requests/${id}/accept`),
-  rejectRequest: (id: string) => axios.post(`${API_BASE_URL}/rescue-requests/${id}/reject`),
-  completeRequest: (id: string) => axios.post(`${API_BASE_URL}/rescue-requests/${id}/complete`),
-  getCompanyRequests: (params?: any) => axios.get(`${API_BASE_URL}/rescue-requests/company`, { params }),
+  createRequest: (requestData: any) => 
+    axios.post(`${API_BASE_URL}/rescue-requests`, requestData),
+  getRequests: (params?: any) => 
+    axios.get(`${API_BASE_URL}/rescue-requests/user`, { params }),
+  getRequestById: (id: string) => 
+    axios.get(`${API_BASE_URL}/rescue-requests/${id}`),
+  updateRequest: (id: string, requestData: any) => 
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}`, requestData),
+  cancelRequest: (id: string) => 
+    axios.post(`${API_BASE_URL}/rescue-requests/${id}/cancel`),
+  acceptRequest: (id: string) => 
+    axios.post(`${API_BASE_URL}/rescue-requests/${id}/accept`),
+  rejectRequest: (id: string) => 
+    axios.post(`${API_BASE_URL}/rescue-requests/${id}/reject`),
+  completeRequest: (id: string) => 
+    axios.post(`${API_BASE_URL}/rescue-requests/${id}/complete`),
+  getCompanyRequests: (params?: any) =>
+    axios.get(`${API_BASE_URL}/rescue-requests/company`, { params }),
   dispatchVehicle: (id: string, vehicleId: string) =>
     axios.put(`${API_BASE_URL}/rescue-requests/${id}/dispatch-vehicle`, null, { params: { vehicleId } }),
-  startRepair: (id: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/start-repair`),
-  completeRepair: (id: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/complete-repair`),
-  cancelByCompany: (id: string) => axios.put(`${API_BASE_URL}/rescue-requests/${id}/cancel-by-company`),
-}
+  startRepair: (id: string) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/start-repair`),
+  completeRepair: (id: string) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/complete-repair`),
+  cancelByCompany: (id: string) =>
+    axios.put(`${API_BASE_URL}/rescue-requests/${id}/cancel-by-company`),
+};
 
 // Rescue Company APIs
 export const rescueCompanyApi = {

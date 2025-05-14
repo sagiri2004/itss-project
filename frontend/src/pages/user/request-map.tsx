@@ -96,9 +96,9 @@ export default function RequestMap() {
       } catch (error: any) {
         console.error("Error updating vehicle location:", error)
       }
-    }, 3000)
+      }, 3000)
 
-    return () => clearInterval(interval)
+      return () => clearInterval(interval)
   }, [request?.id, request?.status, request?.vehicle.id])
 
   if (isLoading) {
@@ -181,7 +181,7 @@ export default function RequestMap() {
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="w-full h-full p-0 space-y-6">
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => navigate(`/user/requests/${id}`)}>

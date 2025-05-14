@@ -12,6 +12,7 @@ import DashboardLayout from "./layouts/dashboard-layout"
 // Auth Pages
 import Login from "./pages/auth/login"
 import Register from "./pages/auth/register"
+import CreateCompany from "./pages/auth/create-company"
 
 // User Pages
 import UserDashboard from "./pages/user/dashboard"
@@ -37,6 +38,7 @@ import CompanyProfile from "./pages/company/profile"
 import CompanyChangePassword from "./pages/company/change-password"
 import CompanyChat from "./pages/company/chat"
 import CompanyChats from "./pages/company/chats"
+import CompanyRequestDetail from "./pages/company/request-detail"
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/dashboard"
@@ -73,6 +75,7 @@ function App() {
               {/* Auth Routes */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/create-company" element={<CreateCompany />} />
 
               {/* User Routes */}
               <Route path="/user" element={<DashboardLayout role="user" />}>
@@ -96,6 +99,7 @@ function App() {
                 <Route path="vehicles" element={<CompanyVehicles />} />
                 <Route path="vehicle-tracking" element={<CompanyVehicleTracking />} />
                 <Route path="requests" element={<CompanyRequests />} />
+                <Route path="requests/:id" element={<CompanyRequestDetail />} />
                 <Route path="invoices" element={<CompanyInvoices />} />
                 <Route path="profile" element={<CompanyProfile />} />
                 <Route path="change-password" element={<CompanyChangePassword />} />

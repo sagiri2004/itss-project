@@ -12,6 +12,8 @@ import { formatStatus, getStatusVariant } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { ArrowLeft, Clock, MapPin, Phone, Car, Loader2 } from "lucide-react"
 import api from "@/services/api"
+import React from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 
 interface Request {
   id: string
@@ -41,6 +43,53 @@ interface Request {
   vehicleModel: string | null
   vehicleEquipmentDetails: string[] | null
   vehicleStatus: string | null
+}
+
+// Status steps mapping (simple)
+const MAIN_STATUS_STEPS = [
+  { key: 'CREATED', label: 'Created' },
+  { key: 'ACCEPTED_BY_COMPANY', label: 'Accepted' },
+  { key: 'RESCUE_VEHICLE_DISPATCHED', label: 'Dispatched' },
+  { key: 'RESCUE_VEHICLE_ARRIVED', label: 'Arrived' },
+  { key: 'INSPECTION_DONE', label: 'Inspected' },
+  { key: 'PRICE_UPDATED', label: 'Price Updated' },
+  { key: 'PRICE_CONFIRMED', label: 'Price Confirmed' },
+  { key: 'IN_PROGRESS', label: 'In Progress' },
+  { key: 'COMPLETED', label: 'Completed' },
+  { key: 'INVOICED', label: 'Invoiced' },
+  { key: 'PAID', label: 'Paid' },
+];
+const SPECIAL_STATUS = {
+  REJECTED_BY_USER: { key: 'REJECTED', label: 'Rejected' },
+  CANCELLED_BY_USER: { key: 'CANCELLED_BY_USER', label: 'User Cancelled' },
+  CANCELLED_BY_COMPANY: { key: 'CANCELLED_BY_COMPANY', label: 'Company Cancelled' },
+};
+function SimpleStatusBar({ status }: { status: string }) {
+  let steps = [...MAIN_STATUS_STEPS];
+  let currentIdx = steps.findIndex(s => s.key === status);
+  const isSpecial = Object.prototype.hasOwnProperty.call(SPECIAL_STATUS, status);
+  if (isSpecial) {
+    steps = [...MAIN_STATUS_STEPS, (SPECIAL_STATUS as Record<string, { key: string; label: string }>)[status]];
+    currentIdx = steps.length - 1;
+  }
+  const visibleSteps = steps.slice(0, currentIdx + 1);
+  return (
+    <div className="flex items-center gap-2 py-2">
+      {visibleSteps.map((step, idx) => (
+        <React.Fragment key={step.key}>
+          <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold
+            ${idx === currentIdx ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}
+          `}>
+            {idx + 1}
+          </div>
+          {idx < visibleSteps.length - 1 && (
+            <div className="w-8 h-0.5 bg-muted" />
+          )}
+        </React.Fragment>
+      ))}
+      <span className="ml-4 text-sm font-medium">{visibleSteps[visibleSteps.length - 1].label}</span>
+    </div>
+  );
 }
 
 export default function RequestMap() {
@@ -190,8 +239,64 @@ export default function RequestMap() {
     },
   }
 
+  const canCancel = !["COMPLETED", "CANCELLED_BY_USER", "CANCELLED_BY_COMPANY", "PAID"].includes(request.status)
+  const canConfirmPrice = request.status === "PRICE_UPDATED"
+
+  // NEW: Detailed info card and status bar
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="w-full h-full p-0 space-y-6">
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Request Details</CardTitle>
+          <CardDescription>
+            <SimpleStatusBar status={request.status} />
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="font-semibold mb-2">Service</h3>
+              <div>Name: {request.rescueServiceDetails?.name || request.serviceName}</div>
+              <div>Type: {request.rescueServiceDetails?.type}</div>
+              <div>Description: {request.rescueServiceDetails?.description}</div>
+              <div>Price: {request.rescueServiceDetails?.price ?? request.estimatedPrice}</div>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">Company</h3>
+              <div>Name: {request.companyName}</div>
+              <div>ID: {request.companyId}</div>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">Location</h3>
+              <div>Lat: {request.latitude}</div>
+              <div>Lng: {request.longitude}</div>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">Price</h3>
+              <div>Estimated: {request.estimatedPrice}</div>
+              <div>Final: {request.finalPrice ?? 'N/A'}</div>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">Status</h3>
+              <Badge>{request.status}</Badge>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">Created At</h3>
+              <div>{new Date(request.createdAt).toLocaleString()}</div>
+            </div>
+            <div className="md:col-span-2">
+              <h3 className="font-semibold mb-2">Description</h3>
+              <div>{request.description}</div>
+            </div>
+            {request.notes && (
+              <div className="md:col-span-2">
+                <h3 className="font-semibold mb-2">Notes</h3>
+                <div>{request.notes}</div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => navigate(`/user/requests/${id}`)}>
@@ -336,6 +441,64 @@ export default function RequestMap() {
           </Card>
         </div>
       </motion.div>
+
+      <div className="flex gap-4 mb-4">
+        {canCancel && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="destructive">Huỷ yêu cầu</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Xác nhận huỷ yêu cầu?</DialogTitle>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="destructive" onClick={async () => {
+                  try {
+                    await api.rescueRequests.cancelRequest(request.id)
+                    setRequest((prev) => prev ? { ...prev, status: "CANCELLED_BY_USER" } : null)
+                    toast({ title: "Đã huỷ yêu cầu", description: "Yêu cầu của bạn đã được huỷ thành công." })
+                  } catch (error: any) {
+                    toast({ variant: "destructive", title: "Lỗi", description: error.response?.data?.message || "Huỷ yêu cầu thất bại." })
+                  }
+                }}>Xác nhận huỷ</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+        {canConfirmPrice && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="default">Chấp nhận giá mới</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Bạn đồng ý với mức giá mới?</DialogTitle>
+              </DialogHeader>
+              <DialogFooter className="flex gap-2">
+                <Button variant="secondary" onClick={async () => {
+                  try {
+                    await api.rescueRequests.cancelRequest(request.id)
+                    setRequest((prev) => prev ? { ...prev, status: "CANCELLED_BY_USER" } : null)
+                    toast({ title: "Đã từ chối giá mới", description: "Bạn đã từ chối mức giá mới và huỷ yêu cầu." })
+                  } catch (error: any) {
+                    toast({ variant: "destructive", title: "Lỗi", description: error.response?.data?.message || "Từ chối giá mới thất bại." })
+                  }
+                }}>Từ chối</Button>
+                <Button variant="default" onClick={async () => {
+                  try {
+                    await api.rescueRequests.confirmPrice(request.id)
+                    setRequest((prev) => prev ? { ...prev, status: "PRICE_CONFIRMED" } : null)
+                    toast({ title: "Đã chấp nhận giá mới", description: "Bạn đã đồng ý với mức giá mới." })
+                  } catch (error: any) {
+                    toast({ variant: "destructive", title: "Lỗi", description: error.response?.data?.message || "Chấp nhận giá mới thất bại." })
+                  }
+                }}>Đồng ý</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
     </motion.div>
   )
 }
