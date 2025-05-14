@@ -1,313 +1,276 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
-import { Search, MessageSquare, AlertTriangle, CheckCircle } from "lucide-react"
+import { Search, MessageSquare, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { mockAdminChats } from "@/data/mock-data"
+import { useWebSocketContext } from "@/context/websocket-context"
+import api from "@/services/api"
+import type { Chat, ChatMessage, SenderType, Message } from "@/types/chat"
+import { ChatInterface } from "./chat-interface";
 
 export default function AdminChats() {
   const { user } = useAuth()
   const { toast } = useToast()
+  const { notifications, sendMessage } = useWebSocketContext() // Get sendMessage
   const [searchTerm, setSearchTerm] = useState("")
-  const [chats, setChats] = useState(mockAdminChats)
-  const [selectedChat, setSelectedChat] = useState<any>(null)
-  const [message, setMessage] = useState("")
+  const [chats, setChats] = useState<Chat[]>([])
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
+  const chatContainerRef = useRef<HTMLDivElement>(null)
+  const messageInputRef = useRef<HTMLInputElement>(null);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value)
+  // Fetch all conversations
+  useEffect(() => {
+    const fetchChats = async () => {
+      setIsLoading(true)
+      try {
+        const response = await api.chats.getConversations()
+        setChats(
+          response.data.map((item: any) => ({
+            id: item.id,
+            participants: item.participants.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              role: p.role as SenderType
+            })),
+            lastMessage: item.lastMessage ? {
+              id: item.lastMessage.id,
+              content: item.lastMessage.content,
+              senderType: item.lastMessage.senderType as SenderType,
+              senderId: item.lastMessage.senderId,
+              sentAt: item.lastMessage.sentAt,
+              conversationId: item.id
+            } : undefined,
+            unreadCount: item.unreadCount,
+            hasUnreadMessages: item.hasUnreadMessages,
+            status: item.status,
+            updatedAt: item.lastUpdated || item.updatedAt
+          }))
+        )
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error loading chats",
+          description: error.response?.data?.message || "Could not load chats",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchChats()
+  }, [toast])
+
+  // Listen for new messages via WebSocket
+  useEffect(() => {
+    if (!notifications || notifications.length === 0) return
+
+    const latestNotification = notifications.find(
+        (notification) =>
+            notification.type === "CHAT" &&
+            notification.additionalData?.conversationId === selectedChat?.id
+    );
+
+    if (latestNotification) {
+        if (selectedChat) {
+          fetchMessages(selectedChat.id);
+        }
+        updateChatList();
+    }
+  }, [notifications, selectedChat]);
+
+  const updateChatList = async () => {
+    try {
+      const response = await api.chats.getConversations()
+      setChats(response.data)
+    } catch (error) {
+      console.error("Failed to update chat list:", error)
+    }
   }
 
-  // Filter chats
+  const fetchMessages = async (chatId: string, cursor?: string) => {
+    if (!chatId) return;
+    try {
+      const response = await api.chats.getMessages(chatId, {
+        cursor,
+        limit: 20,
+        sort: 'asc', // Changed to ascending
+        markAsRead: true
+      });
+
+      const newMessages = response.data.messages || response.data;
+      if (cursor) {
+        setMessages(prev => [...newMessages, ...prev]); // Prepend new messages
+      } else {
+        setMessages(newMessages);
+      }
+
+      setNextCursor(response.data.nextCursor || null);
+      setHasMore(!!response.data.nextCursor);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error loading messages",
+        description: error.response?.data?.message || "Could not load messages",
+      });
+    }
+  };
+
+  const handleSelectChat = async (chat: Chat) => {
+    setSelectedChat(chat);
+    setMessages([]);
+    setNextCursor(null);
+    setHasMore(true);
+    await fetchMessages(chat.id);
+  };
+
+  const handleLoadMore = async () => {
+    if (!selectedChat?.id || !nextCursor || !hasMore) return
+    await fetchMessages(selectedChat.id, nextCursor)
+  }
+
+  const handleSendMessage = async (messageContent: string) => {
+    if (!user || !selectedChat) return;
+
+    const newMessage = {
+      content: messageContent,
+      conversationId: selectedChat.id,
+      userId: user.id,
+      senderType: "ADMIN",
+      isRead: false,
+      sentAt: new Date().toISOString()
+    };
+
+    sendMessage(newMessage); // Use WebSocket to send message
+    setMessages(prevMessages => [...prevMessages, newMessage]); // Optimistically update UI
+  };
+
+  // Filter chats based on search and active tab
   const filteredChats = chats.filter((chat) => {
     const matchesSearch =
       chat.participants.some((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      chat.requestId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      chat.lastMessage.content.toLowerCase().includes(searchTerm.toLowerCase())
+      chat.messages.some((m) => m.content.toLowerCase().includes(searchTerm.toLowerCase()))
 
     const matchesTab =
       activeTab === "all" ||
-      (activeTab === "issues" && chat.hasIssue) ||
-      (activeTab === "unread" && chat.unreadCount > 0)
+      (activeTab === "issues" && chat.status === "ISSUE") ||
+      (activeTab === "unread" && chat.status === "UNREAD")
 
     return matchesSearch && matchesTab
   })
 
-  const handleSelectChat = (chat: any) => {
-    setSelectedChat(chat)
+  useEffect(() => {
+    // Scroll to the bottom of the chat when messages change
+    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-    // Mark as read when selected
-    if (chat.unreadCount > 0) {
-      setChats(
-        chats.map((c) =>
-          c.id === chat.id
-            ? {
-                ...c,
-                unreadCount: 0,
-              }
-            : c,
-        ),
-      )
-    }
-  }
-
-  const handleSendMessage = () => {
-    if (!message.trim() || !selectedChat) return
-
-    // Add message to chat
-    const newMessage = {
-      id: `msg-${Date.now()}`,
-      sender: "admin",
-      content: message,
-      timestamp: new Date().toISOString(),
+  const renderChatInterface = () => {
+    if (!selectedChat) {
+      return <div className="text-muted-foreground">Select a chat to view messages.</div>;
     }
 
-    setChats(
-      chats.map((chat) =>
-        chat.id === selectedChat.id
-          ? {
-              ...chat,
-              messages: [...chat.messages, newMessage],
-              lastMessage: newMessage,
-            }
-          : chat,
-      ),
-    )
-
-    // Update selected chat
-    setSelectedChat({
-      ...selectedChat,
-      messages: [...selectedChat.messages, newMessage],
-      lastMessage: newMessage,
-    })
-
-    // Clear input
-    setMessage("")
-
-    toast({
-      title: "Message sent",
-      description: "Your message has been sent to the conversation.",
-    })
-  }
-
-  const resolveIssue = (chatId: string) => {
-    setChats(
-      chats.map((chat) =>
-        chat.id === chatId
-          ? {
-              ...chat,
-              hasIssue: false,
-            }
-          : chat,
-      ),
-    )
-
-    if (selectedChat && selectedChat.id === chatId) {
-      setSelectedChat({
-        ...selectedChat,
-        hasIssue: false,
-      })
-    }
-
-    toast({
-      title: "Issue resolved",
-      description: "The issue has been marked as resolved.",
-    })
-  }
-
-  // Helper to format timestamp
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  }
-
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 260,
-        damping: 20,
-      },
-    },
-  }
+    return (
+        <ChatInterface
+            requestId={selectedChat.id}
+            currentUserId={user?.id || ""}
+            currentUserRole="ADMIN"
+            otherPartyName={selectedChat.participants.find(p => p.id !== user?.id)?.name || "Unknown"}
+            initialMessages={messages}
+            onSendMessage={handleSendMessage}
+            onPriceResponse={() => {
+            }}
+            isLoading={isLoading}
+            isLoadingMore={false}
+            hasMore={hasMore}
+            onLoadMore={handleLoadMore}
+            chatBottomRef={chatBottomRef}
+        />
+    );
+  };
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Chat Management</h1>
-      </motion.div>
-
-      <motion.div variants={itemVariants}>
-        <Card className="h-[calc(100vh-12rem)]">
-          <CardHeader className="pb-3">
-            <CardTitle>Support Conversations</CardTitle>
-            <CardDescription>Monitor and manage conversations between users and companies</CardDescription>
+    <motion.div className="flex h-[calc(100vh-12rem)] w-full">
+      {/* Chat List */}
+      <motion.div className="w-1/4 border-r p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Chats</CardTitle>
+            <CardDescription>Manage conversations with users and companies</CardDescription>
           </CardHeader>
-          <CardContent className="p-0 flex h-[calc(100%-5rem)]">
-            <div className="w-1/3 border-r h-full flex flex-col">
-              <div className="p-4">
-                <div className="relative w-full">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="Search conversations..."
-                    className="pl-8 w-full"
-                    value={searchTerm}
-                    onChange={handleSearch}
-                  />
-                </div>
-                <Tabs defaultValue="all" className="mt-4" onValueChange={setActiveTab}>
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="all">All</TabsTrigger>
-                    <TabsTrigger value="issues">Issues</TabsTrigger>
-                    <TabsTrigger value="unread">Unread</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-              <div className="flex-1 overflow-auto">
-                {filteredChats.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center p-4">
-                    <MessageSquare className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
-                    <p className="text-muted-foreground">No conversations found</p>
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                    {filteredChats.map((chat) => (
-                      <div
-                        key={chat.id}
-                        className={`p-4 cursor-pointer hover:bg-muted/50 ${
-                          selectedChat?.id === chat.id ? "bg-muted" : ""
-                        }`}
-                        onClick={() => handleSelectChat(chat)}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex flex-col">
-                            <div className="font-medium">
-                              {chat.participants.find((p) => p.role === "user")?.name} ↔{" "}
-                              {chat.participants.find((p) => p.role === "company")?.name}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">Request: {chat.requestId}</div>
-                          </div>
-                          <div className="flex items-center">
-                            {chat.unreadCount > 0 && (
-                              <div className="bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center mr-2">
-                                {chat.unreadCount}
-                              </div>
-                            )}
-                            {chat.hasIssue && (
-                              <div className="text-red-500">
-                                <AlertTriangle className="h-4 w-4" />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="mt-2 text-sm truncate">{chat.lastMessage.content}</div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {new Date(chat.lastMessage.timestamp).toLocaleString()}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+          <CardContent>
+            <div className="relative w-full mb-4">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search chats..."
+                className="pl-8 w-full"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-            <div className="w-2/3 h-full flex flex-col">
-              {selectedChat ? (
-                <>
-                  <div className="p-4 border-b flex justify-between items-center">
-                    <div>
-                      <h3 className="font-medium">
-                        {selectedChat.participants.find((p: { role: string }) => p.role === "user")?.name} ↔{" "}
-                        {selectedChat.participants.find((p: { role: string }) => p.role === "company")?.name}
-                      </h3>
-                      <div className="text-xs text-muted-foreground">Request: {selectedChat.requestId}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      {selectedChat.hasIssue && (
-                        <Button size="sm" onClick={() => resolveIssue(selectedChat.id)}>
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          Resolve Issue
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex-1 overflow-auto p-4 space-y-4">
-                    {selectedChat.messages.map((msg: { id: string; sender: string; content: string; timestamp: string }) => {
-                      const sender = selectedChat.participants.find((p: { id: string; role: string; name: string }) => p.id === msg.sender)
-                      const isAdmin = msg.sender === "admin"
-                      const isUser = sender?.role === "user"
 
-                      return (
-                        <div key={msg.id} className={`flex ${isAdmin || isUser ? "justify-end" : "justify-start"}`}>
-                          <div
-                            className={`rounded-lg p-3 max-w-[80%] ${
-                              isAdmin
-                                ? "bg-primary text-primary-foreground"
-                                : isUser
-                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100"
-                                  : "bg-muted"
-                            }`}
-                          >
-                            <div className="text-xs font-medium mb-1">{isAdmin ? "Admin" : sender?.name}</div>
-                            <p className="text-sm">{msg.content}</p>
-                            <p className="text-xs opacity-70 mt-1">{formatTimestamp(msg.timestamp)}</p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <div className="p-4 border-t">
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Type your message..."
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault()
-                            handleSendMessage()
-                          }
-                        }}
-                      />
-                      <Button onClick={handleSendMessage}>Send</Button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center p-4">
-                  <MessageSquare className="h-16 w-16 text-muted-foreground mb-4 opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">No Conversation Selected</h3>
-                  <p className="text-muted-foreground">
-                    Select a conversation from the list to view and respond to messages.
-                  </p>
+            <Tabs defaultValue="all" className="space-y-4" value={activeTab} onValueChange={setActiveTab}>
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="issues">Issues</TabsTrigger>
+                <TabsTrigger value="unread">Unread</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <div className="space-y-2">
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 </div>
+              ) : filteredChats.length === 0 ? (
+                <div className="text-muted-foreground">No chats found.</div>
+              ) : (
+                filteredChats.map((chat) => (
+                  <Button
+                    key={chat.id}
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => handleSelectChat(chat)}
+                  >
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    {chat.participants.find(p => p.id !== user?.id)?.name || "Unknown"}
+                  </Button>
+                ))
               )}
             </div>
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Chat Interface */}
+      <motion.div className="w-3/4 p-4">
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle>
+              {selectedChat
+                ? `Chat with ${selectedChat.participants.find(p => p.id !== user?.id)?.name || "Unknown"}`
+                : "Select a Chat"}
+            </CardTitle>
+            <CardDescription>View and respond to messages</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col h-full">
+            <div className="flex-grow overflow-y-auto" ref={chatContainerRef}>
+              {renderChatInterface()}
+              <div ref={chatBottomRef} />
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </motion.div>
-  )
+  );
 }

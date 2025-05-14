@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
-import { motion } from "framer-motion"
+import { motion }  from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -124,7 +124,7 @@ export default function UserChats() {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="container mx-auto max-w-4xl space-y-6 p-4"
+      className="w-full h-full p-0 space-y-6"
     >
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">My Chats</h1>

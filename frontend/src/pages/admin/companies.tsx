@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -21,15 +19,58 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { Search, Eye, CheckCircle, XCircle, AlertTriangle, MapPin, Calendar, Truck } from "lucide-react"
-import { mockCompanies } from "@/data/mock-data"
+import api from "@/services/api"
+
+interface Company {
+  id: string
+  name: string
+  email: string
+  phone: string
+  address: string
+  logo?: string
+  joinDate: string
+  foundedYear?: string
+  vehicles: number
+  completedRequests: number
+  rating: number
+  status: "ACTIVE" | "PENDING_VERIFICATION" | "SUSPENDED" | string
+  isVerified: boolean
+}
 
 export default function AdminCompanies() {
-  const { user } = useAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const [companies, setCompanies] = useState(mockCompanies)
+  const [companies, setCompanies] = useState<Company[]>([])
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
-  const [currentCompany, setCurrentCompany] = useState<any>(null)
+  const [currentCompany, setCurrentCompany] = useState<Company | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<{
+    id: string
+    action: 'verify' | 'suspend' | 'activate'
+  } | null>(null)
+
+  // Fetch companies from API
+  const fetchCompanies = async () => {
+    setIsLoading(true)
+    try {
+      const res = await api.rescueCompanies.getCompanies()
+      setCompanies(res.data)
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to load companies",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchCompanies()
+    // eslint-disable-next-line
+  }, [])
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
@@ -43,67 +84,81 @@ export default function AdminCompanies() {
       company.status.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
-  const openDetailDialog = (company: any) => {
+  const openDetailDialog = (company: Company) => {
     setCurrentCompany(company)
     setIsDetailDialogOpen(true)
   }
 
-  const verifyCompany = (id: string) => {
-    setCompanies(
-      companies.map((company) =>
-        company.id === id
-          ? {
-              ...company,
-              isVerified: true,
-              status: "ACTIVE",
-            }
-          : company,
-      ),
-    )
-
-    const company = companies.find((c) => c.id === id)
-    toast({
-      title: "Company verified",
-      description: `${company?.name} has been verified successfully.`,
-    })
+  const verifyCompany = async (id: string) => {
+    try {
+      await api.rescueCompanies.verifyCompany(id)
+      toast({
+        title: "Company verified",
+        description: "The company has been verified successfully.",
+      })
+      fetchCompanies()
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to verify company",
+      })
+    }
   }
 
-  const suspendCompany = (id: string) => {
-    setCompanies(
-      companies.map((company) =>
-        company.id === id
-          ? {
-              ...company,
-              status: "SUSPENDED",
-            }
-          : company,
-      ),
-    )
-
-    const company = companies.find((c) => c.id === id)
-    toast({
-      title: "Company suspended",
-      description: `${company?.name} has been suspended from the platform.`,
-    })
+  const suspendCompany = async (id: string) => {
+    try {
+      await api.rescueCompanies.updateCompany(id, { status: "SUSPENDED" })
+      toast({
+        title: "Company suspended",
+        description: "The company has been suspended from the platform.",
+      })
+      fetchCompanies()
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to suspend company",
+      })
+    }
   }
 
-  const activateCompany = (id: string) => {
-    setCompanies(
-      companies.map((company) =>
-        company.id === id
-          ? {
-              ...company,
-              status: "ACTIVE",
-            }
-          : company,
-      ),
-    )
+  const activateCompany = async (id: string) => {
+    try {
+      await api.rescueCompanies.updateCompany(id, { status: "ACTIVE" })
+      toast({
+        title: "Company activated",
+        description: "The company has been activated on the platform.",
+      })
+      fetchCompanies()
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to activate company",
+      })
+    }
+  }
 
-    const company = companies.find((c) => c.id === id)
-    toast({
-      title: "Company activated",
-      description: `${company?.name} has been activated on the platform.`,
-    })
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return
+    
+    try {
+      switch (confirmAction.action) {
+        case 'verify':
+          await verifyCompany(confirmAction.id)
+          break
+        case 'suspend':
+          await suspendCompany(confirmAction.id)
+          break
+        case 'activate':
+          await activateCompany(confirmAction.id)
+          break
+      }
+    } finally {
+      setIsConfirmDialogOpen(false)
+      setConfirmAction(null)
+    }
   }
 
   // Helper to get badge variant based on company status
@@ -183,7 +238,13 @@ export default function AdminCompanies() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCompanies.length === 0 ? (
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                        Loading...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredCompanies.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                         No companies found. Try adjusting your search.
@@ -249,19 +310,28 @@ export default function AdminCompanies() {
                               Details
                             </Button>
                             {company.status === "PENDING_VERIFICATION" && (
-                              <Button size="sm" onClick={() => verifyCompany(company.id)}>
+                              <Button size="sm" onClick={() => {
+                                setConfirmAction({ id: company.id, action: 'verify' })
+                                setIsConfirmDialogOpen(true)
+                              }}>
                                 <CheckCircle className="mr-2 h-4 w-4" />
                                 Verify
                               </Button>
                             )}
                             {company.status === "ACTIVE" && (
-                              <Button variant="outline" size="sm" onClick={() => suspendCompany(company.id)}>
+                              <Button variant="outline" size="sm" onClick={() => {
+                                setConfirmAction({ id: company.id, action: 'suspend' })
+                                setIsConfirmDialogOpen(true)
+                              }}>
                                 <XCircle className="mr-2 h-4 w-4" />
                                 Suspend
                               </Button>
                             )}
                             {company.status === "SUSPENDED" && (
-                              <Button size="sm" onClick={() => activateCompany(company.id)}>
+                              <Button size="sm" onClick={() => {
+                                setConfirmAction({ id: company.id, action: 'activate' })
+                                setIsConfirmDialogOpen(true)
+                              }}>
                                 <CheckCircle className="mr-2 h-4 w-4" />
                                 Activate
                               </Button>
@@ -378,6 +448,23 @@ export default function AdminCompanies() {
             </DialogFooter>
           </DialogContent>
         )}
+      </Dialog>
+
+      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận thao tác</DialogTitle>
+            <DialogDescription>
+              {confirmAction?.action === 'verify' && "Bạn có chắc chắn muốn xác minh công ty này?"}
+              {confirmAction?.action === 'suspend' && "Bạn có chắc chắn muốn tạm ngưng hoạt động của công ty này?"}
+              {confirmAction?.action === 'activate' && "Bạn có chắc chắn muốn kích hoạt lại công ty này?"}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>Hủy</Button>
+            <Button onClick={handleConfirmAction}>Xác nhận</Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </motion.div>
   )

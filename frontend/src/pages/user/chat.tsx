@@ -7,7 +7,7 @@ import { useAuth } from "@/context/auth-context"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { ArrowLeft, Loader2 } from "lucide-react"
-import { ChatInterface } from "@/components/chat/chat-interface"
+import { ChatInterface } from "./chat-interface"
 import type { Message } from "@/types/chat"
 import api from "@/services/api"
 import { useWebSocketContext } from "@/context/websocket-context"
@@ -74,7 +74,7 @@ export default function UserChat() {
         setIsLoading(false)
       }
     }
-    fetchChatData()
+      fetchChatData()
   }, [conversationId, toast])
 
   useEffect(() => {
@@ -131,7 +131,7 @@ export default function UserChat() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-2xl font-bold ml-2">Chat with Service Provider</h1>
-      </motion.div>
+      </motion.div >
       <motion.div className="h-[calc(100%-3rem)]">
         <ChatInterface
           requestId={conversationId || ""}

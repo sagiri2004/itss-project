@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -22,23 +20,80 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { Plus, Search, Edit, Trash, Check, X } from "lucide-react"
-import { mockCompanyServices } from "@/data/mock-data"
+import api from "@/services/api"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+interface Service {
+  id: string
+  name: string
+  description: string
+  price: number
+  type: RescueServiceType
+  isActive: boolean
+  company?: {
+    id: string
+    name: string
+  }
+}
+
+type RescueServiceType = 
+  | 'TIRE_REPLACEMENT'
+  | 'TIRE_REPAIR'
+  | 'FUEL_DELIVERY'
+  | 'TOWING'
+  | 'ON_SITE_REPAIR'
+  | 'BATTERY_JUMP_START'
+  | 'LOCKOUT_SERVICE'
+  | 'OTHER'
 
 export default function CompanyServices() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const [services, setServices] = useState(mockCompanyServices)
+  const [services, setServices] = useState<Service[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [currentService, setCurrentService] = useState<any>(null)
+  const [currentService, setCurrentService] = useState<Service | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    basePrice: "",
-    duration: "",
+    price: "",
+    type: "OTHER" as RescueServiceType,
   })
+
+  // Fetch services from API
+  const fetchServices = async () => {
+    setIsLoading(true)
+    try {
+      // Get company ID from user context
+      const companyId = user?.companyId
+      if (!companyId) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Company ID not found",
+        })
+        return
+      }
+      const res = await api.rescueServices.getCompanyServices(companyId)
+      setServices(res.data)
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to load services",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchServices()
+    // eslint-disable-next-line
+  }, [])
 
   const filteredServices = services.filter(
     (service) =>
@@ -59,20 +114,20 @@ export default function CompanyServices() {
     setFormData({
       name: "",
       description: "",
-      basePrice: "",
-      duration: "",
+      price: "",
+      type: "OTHER",
     })
     setCurrentService(null)
     setIsEditing(false)
   }
 
-  const handleOpenDialog = (service?: any) => {
+  const handleOpenDialog = (service?: Service) => {
     if (service) {
       setFormData({
         name: service.name,
         description: service.description,
-        basePrice: service.basePrice.toString(),
-        duration: service.duration.toString(),
+        price: service.price.toString(),
+        type: service.type,
       })
       setCurrentService(service)
       setIsEditing(true)
@@ -87,11 +142,11 @@ export default function CompanyServices() {
     resetForm()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     // Validate inputs
-    if (!formData.name || !formData.description || !formData.basePrice || !formData.duration) {
+    if (!formData.name || !formData.description || !formData.price || !formData.type) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -100,63 +155,76 @@ export default function CompanyServices() {
       return
     }
 
-    // Create or update service
-    if (isEditing && currentService) {
-      const updatedServices = services.map((service) =>
-        service.id === currentService.id
-          ? {
-              ...service,
-              name: formData.name,
-              description: formData.description,
-              basePrice: Number.parseFloat(formData.basePrice),
-              duration: Number.parseInt(formData.duration),
-            }
-          : service,
-      )
-      setServices(updatedServices)
-
-      toast({
-        title: "Service updated",
-        description: `${formData.name} has been updated successfully.`,
-      })
-    } else {
-      const newService = {
-        id: `serv-${Date.now()}`,
-        name: formData.name,
-        description: formData.description,
-        basePrice: Number.parseFloat(formData.basePrice),
-        duration: Number.parseInt(formData.duration),
-        isActive: true,
+    try {
+      if (isEditing && currentService) {
+        // Update service
+        await api.rescueServices.updateService(currentService.id, {
+          name: formData.name,
+          description: formData.description,
+          price: Number.parseFloat(formData.price),
+          type: formData.type,
+        })
+        toast({
+          title: "Service updated",
+          description: `${formData.name} has been updated successfully.`,
+        })
+      } else {
+        // Create new service
+        await api.rescueServices.createService({
+          name: formData.name,
+          description: formData.description,
+          price: Number.parseFloat(formData.price),
+          type: formData.type,
+          companyId: user?.companyId,
+        })
+        toast({
+          title: "Service created",
+          description: `${formData.name} has been created successfully.`,
+        })
       }
-      setServices([...services, newService])
-
+      fetchServices()
+      handleCloseDialog()
+    } catch (error: any) {
       toast({
-        title: "Service created",
-        description: `${formData.name} has been created successfully.`,
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to save service",
       })
     }
-
-    handleCloseDialog()
   }
 
-  const toggleServiceStatus = (id: string) => {
-    setServices(services.map((service) => (service.id === id ? { ...service, isActive: !service.isActive } : service)))
-
-    const service = services.find((s) => s.id === id)
-    toast({
-      title: service?.isActive ? "Service deactivated" : "Service activated",
-      description: `${service?.name} has been ${service?.isActive ? "deactivated" : "activated"}.`,
-    })
+  const toggleServiceStatus = async (id: string, isActive: boolean) => {
+    try {
+      await api.rescueServices.updateService(id, { isActive: !isActive })
+      fetchServices()
+      toast({
+        title: isActive ? "Service deactivated" : "Service activated",
+        description: `Service has been ${isActive ? "deactivated" : "activated"}.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to update service status",
+      })
+    }
   }
 
-  const deleteService = (id: string) => {
-    const service = services.find((s) => s.id === id)
-    setServices(services.filter((service) => service.id !== id))
-
-    toast({
-      title: "Service removed",
-      description: `${service?.name} has been removed from your services.`,
-    })
+  const deleteService = async (id: string) => {
+    try {
+      await api.rescueServices.deleteService(id)
+      fetchServices()
+      toast({
+        title: "Service removed",
+        description: `Service has been removed from your services.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to delete service",
+      })
+    }
   }
 
   // Animation variants
@@ -218,16 +286,22 @@ export default function CompanyServices() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Service</TableHead>
-                    <TableHead>Base Price</TableHead>
-                    <TableHead>Est. Duration</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Company</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredServices.length === 0 ? (
+                  {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                        Loading...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredServices.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                         No services found. Try adjusting your search or add a new service.
                       </TableCell>
                     </TableRow>
@@ -238,19 +312,19 @@ export default function CompanyServices() {
                           <div className="font-medium">{service.name}</div>
                           <div className="text-xs text-muted-foreground mt-1">{service.description}</div>
                         </TableCell>
-                        <TableCell>${service.basePrice.toFixed(2)}</TableCell>
-                        <TableCell>{service.duration} minutes</TableCell>
                         <TableCell>
-                          <Badge variant={service.isActive ? "success" : "outline"}>
-                            {service.isActive ? "Active" : "Inactive"}
-                          </Badge>
+                          ${service.price.toFixed(2)}
+                        </TableCell>
+                        <TableCell>{service.type}</TableCell>
+                        <TableCell>
+                          {service.company?.name || "N/A"}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
                               variant="outline"
                               size="icon"
-                              onClick={() => toggleServiceStatus(service.id)}
+                              onClick={() => toggleServiceStatus(service.id, service.isActive)}
                               title={service.isActive ? "Deactivate" : "Activate"}
                             >
                               {service.isActive ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
@@ -314,32 +388,39 @@ export default function CompanyServices() {
                   rows={3}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="basePrice">Base Price ($)</Label>
-                  <Input
-                    id="basePrice"
-                    name="basePrice"
-                    type="number"
-                    value={formData.basePrice}
-                    onChange={handleInputChange}
-                    placeholder="75.00"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="duration">Duration (minutes)</Label>
-                  <Input
-                    id="duration"
-                    name="duration"
-                    type="number"
-                    value={formData.duration}
-                    onChange={handleInputChange}
-                    placeholder="30"
-                    min="1"
-                  />
-                </div>
+              <div className="grid gap-2">
+                <Label htmlFor="type">Service Type</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) => setFormData({ ...formData, type: value as RescueServiceType })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select service type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TIRE_REPLACEMENT">Tire Replacement</SelectItem>
+                    <SelectItem value="TIRE_REPAIR">Tire Repair</SelectItem>
+                    <SelectItem value="FUEL_DELIVERY">Fuel Delivery</SelectItem>
+                    <SelectItem value="TOWING">Towing</SelectItem>
+                    <SelectItem value="ON_SITE_REPAIR">On-site Repair</SelectItem>
+                    <SelectItem value="BATTERY_JUMP_START">Battery Jump Start</SelectItem>
+                    <SelectItem value="LOCKOUT_SERVICE">Lockout Service</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="price">Price ($)</Label>
+                <Input
+                  id="price"
+                  name="price"
+                  type="number"
+                  value={formData.price}
+                  onChange={handleInputChange}
+                  placeholder="75.00"
+                  min="0"
+                  step="0.01"
+                />
               </div>
             </div>
             <DialogFooter>

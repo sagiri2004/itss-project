@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Outlet, useNavigate, useLocation } from "react-router-dom"
+import { Outlet, useNavigate, useLocation, Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { cn } from "@/lib/utils"
@@ -31,10 +31,11 @@ import { useWebSocketContext } from "@/context/websocket-context"
 import { userNavItems, companyNavItems, adminNavItems } from "@/config/navigation"
 
 type DashboardLayoutProps = {
-  role: "user" | "company" | "admin"
+  role?: "user" | "company" | "admin"
+  children?: React.ReactNode // Add this line
 }
 
-export default function DashboardLayout({ role }: DashboardLayoutProps) {
+export default function DashboardLayout({ role = "user" }: DashboardLayoutProps) {
   const { user, logout, loading, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -50,7 +51,7 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
     setIsMounted(true)
 
     // Redirect if not authenticated or wrong role
-    if (!loading && (!isAuthenticated)) {
+    if (!loading && !isAuthenticated) {
       // console.log("Not authenticated or wrong role")
       // console.log("Loading:", loading)
       // console.log("Is authenticated:", isAuthenticated)
@@ -87,8 +88,8 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen bg-muted/30">
-        <Sidebar variant="floating" className="border-none">
+      <div className="flex min-h-screen w-full h-full bg-muted/30">
+        <Sidebar className="border-none">
           <SidebarHeader className="flex items-center justify-between p-4">
             <motion.div
               initial={{ opacity: 0, y: -20 }}
@@ -124,15 +125,16 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
                     {group.items.map((item) => (
                       <SidebarMenuItem key={item.href}>
                         <SidebarMenuButton asChild isActive={location.pathname === item.href} tooltip={item.title}>
-                          <motion.a
-                            href={item.href}
+                          <motion.div
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.97 }}
                             className="flex items-center gap-2"
                           >
-                            <item.icon className="h-5 w-5" />
-                            <span>{item.title}</span>
-                          </motion.a>
+                            <Link to={item.href} className="flex items-center gap-2 w-full h-full">
+                              <item.icon className="h-5 w-5" />
+                              <span>{item.title}</span>
+                            </Link>
+                          </motion.div>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     ))}
@@ -171,7 +173,7 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
           </SidebarFooter>
         </Sidebar>
 
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col w-full h-full">
           <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-6">
             <SidebarTrigger />
             <div className="ml-auto flex items-center gap-4">
@@ -201,7 +203,9 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
                         <div key={idx} className="p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-muted/50">
                           <div className="font-medium">{noti.title}</div>
                           <div className="text-xs text-muted-foreground">{noti.content}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{new Date(noti.sentAt).toLocaleString()}</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {new Date(noti.sentAt).toLocaleString()}
+                          </div>
                         </div>
                       ))
                     )}
@@ -219,7 +223,7 @@ export default function DashboardLayout({ role }: DashboardLayoutProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.3 }}
-            className={cn("flex-1 p-6")}
+            className={cn("flex-1 w-full h-full p-0 px-10 mt-6")}
           >
             <Outlet />
           </motion.main>

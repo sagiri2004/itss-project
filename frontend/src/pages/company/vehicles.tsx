@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -22,35 +20,83 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { Plus, Search, Edit, Trash, Calendar, Wrench, CalendarCheck } from "lucide-react"
-import { mockCompanyVehicles, vehicleTypes, vehicleStatuses } from "@/data/mock-data"
+import api from "@/services/api"
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet"
+import "leaflet/dist/leaflet.css"
+import L from "leaflet"
+
+const vehicleTypes = ["Tow Truck", "Flatbed", "Motorbike", "Van", "Other"]
+const vehicleStatuses = ["AVAILABLE", "IN_USE", "MAINTENANCE", "OUT_OF_SERVICE"]
+
+interface Vehicle {
+  id: string
+  name: string
+  make: string
+  licensePlate: string
+  model: string
+  status: string
+  assignedDriverName?: string
+  equipmentDetails?: string[]
+  currentLatitude: number
+  currentLongitude: number
+  lastMaintenanceDate?: string
+  nextMaintenanceDate?: string
+}
 
 export default function CompanyVehicles() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const [vehicles, setVehicles] = useState(mockCompanyVehicles)
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [currentVehicle, setCurrentVehicle] = useState<any>(null)
+  const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   const [formData, setFormData] = useState({
     name: "",
-    type: "",
+    make: "",
+    model: "",
     licensePlate: "",
     status: "AVAILABLE",
-    assignedDriver: "",
-    capacity: "",
-    lastMaintenance: "",
+    assignedDriverName: "",
+    lastMaintenanceDate: "",
     nextMaintenanceDate: "",
+    currentLatitude: 21.0285,
+    currentLongitude: 105.8542,
   })
+
+  // Fetch vehicles from API
+  const fetchVehicles = async () => {
+    setIsLoading(true)
+    try {
+      if (!user?.companyId) throw new Error("Company ID is missing")
+      const res = await api.rescueVehicles.getCompanyVehicles(user.companyId)
+      setVehicles(res.data)
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to load vehicles",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchVehicles()
+    // eslint-disable-next-line
+  }, [user])
 
   const filteredVehicles = vehicles.filter(
     (vehicle) =>
-      vehicle.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.assignedDriver.toLowerCase().includes(searchTerm.toLowerCase()),
+      vehicle.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.make?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.licensePlate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (vehicle.assignedDriverName || "").toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,29 +115,33 @@ export default function CompanyVehicles() {
   const resetForm = () => {
     setFormData({
       name: "",
-      type: "",
+      make: "",
+      model: "",
       licensePlate: "",
       status: "AVAILABLE",
-      assignedDriver: "",
-      capacity: "",
-      lastMaintenance: "",
+      assignedDriverName: "",
+      lastMaintenanceDate: "",
       nextMaintenanceDate: "",
+      currentLatitude: 21.0285,
+      currentLongitude: 105.8542,
     })
     setCurrentVehicle(null)
     setIsEditing(false)
   }
 
-  const handleOpenDialog = (vehicle?: any) => {
+  const handleOpenDialog = (vehicle?: Vehicle) => {
     if (vehicle) {
       setFormData({
         name: vehicle.name,
-        type: vehicle.type,
-        licensePlate: vehicle.licensePlate,
+        make: vehicle.make || "",
+        model: vehicle.model || "",
+        licensePlate: vehicle.licensePlate || "",
         status: vehicle.status,
-        assignedDriver: vehicle.assignedDriver,
-        capacity: vehicle.capacity,
-        lastMaintenance: vehicle.lastMaintenance,
-        nextMaintenanceDate: vehicle.nextMaintenanceDate,
+        assignedDriverName: vehicle.assignedDriverName || "",
+        lastMaintenanceDate: vehicle.lastMaintenanceDate ? vehicle.lastMaintenanceDate.slice(0, 10) : "",
+        nextMaintenanceDate: vehicle.nextMaintenanceDate ? vehicle.nextMaintenanceDate.slice(0, 10) : "",
+        currentLatitude: vehicle.currentLatitude,
+        currentLongitude: vehicle.currentLongitude,
       })
       setCurrentVehicle(vehicle)
       setIsEditing(true)
@@ -106,11 +156,9 @@ export default function CompanyVehicles() {
     resetForm()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    // Validate inputs
-    if (!formData.name || !formData.type || !formData.licensePlate) {
+    if (!formData.name || !formData.licensePlate) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -118,71 +166,71 @@ export default function CompanyVehicles() {
       })
       return
     }
-
-    // Create or update vehicle
-    if (isEditing && currentVehicle) {
-      const updatedVehicles = vehicles.map((vehicle) =>
-        vehicle.id === currentVehicle.id
-          ? {
-              ...vehicle,
-              name: formData.name,
-              type: formData.type,
-              licensePlate: formData.licensePlate,
-              status: formData.status,
-              assignedDriver: formData.assignedDriver,
-              capacity: formData.capacity,
-              lastMaintenance: formData.lastMaintenance,
-              nextMaintenanceDate: formData.nextMaintenanceDate,
-            }
-          : vehicle,
-      )
-      setVehicles(updatedVehicles)
-
-      toast({
-        title: "Vehicle updated",
-        description: `${formData.name} has been updated successfully.`,
-      })
-    } else {
-      const newVehicle = {
-        id: `veh-${Date.now()}`,
-        name: formData.name,
-        type: formData.type,
-        licensePlate: formData.licensePlate,
-        status: formData.status,
-        assignedDriver: formData.assignedDriver,
-        capacity: formData.capacity,
-        lastMaintenance: formData.lastMaintenance,
-        nextMaintenanceDate: formData.nextMaintenanceDate,
+    try {
+      const payload = {
+        ...formData,
+        companyId: user?.companyId,
+        lastMaintenanceDate: formData.lastMaintenanceDate ? new Date(formData.lastMaintenanceDate) : undefined,
+        nextMaintenanceDate: formData.nextMaintenanceDate ? new Date(formData.nextMaintenanceDate) : undefined,
+        currentLatitude: formData.currentLatitude,
+        currentLongitude: formData.currentLongitude,
       }
-      setVehicles([...vehicles, newVehicle])
-
+      if (isEditing && currentVehicle) {
+        await api.rescueVehicles.updateVehicle(currentVehicle.id, payload)
+        toast({
+          title: "Vehicle updated",
+          description: `${formData.name} has been updated successfully.`,
+        })
+      } else {
+        await api.rescueVehicles.createVehicle(payload)
+        toast({
+          title: "Vehicle added",
+          description: `${formData.name} has been added to your fleet.`,
+        })
+      }
+      fetchVehicles()
+      handleCloseDialog()
+    } catch (error: any) {
       toast({
-        title: "Vehicle added",
-        description: `${formData.name} has been added to your fleet.`,
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to save vehicle",
       })
     }
-
-    handleCloseDialog()
   }
 
-  const deleteVehicle = (id: string) => {
-    const vehicle = vehicles.find((v) => v.id === id)
-    setVehicles(vehicles.filter((vehicle) => vehicle.id !== id))
-
-    toast({
-      title: "Vehicle removed",
-      description: `${vehicle?.name} has been removed from your fleet.`,
-    })
+  const deleteVehicle = async (id: string) => {
+    try {
+      await api.rescueVehicles.deleteVehicle(id)
+      fetchVehicles()
+      toast({
+        title: "Vehicle removed",
+        description: `Vehicle has been removed from your fleet.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to delete vehicle",
+      })
+    }
   }
 
-  const markForMaintenance = (id: string) => {
-    setVehicles(vehicles.map((vehicle) => (vehicle.id === id ? { ...vehicle, status: "MAINTENANCE" } : vehicle)))
-
-    const vehicle = vehicles.find((v) => v.id === id)
-    toast({
-      title: "Maintenance scheduled",
-      description: `${vehicle?.name} has been marked for maintenance.`,
-    })
+  const markForMaintenance = async (id: string) => {
+    try {
+      await api.rescueVehicles.updateVehicleStatus(id, "MAINTENANCE")
+      fetchVehicles()
+      toast({
+        title: "Maintenance scheduled",
+        description: `Vehicle has been marked for maintenance.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to update vehicle status",
+      })
+    }
   }
 
   // Helper function to get status badge variant
@@ -223,6 +271,32 @@ export default function CompanyVehicles() {
         damping: 20,
       },
     },
+  }
+
+  // Map marker drag handler
+  function LocationMarker() {
+    useMapEvents({
+      dragend(e) {
+        // not used
+      },
+      click(e) {
+        setFormData((prev) => ({ ...prev, currentLatitude: e.latlng.lat, currentLongitude: e.latlng.lng }))
+      },
+    })
+    return (typeof formData.currentLatitude === 'number' && typeof formData.currentLongitude === 'number') ? (
+      <Marker
+        position={[formData.currentLatitude, formData.currentLongitude]}
+        draggable={true}
+        eventHandlers={{
+          dragend: (e) => {
+            const marker = e.target
+            const { lat, lng } = marker.getLatLng()
+            setFormData((prev) => ({ ...prev, currentLatitude: lat, currentLongitude: lng }))
+          },
+        }}
+        icon={L.icon({ iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png", iconSize: [25, 41], iconAnchor: [12, 41] })}
+      />
+    ) : null
   }
 
   return (
@@ -268,7 +342,13 @@ export default function CompanyVehicles() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredVehicles.length === 0 ? (
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                        Loading...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredVehicles.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                         No vehicles found. Try adjusting your search or add a new vehicle.
@@ -279,10 +359,10 @@ export default function CompanyVehicles() {
                       <TableRow key={vehicle.id}>
                         <TableCell>
                           <div className="font-medium">{vehicle.name}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{vehicle.type}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{vehicle.model}</div>
                         </TableCell>
                         <TableCell>{vehicle.licensePlate}</TableCell>
-                        <TableCell>{vehicle.assignedDriver || "Unassigned"}</TableCell>
+                        <TableCell>{vehicle.assignedDriverName || "Unassigned"}</TableCell>
                         <TableCell>
                           <Badge variant={getStatusBadgeVariant(vehicle.status)}>
                             {vehicle.status.replace(/_/g, " ")}
@@ -291,7 +371,7 @@ export default function CompanyVehicles() {
                         <TableCell>
                           <div className="flex items-center text-sm">
                             <Calendar className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                            <span>Last: {vehicle.lastMaintenance}</span>
+                            <span>Last: {vehicle.lastMaintenanceDate}</span>
                           </div>
                           <div className="flex items-center text-xs text-muted-foreground mt-1">
                             <CalendarCheck className="mr-1 h-3 w-3" />
@@ -359,30 +439,35 @@ export default function CompanyVehicles() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="type">Vehicle Type</Label>
-                  <Select value={formData.type} onValueChange={(value) => handleSelectChange("type", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehicleTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="licensePlate">License Plate</Label>
+                  <Label htmlFor="make">Vehicle Make</Label>
                   <Input
-                    id="licensePlate"
-                    name="licensePlate"
-                    value={formData.licensePlate}
+                    id="make"
+                    name="make"
+                    value={formData.make}
                     onChange={handleInputChange}
-                    placeholder="ABC-1234"
+                    placeholder="e.g., Ford"
                   />
                 </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="model">Vehicle Model</Label>
+                  <Input
+                    id="model"
+                    name="model"
+                    value={formData.model}
+                    onChange={handleInputChange}
+                    placeholder="e.g., F-150"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="licensePlate">License Plate</Label>
+                <Input
+                  id="licensePlate"
+                  name="licensePlate"
+                  value={formData.licensePlate}
+                  onChange={handleInputChange}
+                  placeholder="ABC-1234"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
@@ -401,46 +486,55 @@ export default function CompanyVehicles() {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="assignedDriver">Assigned Driver</Label>
+                  <Label htmlFor="assignedDriverName">Assigned Driver</Label>
                   <Input
-                    id="assignedDriver"
-                    name="assignedDriver"
-                    value={formData.assignedDriver}
+                    id="assignedDriverName"
+                    name="assignedDriverName"
+                    value={formData.assignedDriverName}
                     onChange={handleInputChange}
                     placeholder="Driver Name"
                   />
                 </div>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="capacity">Capacity/Capabilities</Label>
+                <Label htmlFor="lastMaintenanceDate">Last Maintenance Date</Label>
                 <Input
-                  id="capacity"
-                  name="capacity"
-                  value={formData.capacity}
+                  id="lastMaintenanceDate"
+                  name="lastMaintenanceDate"
+                  type="date"
+                  value={formData.lastMaintenanceDate}
                   onChange={handleInputChange}
-                  placeholder="Vehicle capabilities and capacity"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="lastMaintenance">Last Maintenance Date</Label>
-                  <Input
-                    id="lastMaintenance"
-                    name="lastMaintenance"
-                    type="date"
-                    value={formData.lastMaintenance}
-                    onChange={handleInputChange}
-                  />
+              <div className="grid gap-2">
+                <Label htmlFor="nextMaintenanceDate">Next Maintenance Date</Label>
+                <Input
+                  id="nextMaintenanceDate"
+                  name="nextMaintenanceDate"
+                  type="date"
+                  value={formData.nextMaintenanceDate}
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Vehicle Location</Label>
+                <div className="h-56 w-full rounded-md overflow-hidden">
+                  <MapContainer
+                    center={[
+                      typeof formData.currentLatitude === 'number' ? formData.currentLatitude : 0,
+                      typeof formData.currentLongitude === 'number' ? formData.currentLongitude : 0,
+                    ]}
+                    zoom={13}
+                    style={{ height: "100%", width: "100%" }}
+                    scrollWheelZoom={true}
+                  >
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <LocationMarker />
+                  </MapContainer>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="nextMaintenanceDate">Next Maintenance Date</Label>
-                  <Input
-                    id="nextMaintenanceDate"
-                    name="nextMaintenanceDate"
-                    type="date"
-                    value={formData.nextMaintenanceDate}
-                    onChange={handleInputChange}
-                  />
+                <div className="flex gap-2 text-xs mt-1">
+                  <span>Lat: {formData.currentLatitude?.toFixed(5)}</span>
+                  <span>Lng: {formData.currentLongitude?.toFixed(5)}</span>
                 </div>
               </div>
             </div>

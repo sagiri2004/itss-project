@@ -40,6 +40,8 @@ export interface Notification {
   type: NotificationType
   sentAt: string // LocalDateTime, nên để string ISO
   additionalData?: Record<string, any>
+  conversationId?: string
+  id?: string
 }
 
 export interface ChatMessage {

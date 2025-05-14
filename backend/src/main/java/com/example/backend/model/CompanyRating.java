@@ -28,6 +28,10 @@ public class CompanyRating {
 	@JoinColumn(name = "user_id", nullable = false)
 	User user;
 
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "service_id", nullable = false)
+	RescueService service;
+
 	@Column(nullable = false)
 	Integer stars; // 1-5 stars
 

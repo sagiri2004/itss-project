@@ -10,13 +10,13 @@ export interface ChatConversation {
 }
 
 export interface ChatParticipant {
-  id: string
-  name: string
-  role: "USER" | "RESCUE_COMPANY" | "ADMIN"
-  avatarUrl?: string
+  id: string;
+  name: string;
+  role: SenderType;
+  avatarUrl?: string;
 }
 
-export type SenderType = "USER" | "RESCUE_COMPANY" | "ADMIN"
+export type SenderType = "USER" | "RESCUE_COMPANY" | "ADMIN";
 
 export interface Message {
   id: string;
@@ -25,18 +25,31 @@ export interface Message {
   senderId: string;
   timestamp: string;
   metadata?: Record<string, any>;
+  conversationId: string;
+  userId?: string;
+  rescueCompanyId?: string;
+  isRead: boolean;
+  sentAt: string;
+  senderType: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  content: string;
+  senderType: SenderType;
+  senderId: string;
+  sentAt: string;
+  conversationId: string;
 }
 
 export interface Chat {
   id: string;
-  participants: Array<{
-    id: string;
-    name: string;
-    role: string;
-  }>;
-  messages: Message[];
+  participants: ChatParticipant[];
+  lastMessage?: ChatMessage;
+  unreadCount: number;
+  hasUnreadMessages: boolean;
   status: string;
-  lastUpdated: string;
+  updatedAt: string;
 }
 
 export type MessageType = 'TEXT' | 'PRICE_OFFER' | 'PRICE_RESPONSE' | 'SYSTEM';

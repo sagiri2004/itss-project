@@ -8,7 +8,18 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Car, FileText, Clock, CheckCircle2, PlusCircle, Wrench, MessageSquare, Loader2 } from "lucide-react"
+import {
+  Car,
+  FileText,
+  Clock,
+  CheckCircle2,
+  PlusCircle,
+  Wrench,
+  MessageSquare,
+  Loader2,
+  MessageCircle,
+  Star,
+} from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import api from "@/services/api"
 
@@ -44,13 +55,11 @@ interface Chat {
 // Hàm lấy địa chỉ từ lat/lon bằng Nominatim
 async function getAddressFromLatLon(lat: number, lon: number): Promise<string> {
   try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
-    );
-    const data = await response.json();
-    return data.display_name || `${lat}, ${lon}`;
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
+    const data = await response.json()
+    return data.display_name || `${lat}, ${lon}`
   } catch {
-    return `${lat}, ${lon}`;
+    return `${lat}, ${lon}`
   }
 }
 
@@ -84,9 +93,9 @@ export default function UserDashboard() {
         // Map requests và lấy địa chỉ từ lat/lon
         const mappedRequests = await Promise.all(
           requestsRes.data.map(async (req: any) => {
-            let address = req.description;
+            let address = req.description
             if (!address && req.latitude && req.longitude) {
-              address = await getAddressFromLatLon(req.latitude, req.longitude);
+              address = await getAddressFromLatLon(req.latitude, req.longitude)
             }
             return {
               id: req.id,
@@ -96,32 +105,32 @@ export default function UserDashboard() {
               location: address || `${req.latitude}, ${req.longitude}`,
               company: req.companyName,
               price: req.finalPrice ?? req.estimatedPrice,
-            };
-          })
-        );
+            }
+          }),
+        )
 
         setRequests(mappedRequests)
         setInvoices(invoicesRes.data)
         setChats(chatsRes.data)
 
         // Các thống kê giữ nguyên
-        setActiveRequests(
+    setActiveRequests(
           mappedRequests.filter((req: any) =>
-            [
-              "CREATED",
-              "ACCEPTED_BY_COMPANY",
-              "RESCUE_VEHICLE_DISPATCHED",
-              "RESCUE_VEHICLE_ARRIVED",
-              "INSPECTION_DONE",
-              "PRICE_UPDATED",
-              "IN_PROGRESS",
-            ].includes(req.status),
-          ).length,
-        )
+        [
+          "CREATED",
+          "ACCEPTED_BY_COMPANY",
+          "RESCUE_VEHICLE_DISPATCHED",
+          "RESCUE_VEHICLE_ARRIVED",
+          "INSPECTION_DONE",
+          "PRICE_UPDATED",
+          "IN_PROGRESS",
+        ].includes(req.status),
+      ).length,
+    )
 
-        setCompletedRequests(
+    setCompletedRequests(
           mappedRequests.filter((req: any) => ["COMPLETED", "INVOICED", "PAID"].includes(req.status)).length,
-        )
+    )
 
         setPendingInvoices(invoicesRes.data.filter((inv: any) => inv.status === "PENDING").length)
         setUnreadMessages(chatsRes.data.reduce((total: number, chat: any) => total + (chat.unreadCount || 0), 0))
@@ -172,8 +181,8 @@ export default function UserDashboard() {
   }
 
   return (
-    <motion.div style={{ opacity, scale }} className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="w-full h-full p-0 space-y-6">
+      <motion.div style={{ opacity, scale }} className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <Button asChild>
           <Link to="/user/requests/new">
@@ -181,7 +190,7 @@ export default function UserDashboard() {
             New Request
           </Link>
         </Button>
-      </div>
+      </motion.div>
 
       <motion.div
         variants={containerVariants}
@@ -354,15 +363,16 @@ export default function UserDashboard() {
           >
             {chats.slice(0, 4).map((chat) => {
               // Fallbacks for compatibility with both old and new chat data
-              const companyName = typeof chat.company === 'string' ? chat.company : chat.company?.name || 'Unknown';
-              const unreadCount = chat.unreadCount ?? chat.unread ?? 0;
-              const updatedAt = chat.updatedAt ?? chat.timestamp ?? '';
-              const lastMessageContent = typeof chat.lastMessage === 'string' ? chat.lastMessage : chat.lastMessage?.content || '';
+              const companyName = typeof chat.company === "string" ? chat.company : chat.company?.name || "Unknown"
+              const unreadCount = chat.unreadCount ?? chat.unread ?? 0
+              const updatedAt = chat.updatedAt ?? chat.timestamp ?? ""
+              const lastMessageContent =
+                typeof chat.lastMessage === "string" ? chat.lastMessage : chat.lastMessage?.content || ""
               return (
-                <motion.div key={chat.id} variants={itemVariants}>
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
+              <motion.div key={chat.id} variants={itemVariants}>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
                         <CardTitle className="text-base">{companyName}</CardTitle>
                         {unreadCount > 0 && (
                           <Badge variant="default" className="ml-2">
@@ -413,21 +423,21 @@ export default function UserDashboard() {
                 </Link>
               </Button>
               <Button asChild variant="outline" className="h-24 flex-col">
-                <Link to="/user/chats">
-                  <MessageSquare className="mb-2 h-6 w-6" />
-                  <span>View Chats</span>
+                <Link to="/user/topics">
+                  <MessageCircle className="mb-2 h-6 w-6" />
+                  <span>Community Topics</span>
                 </Link>
               </Button>
               <Button asChild variant="outline" className="h-24 flex-col">
-                <Link to="/user/invoices">
-                  <FileText className="mb-2 h-6 w-6" />
-                  <span>View Invoices</span>
+                <Link to="/user/reviews">
+                  <Star className="mb-2 h-6 w-6" />
+                  <span>My Reviews</span>
                 </Link>
               </Button>
             </div>
           </CardContent>
         </Card>
       </motion.div>
-    </motion.div>
+    </div>
   )
 }
