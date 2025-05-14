@@ -7,22 +7,35 @@ import { useAuth } from "@/context/auth-context"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { ArrowLeft, Loader2 } from "lucide-react"
-import { ChatInterface } from "@/components/chat/chat-interface"
-import type { Chat, ChatMessage, SenderType } from "@/types/chat"
+import { ChatInterface } from "./chat-interface"
+import type { Chat, ChatMessage, SenderType, Message } from "@/types/chat"
+import type { ChatMessage as WebSocketChatMessage } from "@/services/websocket-service"
 import api from "@/services/api"
 import { useWebSocketContext } from "@/context/websocket-context"
+
+// Extend Chat interface to include missing properties
+interface ExtendedChat extends Chat {
+  user?: {
+    id: string;
+    name: string;
+  };
+  company?: {
+    id: string;
+  };
+  currentPrice?: number;
+}
 
 export default function CompanyChat() {
   const { user } = useAuth()
   const { id: conversationId } = useParams()
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { notifications, sendMessage } = useWebSocketContext() // Get sendMessage
+  const { notifications, sendMessage } = useWebSocketContext()
 
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [chat, setChat] = useState<Chat | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [chat, setChat] = useState<ExtendedChat | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(true)
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -38,13 +51,18 @@ export default function CompanyChat() {
         markAsRead: true
       });
 
-      const mappedMessages: ChatMessage[] = (response.data.messages || response.data).map((msg: any) => ({
+      const mappedMessages: Message[] = (response.data.messages || response.data).map((msg: any) => ({
         id: msg.id,
         content: msg.content,
-        senderType: msg.senderType as SenderType,
+        type: 'TEXT',
         senderId: msg.senderId,
+        timestamp: msg.sentAt,
+        conversationId: conversationId,
+        userId: msg.senderId,
+        rescueCompanyId: msg.senderType === 'RESCUE_COMPANY' ? msg.senderId : undefined,
+        isRead: msg.isRead || false,
         sentAt: msg.sentAt,
-        conversationId: conversationId
+        senderType: msg.senderType
       }))
 
       if (cursor) {
@@ -102,20 +120,43 @@ export default function CompanyChat() {
     }
   }, [notifications, conversationId]);
 
-  const handleSendMessage = async (messageContent: string) => {
-    if (!user || !conversationId) return;
+  const handleSendMessage = async (message: Omit<Message, "id" | "timestamp">) => {
+    if (!user || !conversationId || (user.role === "company" && !user.companyId)) return;
 
-    const newMessage: ChatMessage = {
-      id: `temp-${Date.now()}`, // Temporary ID
-      content: messageContent,
+    // Get the chat data to find the correct user ID
+    const chatResponse = await api.chats.getConversationById(conversationId);
+    const chatData = chatResponse.data;
+    
+    // The userId should be the ID of the user in the conversation
+    const userId = chatData.userId || chatData.user?.id;
+
+    if (!userId) return;
+
+    const wsMessage: WebSocketChatMessage = {
+      content: message.content,
+      conversationId: message.conversationId,
+      userId: userId,
+      rescueCompanyId: user.companyId || undefined,
       senderType: "RESCUE_COMPANY",
-      senderId: user.id,
-      sentAt: new Date().toISOString(),
-      conversationId: conversationId
+      isRead: false,
+      sentAt: new Date().toISOString()
     }
 
-    sendMessage(newMessage); // Use WebSocket to send message
-    setMessages(prevMessages => [...prevMessages, newMessage]); // Optimistically update UI
+    sendMessage(wsMessage);
+    setMessages(prevMessages => [...prevMessages, {
+      ...message,
+      id: `temp-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      isRead: false,
+      userId: userId,
+      rescueCompanyId: user.companyId || undefined,
+      senderType: "RESCUE_COMPANY"
+    }]);
+  };
+
+  const handlePriceResponse = async (accepted: boolean, reason?: string) => {
+    // Implement price response handling
+    return Promise.resolve();
   };
 
   const loadMoreMessages = async () => {
@@ -154,8 +195,8 @@ export default function CompanyChat() {
           currentUserRole="RESCUE_COMPANY"
           otherPartyName={chat?.user?.name || "Customer"}
           initialMessages={messages}
-          onSendMessage={handleSendMessage} // Use local sendMessage
-          onPriceResponse={() => {}} // Optional price response handling
+          onSendMessage={handleSendMessage}
+          onPriceResponse={handlePriceResponse}
           isLoading={isLoading}
           isLoadingMore={isLoadingMore}
           hasMore={hasMore}
@@ -163,7 +204,6 @@ export default function CompanyChat() {
           currentPrice={chat?.currentPrice || 0}
           requestStatus={chat?.status || ""}
           rescueCompanyId={chat?.company?.id}
-          chatBottomRef={chatBottomRef}
         />
         <div ref={chatBottomRef} />
       </motion.div>

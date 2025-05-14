@@ -15,6 +15,8 @@ public class CompanyRatingResponse {
     private String id;
     private String companyId;
     private String companyName;
+    private String serviceId;
+    private String serviceName;
     private String userId;
     private String userName;
     private Integer stars;

@@ -47,4 +47,22 @@ public class RescueRequest {
 	LocalDateTime createdAt;
 
 	String notes;
+
+	@Column(length = 512)
+	String vehicleImageUrl;
+
+	@Column(length = 100)
+	String vehicleMake;
+
+	@Column(length = 100)
+	String vehicleModel;
+
+	@Column(length = 20)
+	String vehicleYear;
+
+	@Column(length = 100)
+	String vehicleLicensePlate;
+
+	@Column(length = 100)
+	String vehicleColor;
 }

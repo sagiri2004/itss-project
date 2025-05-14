@@ -15,9 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, MapPin, AlertTriangle, Maximize2, X } from "lucide-react"
 import api from "@/services/api"
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet"
+import { uploadImageToCloudinary } from "@/services/cloudinary-service"
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
+import { FaCar, FaMapMarkerAlt, FaInfoCircle, FaUpload } from "react-icons/fa"
 
 interface Service {
   id: string
@@ -64,6 +66,20 @@ export default function CreateRequest() {
   const [nearbyServices, setNearbyServices] = useState<Service[]>([])
   const [isLoadingNearby, setIsLoadingNearby] = useState(false)
   const [isMapFullScreen, setIsMapFullScreen] = useState(false)
+  const [selectedLocation, setSelectedLocation] = useState<[number, number] | null>(null)
+  const [selectedService, setSelectedService] = useState<string | null>(null)
+  const [selectedCompany, setSelectedCompany] = useState<string | null>(null)
+  const [vehicleInfo, setVehicleInfo] = useState({
+    make: "",
+    model: "",
+    year: "",
+    licensePlate: "",
+    color: "",
+    description: "",
+  })
+  const [uploadedImage, setUploadedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
     fetchServices()
@@ -155,43 +171,113 @@ export default function CreateRequest() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
 
-    try {
-      let latitude, longitude;
-      if (formData.location && formData.location.includes(',')) {
-        [latitude, longitude] = formData.location.split(',').map(Number);
-      }
-      const requestData: any = {
-        rescueServiceId: formData.serviceType,
-        vehicleMake: formData.vehicleMake,
-        vehicleModel: formData.vehicleModel,
-        vehicleYear: parseInt(formData.vehicleYear),
-        description: formData.description,
-      };
-      if (latitude !== undefined && longitude !== undefined) {
-        requestData.latitude = latitude;
-        requestData.longitude = longitude;
-      }
-
-      await api.rescueRequests.createRequest(requestData)
-
-      toast({
-        title: "Request created successfully",
-        description: "Your roadside assistance request has been submitted.",
-      })
-
-      navigate("/user/requests")
-    } catch (error: any) {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
       toast({
         variant: "destructive",
-        title: "Failed to create request",
-        description: error.response?.data?.message || "There was an error submitting your request. Please try again.",
+        title: "Error",
+        description: "Please upload an image file",
       })
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Image size should be less than 5MB",
+      })
+      return
+    }
+
+    setUploadedImage(file)
+    setImagePreview(URL.createObjectURL(file))
+  }
+
+  const handleSubmit = async () => {
+    // Validate all required fields from formData and vehicleInfo
+    const isVehicleInfoValid =
+      vehicleInfo.make &&
+      vehicleInfo.model &&
+      vehicleInfo.year &&
+      vehicleInfo.licensePlate &&
+      vehicleInfo.color;
+
+    if (
+      !formData.serviceType ||
+      !formData.location ||
+      !formData.description ||
+      !isVehicleInfoValid
+    ) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please complete all required fields",
+      });
+      return;
+    }
+
+    let latitude, longitude;
+    if (formData.location && formData.location.includes(',')) {
+      [latitude, longitude] = formData.location.split(',').map(Number);
+    }
+
+    setIsLoading(true);
+    try {
+      let vehicleImageUrl = null;
+      // Upload image if exists
+      if (uploadedImage) {
+        setIsUploading(true);
+        try {
+          const result = await uploadImageToCloudinary(uploadedImage);
+          vehicleImageUrl = result.secure_url;
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to upload image",
+          });
+          setIsUploading(false);
+          setIsLoading(false);
+          return;
+        }
+        setIsUploading(false);
+      }
+
+      const requestData = {
+        rescueServiceId: formData.serviceType,
+        description: formData.description,
+        latitude,
+        longitude,
+        vehicleImageUrl,
+        vehicleMake: vehicleInfo.make,
+        vehicleModel: vehicleInfo.model,
+        vehicleYear: vehicleInfo.year,
+        vehicleLicensePlate: vehicleInfo.licensePlate,
+        vehicleColor: vehicleInfo.color,
+      };
+
+      await api.rescueRequests.createRequest(requestData);
+      toast({
+        title: "Success",
+        description: "Rescue request created successfully",
+      });
+      navigate("/user/requests");
+    } catch (error: any) {
+      console.error("Error creating request:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to create request",
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
@@ -246,6 +332,115 @@ export default function CreateRequest() {
     iconAnchor: [16, 32],
     popupAnchor: [0, -32],
   });
+
+  const renderStep3 = () => (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 text-lg font-medium text-gray-700">
+        <FaCar className="text-blue-600" />
+        <span>Vehicle Information</span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Make</label>
+          <input
+            type="text"
+            value={vehicleInfo.make}
+            onChange={(e) => setVehicleInfo({ ...vehicleInfo, make: e.target.value })}
+            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary focus:outline-none"
+            placeholder="e.g., Toyota"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Model</label>
+          <input
+            type="text"
+            value={vehicleInfo.model}
+            onChange={(e) => setVehicleInfo({ ...vehicleInfo, model: e.target.value })}
+            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary focus:outline-none"
+            placeholder="e.g., Camry"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Year</label>
+          <input
+            type="number"
+            value={vehicleInfo.year}
+            onChange={(e) => setVehicleInfo({ ...vehicleInfo, year: e.target.value })}
+            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary focus:outline-none"
+            placeholder="e.g., 2020"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">License Plate</label>
+          <input
+            type="text"
+            value={vehicleInfo.licensePlate}
+            onChange={(e) => setVehicleInfo({ ...vehicleInfo, licensePlate: e.target.value })}
+            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary focus:outline-none"
+            placeholder="e.g., ABC123"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Color</label>
+          <input
+            type="text"
+            value={vehicleInfo.color}
+            onChange={(e) => setVehicleInfo({ ...vehicleInfo, color: e.target.value })}
+            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary focus:outline-none"
+            placeholder="e.g., Red"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Vehicle Image</label>
+          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed border-input rounded-md bg-background">
+            <div className="space-y-1 text-center">
+              {imagePreview ? (
+                <div className="space-y-2">
+                  <img
+                    src={imagePreview}
+                    alt="Vehicle preview"
+                    className="mx-auto h-32 w-auto object-cover rounded-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadedImage(null)
+                      setImagePreview(null)
+                    }}
+                    className="text-sm text-red-600 hover:text-red-500"
+                  >
+                    Remove image
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <FaUpload className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="flex text-sm text-gray-600">
+                    <label
+                      htmlFor="file-upload"
+                      className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
+                    >
+                      <span>Upload a file</span>
+                      <input
+                        id="file-upload"
+                        name="file-upload"
+                        type="file"
+                        className="sr-only"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                      />
+                    </label>
+                    <p className="pl-1">or drag and drop</p>
+                  </div>
+                  <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="w-full space-y-6 min-h-screen flex flex-col justify-start">
@@ -515,45 +710,7 @@ export default function CreateRequest() {
                 </div>
               )}
 
-              {currentStep === 3 && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="vehicleMake">Vehicle Make</Label>
-                    <Input
-                      id="vehicleMake"
-                      name="vehicleMake"
-                      placeholder="e.g., Toyota, Honda, Ford"
-                      value={formData.vehicleMake}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="vehicleModel">Vehicle Model</Label>
-                    <Input
-                      id="vehicleModel"
-                      name="vehicleModel"
-                      placeholder="e.g., Camry, Civic, F-150"
-                      value={formData.vehicleModel}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="vehicleYear">Vehicle Year</Label>
-                    <Input
-                      id="vehicleYear"
-                      name="vehicleYear"
-                      placeholder="e.g., 2020"
-                      value={formData.vehicleYear}
-                      onChange={handleChange}
-                      type="number"
-                      min="1900"
-                      max={new Date().getFullYear()}
-                    />
-                  </div>
-                </div>
-              )}
+              {currentStep === 3 && renderStep3()}
 
               {currentStep === 4 && (
                 <div className="space-y-4">
@@ -575,22 +732,36 @@ export default function CreateRequest() {
                       </p>
                     </div>
                   </div>
-
                   <div className="rounded-lg border p-4">
                     <h3 className="font-semibold mb-2">Vehicle Information</h3>
                     <div className="space-y-2 text-sm">
                       <p>
-                        <span className="font-medium">Make:</span> {formData.vehicleMake}
+                        <span className="font-medium">Make:</span> {vehicleInfo.make}
                       </p>
                       <p>
-                        <span className="font-medium">Model:</span> {formData.vehicleModel}
+                        <span className="font-medium">Model:</span> {vehicleInfo.model}
                       </p>
                       <p>
-                        <span className="font-medium">Year:</span> {formData.vehicleYear}
+                        <span className="font-medium">Year:</span> {vehicleInfo.year}
                       </p>
+                      <p>
+                        <span className="font-medium">License Plate:</span> {vehicleInfo.licensePlate}
+                      </p>
+                      <p>
+                        <span className="font-medium">Color:</span> {vehicleInfo.color}
+                      </p>
+                      {imagePreview && (
+                        <div>
+                          <span className="font-medium">Vehicle Image:</span><br />
+                          <img
+                            src={imagePreview}
+                            alt="Vehicle preview"
+                            className="mt-2 h-32 w-auto object-cover rounded-lg border"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
-
                   <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="h-5 w-5 text-yellow-600" />
@@ -599,7 +770,7 @@ export default function CreateRequest() {
                         <p className="text-sm text-yellow-700">
                           By submitting this request, you agree to our terms of service and privacy policy. A service fee
                           may be charged based on the type of service and distance.
-                    </p>
+                        </p>
                       </div>
                     </div>
                   </div>

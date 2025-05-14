@@ -44,6 +44,8 @@ interface Request {
   vehicleModel: string | null
   vehicleEquipmentDetails: string[] | null
   vehicleStatus: string | null
+  vehicleMake?: string
+  vehicleYear?: string
 }
 
 export default function UserRequests() {
@@ -171,13 +173,14 @@ export default function UserRequests() {
                     <TableHead>Status</TableHead>
                     <TableHead>Company</TableHead>
                     <TableHead>Price</TableHead>
+                    <TableHead>Vehicle</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredRequests.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                         No requests found. Try adjusting your search.
                       </TableCell>
                     </TableRow>
@@ -215,6 +218,17 @@ export default function UserRequests() {
                             </div>
                           ) : (
                             <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {request.vehicleMake || request.vehicleModel || request.vehicleYear ? (
+                            <span>
+                              {request.vehicleMake ? `${request.vehicleMake} ` : ''}
+                              {request.vehicleModel ? `${request.vehicleModel} ` : ''}
+                              {request.vehicleYear ? `(${request.vehicleYear})` : ''}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">N/A</span>
                           )}
                         </TableCell>
                         <TableCell className="text-right">

@@ -26,6 +26,7 @@ import UserProfile from "./pages/user/profile"
 import UserChangePassword from "./pages/user/change-password"
 import UserChat from "./pages/user/chat"
 import UserChats from "./pages/user/chats"
+import UserReviewManager from "./pages/user/review-manager"
 
 // Company Pages
 import CompanyDashboard from "./pages/company/dashboard"
@@ -39,6 +40,7 @@ import CompanyChangePassword from "./pages/company/change-password"
 import CompanyChat from "./pages/company/chat"
 import CompanyChats from "./pages/company/chats"
 import CompanyRequestDetail from "./pages/company/request-detail"
+import CompanyReviews from "./pages/company/reviews"
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/dashboard"
@@ -90,6 +92,7 @@ function App() {
                 <Route path="change-password" element={<UserChangePassword />} />
                 <Route path="chat/:id" element={<UserChat />} />
                 <Route path="chats" element={<UserChats />} />
+                <Route path="reviews" element={<UserReviewManager />} />
               </Route>
 
               {/* Company Routes */}
@@ -105,6 +108,7 @@ function App() {
                 <Route path="change-password" element={<CompanyChangePassword />} />
                 <Route path="chat/:id" element={<CompanyChat />} />
                 <Route path="chats" element={<CompanyChats />} />
+                <Route path="reviews" element={<CompanyReviews />} />
               </Route>
 
               {/* Admin Routes */}
@@ -117,7 +121,7 @@ function App() {
                 <Route path="requests" element={<AdminRequests />} />
                 <Route path="invoices" element={<AdminInvoices />} />
                 <Route path="users" element={<AdminUsers />} />
-                <Route path="chats" element={<AdminChats />} />
+                {/* <Route path="chats" element={<AdminChats />} /> */}
                 <Route path="settings" element={<AdminSettings />} />
                 <Route path="change-password" element={<AdminChangePassword />} />
               </Route>

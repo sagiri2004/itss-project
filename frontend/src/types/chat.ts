@@ -25,7 +25,12 @@ export interface Message {
   senderId: string;
   timestamp: string;
   metadata?: Record<string, any>;
-  conversationId: string; // Thêm conversationId
+  conversationId: string;
+  userId?: string;
+  rescueCompanyId?: string;
+  isRead: boolean;
+  sentAt: string;
+  senderType: string;
 }
 
 export interface ChatMessage {

@@ -45,11 +45,13 @@ interface Request {
 }
 
 export default function VehicleTracking() {
+  const { user } = useAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [pendingRequests, setPendingRequests] = useState<Request[]>([])
+  const [companyLocation, setCompanyLocation] = useState<{lat: number, lng: number} | null>(null)
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null)
   const [mapCenter, setMapCenter] = useState<[number, number]>([21.0285, 105.8542])
   const [mapZoom, setMapZoom] = useState(12)
@@ -60,33 +62,20 @@ export default function VehicleTracking() {
   const fetchData = async () => {
     setIsLoading(true)
     try {
-      const [vehicleRes, requestRes] = await Promise.all([
-        api.rescueVehicles.getVehicles(),
+      if (!user?.companyId) throw new Error("Company ID is missing")
+      const [vehicleRes, requestRes, companyRes] = await Promise.all([
+        api.rescueVehicles.getCompanyVehicles(user.companyId),
         api.rescueRequests.getCompanyRequests(),
+        api.rescueCompanies.getCompanyById(user.companyId),
       ])
       setVehicles(
         (vehicleRes.data || []).map((v: any) => ({
           id: v.id,
           name: v.name,
-          type: v.type,
           licensePlate: v.licensePlate,
           status: v.status,
-          latitude: v.latitude,
-          longitude: v.longitude,
-          driver: v.driver ? { name: v.driver.name, phone: v.driver.phone } : {},
-          lastUpdated: v.lastUpdated,
-          currentRequest: v.currentRequest
-            ? {
-                id: v.currentRequest.id,
-                location: {
-                  address: v.currentRequest.location?.address || "",
-                  coordinates: v.currentRequest.location?.coordinates || [v.currentRequest.latitude, v.currentRequest.longitude],
-                },
-                serviceType: v.currentRequest.serviceType || "",
-                customerName: v.currentRequest.customerName || "",
-                status: v.currentRequest.status || "",
-              }
-            : undefined,
+          latitude: v.currentLatitude,
+          longitude: v.currentLongitude,
         }))
       )
       setPendingRequests(
@@ -103,6 +92,13 @@ export default function VehicleTracking() {
             customerName: r.user?.name || "",
           }))
       )
+      // Set company location
+      const company = companyRes.data
+      if (company && company.latitude && company.longitude) {
+        setCompanyLocation({ lat: company.latitude, lng: company.longitude })
+      } else {
+        setCompanyLocation(null)
+      }
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -118,7 +114,7 @@ export default function VehicleTracking() {
   useEffect(() => {
     fetchData()
     // eslint-disable-next-line
-  }, [])
+  }, [user])
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)
   const handleStatusFilterChange = (value: string) => setStatusFilter(value === "ALL" ? null : value)
@@ -136,9 +132,7 @@ export default function VehicleTracking() {
   const filteredVehicles = vehicles.filter((vehicle) => {
     const matchesSearch =
       vehicle.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.licensePlate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.driver?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+      vehicle.licensePlate?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = !statusFilter || vehicle.status === statusFilter
     return matchesSearch && matchesStatus
   })
@@ -163,6 +157,15 @@ export default function VehicleTracking() {
         label: `${request.serviceType || "Request"} - ${request.customerName || ""}`,
         status: request.status,
       })),
+    ...(companyLocation
+      ? [{
+          id: "company-location",
+          position: [companyLocation.lat, companyLocation.lng] as [number, number],
+          type: "user" as const,
+          label: "Company Location",
+          status: "COMPANY",
+        }]
+      : []),
   ]
 
   // Animation variants
@@ -274,17 +277,13 @@ export default function VehicleTracking() {
                         </Badge>
                       </div>
                       <CardDescription>
-                        {vehicle.type} - {vehicle.licensePlate}
+                        {vehicle.licensePlate}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2">
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
-                        <span>{vehicle.driver?.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <span>{vehicle.driver?.phone}</span>
+                        <span>{vehicle.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />

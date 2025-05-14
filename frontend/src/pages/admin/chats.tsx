@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { useWebSocketContext } from "@/context/websocket-context"
 import api from "@/services/api"
 import type { Chat, ChatMessage, SenderType, Message } from "@/types/chat"
-import { ChatInterface } from "@/components/chat/chat-interface";
+import { ChatInterface } from "./chat-interface";
 
 export default function AdminChats() {
   const { user } = useAuth()

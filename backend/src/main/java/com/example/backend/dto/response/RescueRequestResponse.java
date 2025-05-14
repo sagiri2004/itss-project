@@ -35,4 +35,8 @@ public class RescueRequestResponse {
 	private String vehicleModel;
 	private List<RescueEquipment> vehicleEquipmentDetails;
 	private RescueVehicleStatus vehicleStatus;
+	private String vehicleImageUrl;
+	private String vehicleMake;
+	private String vehicleYear;
+	private String vehicleColor;
 }
