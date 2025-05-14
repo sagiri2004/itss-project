@@ -29,6 +29,16 @@ interface Service {
   basePrice: number
   duration: number
   isActive: boolean
+  price?: number
+  type?: string
+  company?: {
+    name: string
+    phone: string
+    address?: {
+      fullAddress: string
+    }
+  }
+  companyName?: string
 }
 
 export default function CompanyServices() {
@@ -260,22 +270,23 @@ export default function CompanyServices() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Service</TableHead>
-                    <TableHead>Base Price</TableHead>
-                    <TableHead>Est. Duration</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Company</TableHead>
+                    <TableHead>Address</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
                   ) : filteredServices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                         No services found. Try adjusting your search or add a new service.
                       </TableCell>
                     </TableRow>
@@ -286,12 +297,18 @@ export default function CompanyServices() {
                           <div className="font-medium">{service.name}</div>
                           <div className="text-xs text-muted-foreground mt-1">{service.description}</div>
                         </TableCell>
-                        <TableCell>${service.basePrice.toFixed(2)}</TableCell>
-                        <TableCell>{service.duration} minutes</TableCell>
                         <TableCell>
-                          <Badge variant={service.isActive ? "success" : "outline"}>
-                            {service.isActive ? "Active" : "Inactive"}
-                          </Badge>
+                          {typeof service.price === "number" ? `$${service.price.toFixed(2)}` : "N/A"}
+                        </TableCell>
+                        <TableCell>{service.type || "N/A"}</TableCell>
+                        <TableCell>
+                          {service.company?.name || service.companyName || "N/A"}
+                          {service.company?.phone && (
+                            <div className="text-xs text-muted-foreground">{service.company.phone}</div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {service.company?.address?.fullAddress || "N/A"}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">

@@ -75,3 +75,9 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+/* Fix Leaflet map z-index in dialogs so dropdowns/selects always appear above the map */
+.leaflet-container {
+  z-index: 0 !important;
+  background: var(--background, #18181b) !important;
+}

@@ -85,7 +85,7 @@ export function ChatInterface({
               existingMsg.content === newMsg.content &&
               existingMsg.sentAt === newMsg.sentAt &&
               existingMsg.senderType === newMsg.senderType
-            )
+          )
           ).map((msg) => ({ ...msg, id: msg.id || Math.random().toString(36).slice(2) })) as ChatHistoryItem[]
           return [...prev, ...newMessages]
         })
