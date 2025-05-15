@@ -33,7 +33,7 @@ jobs:
 
       - name: Set image version tags
         run: |
-          VERSION_TAG="v$(date +%Y%m%d%H%M)"  # ví dụ: v202505151427
+          VERSION_TAG="v$(date +%Y%m%d%H%M)"  # vd: v202505151427
           echo "IMAGE_TAG=$VERSION_TAG" >> $GITHUB_ENV
           echo "Using image tag: $VERSION_TAG"
 
