@@ -12,9 +12,10 @@ env:
   GKE_ZONE: 'asia-northeast1-c'
   DEPLOYMENT_NAME_BACKEND: 'backend'
   DEPLOYMENT_NAME_NOTIFICATION: 'notification-service'
-  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
   WORKLOAD_IDENTITY_PROVIDER: 'projects/1019423138216/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
   K8S_DIR: 'k8s'
+  IMAGE_BACKEND: sagiri2k4/backend
+  IMAGE_NOTIFICATION: sagiri2k4/notification-service
 
 jobs:
   build:
@@ -23,25 +24,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: List files in the working directory
-        run: ls -la
-      - name: Set environment variables
+
+      - name: Set IMAGE_TAG env
+        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Build and tag Docker images
         run: |
-          echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_ENV
-          echo "DOCKER_PASSWORD=${{ secrets.DOCKER_PASSWORD }}" >> $GITHUB_ENV
-      - name: Install Docker Compose
-        run: sudo apt-get update && sudo apt-get install -y docker-compose
-      - name: Build and tag images
+          docker build -t $IMAGE_BACKEND:$IMAGE_TAG -f backend/Dockerfile .
+          docker build -t $IMAGE_NOTIFICATION:$IMAGE_TAG -f notification-service/Dockerfile .
+
+      - name: Push Docker images to Docker Hub
         run: |
-          export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
-          docker-compose -f docker-compose.build.yml build
-      - name: Push built images to Docker Hub
-        run: docker-compose -f docker-compose.build.yml push
+          docker push $IMAGE_BACKEND:$IMAGE_TAG
+          docker push $IMAGE_NOTIFICATION:$IMAGE_TAG
 
   deploy-to-gke:
     name: Deploy to GKE
@@ -79,7 +80,8 @@ jobs:
       - name: Update image tags in Kustomize
         run: |
           cd ${{ env.K8S_DIR }}
-          kustomize edit set image sagiri2k4/backend=sagiri2k4/backend:latest sagiri2k4/notification-service=sagiri2k4/notification-service:latest
+          kustomize edit set image $IMAGE_BACKEND=$IMAGE_BACKEND:$IMAGE_TAG
+          kustomize edit set image $IMAGE_NOTIFICATION=$IMAGE_NOTIFICATION:$IMAGE_TAG
 
       - name: Deploy to GKE
         run: |
@@ -87,4 +89,3 @@ jobs:
           kustomize build . | kubectl apply -f -
           kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME_BACKEND }}
           kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME_NOTIFICATION }}
-          kubectl get services -o wide
