@@ -29,3 +29,24 @@ export interface TopicSearchParams {
   limit?: number
   sortBy?: "newest" | "oldest" | "mostCommented" | "mostViewed"
 }
+
+export interface TopicReport {
+  id: string;
+  topicId: string;
+  topicTitle: string;
+  reporterId: string;
+  reporterName: string;
+  reason: string;
+  createdAt: string;
+}
+
+export interface CommentReport {
+  id: string;
+  topicId: string;
+  commentId: string;
+  commentContent: string;
+  reporterId: string;
+  reporterName: string;
+  reason: string;
+  createdAt: string;
+}

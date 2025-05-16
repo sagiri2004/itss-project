@@ -129,6 +129,10 @@ export const topicApi = {
   reportTopic: (topicId: string, reason: string) => axios.post(`${API_BASE_URL}/topics/${topicId}/report`, { reason }),
   reportComment: (topicId: string, commentId: string, reason: string) =>
     axios.post(`${API_BASE_URL}/topics/${topicId}/comments/${commentId}/report`, { reason }),
+  getTopicReports: (params?: any) => axios.get(`${API_BASE_URL}/admin/topic-reports`, { params }),
+  getCommentReports: (params?: any) => axios.get(`${API_BASE_URL}/admin/comment-reports`, { params }),
+  deleteTopicReport: (reportId: string) => axios.delete(`${API_BASE_URL}/admin/topic-reports/${reportId}`),
+  deleteCommentReport: (reportId: string) => axios.delete(`${API_BASE_URL}/admin/comment-reports/${reportId}`),
 }
 
 // Review APIs
