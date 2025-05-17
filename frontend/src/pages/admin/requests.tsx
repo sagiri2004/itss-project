@@ -55,8 +55,8 @@ export default function AdminRequests() {
   const { toast } = useToast()
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string | null>(null)
-  const [issueFilter, setIssueFilter] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string | null>("ALL")
+  const [issueFilter, setIssueFilter] = useState<string | null>("ALL")
   const [requests, setRequests] = useState<Request[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -71,33 +71,33 @@ export default function AdminRequests() {
       setIsLoading(true)
       try {
         // Admin API call to get all requests
-        const response = await api.rescueRequests.getRequests()
+        const response = await api.admin.getRequests()
         
         // Map response data to our interface
         const mappedRequests: Request[] = response.data.map((req: any) => ({
           id: req.id,
           userId: req.userId,
-          serviceId: req.serviceId,
-          serviceName: req.serviceName || req.rescueServiceDetails?.name || "",
-          companyId: req.companyId,
-          companyName: req.companyName,
-          customerName: req.customerName || req.user?.name || "",
-          customerPhone: req.customerPhone || req.user?.phone || "",
-          latitude: req.latitude,
-          longitude: req.longitude,
-          location: req.location || req.address || "",
-          description: req.description || "",
-          estimatedPrice: req.estimatedPrice || 0,
-          finalPrice: req.finalPrice,
-          status: req.status,
-          createdAt: req.createdAt,
-          notes: req.notes,
-          hasIssue: req.hasIssue || false,
-          rescueServiceDetails: req.rescueServiceDetails,
-          vehicleLicensePlate: req.vehicleLicensePlate,
-          vehicleModel: req.vehicleModel,
-          vehicleStatus: req.vehicleStatus,
-          vehicleEquipmentDetails: req.vehicleEquipmentDetails
+          serviceId: req.serviceId ?? "",
+          serviceName: req.serviceName ?? req.rescueServiceDetails?.name ?? "",
+          companyId: req.companyId ?? "",
+          companyName: req.companyName ?? "",
+          customerName: req.customerName ?? req.user?.name ?? "",
+          customerPhone: req.customerPhone ?? req.user?.phone ?? "",
+          latitude: req.latitude ?? 0,
+          longitude: req.longitude ?? 0,
+          location: req.location ?? req.address ?? "",
+          description: req.description ?? "",
+          estimatedPrice: req.estimatedPrice ?? 0,
+          finalPrice: req.finalPrice ?? null,
+          status: req.status ?? "",
+          createdAt: req.createdAt ?? "",
+          notes: req.notes ?? null,
+          hasIssue: req.hasIssue ?? false,
+          rescueServiceDetails: req.rescueServiceDetails ?? null,
+          vehicleLicensePlate: req.vehicleLicensePlate ?? "",
+          vehicleModel: req.vehicleModel ?? "",
+          vehicleStatus: req.vehicleStatus ?? "",
+          vehicleEquipmentDetails: req.vehicleEquipmentDetails ?? [],
         }))
 
         setRequests(mappedRequests)
@@ -129,20 +129,16 @@ export default function AdminRequests() {
 
   const resolveIssue = async (id: string) => {
     try {
-      // Admin API call to resolve issue
-      const response = await api.rescueRequests.resolveIssue(id)
-      
-      // Update local state
+      // TODO: Cập nhật API resolve issue cho admin nếu có, hoặc bỏ nếu không dùng
+      toast({
+        title: "Issue resolved (mock)",
+        description: `The issue with request #${id} has been marked as resolved.`
+      })
       setRequests(prevRequests => 
         prevRequests.map(request =>
           request.id === id ? { ...request, hasIssue: false } : request
         )
       )
-
-      toast({
-        title: "Issue resolved",
-        description: `The issue with request #${id} has been marked as resolved.`
-      })
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -155,14 +151,14 @@ export default function AdminRequests() {
   // Filter requests
   const filteredRequests = requests.filter((request) => {
     const matchesSearch =
-      request.serviceName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (request.companyName && request.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
+      (request.serviceName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (request.location || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (request.customerName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (request.companyName || "").toLowerCase().includes(searchTerm.toLowerCase())
 
-    const matchesStatus = !statusFilter || request.status === statusFilter
+    const matchesStatus = !statusFilter || statusFilter === "ALL" || request.status === statusFilter
     const matchesIssue =
-      issueFilter === "ALL" ||
+      !issueFilter || issueFilter === "ALL" ||
       (issueFilter === "HAS_ISSUE" && request.hasIssue) ||
       (issueFilter === "NO_ISSUE" && !request.hasIssue)
 

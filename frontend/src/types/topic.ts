@@ -10,6 +10,7 @@ export interface Topic {
   updatedAt: string
   commentCount: number
   viewCount: number
+  category: string
 }
 
 export interface TopicComment {
@@ -28,4 +29,25 @@ export interface TopicSearchParams {
   page?: number
   limit?: number
   sortBy?: "newest" | "oldest" | "mostCommented" | "mostViewed"
+}
+
+export interface TopicReport {
+  id: string;
+  topicId: string;
+  topicTitle: string;
+  reporterId: string;
+  reporterName: string;
+  reason: string;
+  createdAt: string;
+}
+
+export interface CommentReport {
+  id: string;
+  topicId: string;
+  commentId: string;
+  commentContent: string;
+  reporterId: string;
+  reporterName: string;
+  reason: string;
+  createdAt: string;
 }

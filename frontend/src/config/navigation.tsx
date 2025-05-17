@@ -15,6 +15,7 @@ import {
   Star,
   MessageCircle,
   BarChart,
+  FileBarChart,
 } from "lucide-react"
 
 // User navigation
@@ -182,6 +183,11 @@ export const adminNavItems = [
       },
       {
         title: "Reports",
+        href: "/admin/report-management",
+        icon: FileBarChart,
+      },
+      {
+        title: "Chats",
         href: "/admin/reports",
         icon: BarChart,
       },
@@ -194,11 +200,6 @@ export const adminNavItems = [
         title: "Users",
         href: "/admin/users",
         icon: Users,
-      },
-      {
-        title: "Chats",
-        href: "/admin/chats",
-        icon: MessageSquare,
       },
     ],
   },

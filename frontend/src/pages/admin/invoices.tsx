@@ -41,7 +41,7 @@ export default function AdminInvoices() {
   const { toast } = useToast()
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string | null>("ALL")
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -56,28 +56,28 @@ export default function AdminInvoices() {
       setIsLoading(true)
       try {
         // Gọi API với token admin
-        const response = await api.invoices.getUserInvoices()
+        const response = await api.admin.getInvoices()
         
         // Map dữ liệu về đúng interface
         const mappedInvoices: Invoice[] = response.data.map((inv: any) => ({
           id: inv.id,
           invoiceNumber: inv.invoiceNumber || inv.id,
-          requestId: inv.rescueRequestId || inv.requestId,
+          requestId: inv.rescueRequestId || inv.requestId || "",
           user: {
-            id: inv.user?.id || inv.userId,
-            name: inv.user?.name || inv.userName,
-            email: inv.user?.email || inv.userEmail
+            id: inv.user?.id || inv.userId || "",
+            name: inv.user?.name || inv.userName || "",
+            email: inv.user?.email || inv.userEmail || ""
           },
           company: {
-            id: inv.company?.id || inv.companyId,
-            name: inv.company?.name || inv.companyName
+            id: inv.company?.id || inv.companyId || "",
+            name: inv.company?.name || inv.companyName || ""
           },
           service: inv.service || inv.serviceName || "",
           amount: inv.amount || 0,
-          status: inv.status,
-          date: inv.date || inv.createdAt,
+          status: inv.status || "",
+          date: inv.date || inv.createdAt || "",
           dueDate: inv.dueDate || "",
-          paymentMethod: inv.paymentMethod
+          paymentMethod: inv.paymentMethod || ""
         }))
 
         setInvoices(mappedInvoices)
@@ -102,13 +102,13 @@ export default function AdminInvoices() {
   // Filter invoices
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
-      invoice.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.service.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.status.toLowerCase().includes(searchTerm.toLowerCase())
+      (invoice.id || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (invoice.user.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (invoice.company.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (invoice.service || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (invoice.status || "").toLowerCase().includes(searchTerm.toLowerCase())
 
-    const matchesStatus = !statusFilter || invoice.status === statusFilter
+    const matchesStatus = !statusFilter || statusFilter === "ALL" || invoice.status === statusFilter
 
     return matchesSearch && matchesStatus
   })

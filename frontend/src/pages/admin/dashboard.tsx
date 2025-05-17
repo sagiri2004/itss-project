@@ -94,38 +94,34 @@ export default function AdminDashboard() {
       try {
         // Gọi API với token admin
         const [usersRes, requestsRes, companiesRes, invoicesRes] = await Promise.all([
-          api.users.getUsers(),
-          api.rescueRequests.getRequests(),
-          api.rescueCompanies.getCompanies(),
-          api.invoices.getUserInvoices(),
+          api.admin.getUsers(),
+          api.admin.getRequests(),
+          api.admin.getCompanies(),
+          api.admin.getInvoices(),
         ])
 
         // Tính toán thống kê
         const oneWeekAgo = new Date()
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
 
-        const newUsers = usersRes.data.filter((user: { createdAt: string }) => new Date(user.createdAt) > oneWeekAgo)
-
-        const newInvoices = invoicesRes.data.filter(
-          (inv: { createdAt: string }) => new Date(inv.createdAt) > oneWeekAgo,
-        )
+        const newUsers = (usersRes.data || []).filter((user: { createdAt: string }) => new Date(user.createdAt) > oneWeekAgo)
+        const newInvoices = (invoicesRes.data || []).filter((inv: { createdAt: string }) => new Date(inv.createdAt) > oneWeekAgo)
 
         // Set stats
         setStats({
-          totalRequests: requestsRes.data.length,
-          activeRequests: requestsRes.data.filter((req: { status: string }) => ["PENDING", "ACCEPTED", "IN_PROGRESS"].includes(req.status))
-            .length,
-          totalCompanies: companiesRes.data.length,
-          totalVehicles: companiesRes.data.reduce((acc: number, company: { vehicles?: { length: number }[] }) => acc + (company.vehicles?.length || 0), 0),
-          totalUsers: usersRes.data.length,
-          totalRevenue: invoicesRes.data.reduce((acc: number, inv: { amount?: number }) => acc + (inv.amount || 0), 0),
+          totalRequests: (requestsRes.data || []).length,
+          activeRequests: (requestsRes.data || []).filter((req: { status: string }) => ["PENDING", "ACCEPTED", "IN_PROGRESS"].includes(req.status)).length,
+          totalCompanies: (companiesRes.data || []).length,
+          totalVehicles: (companiesRes.data || []).reduce((acc: number, company: { vehicles?: any[] }) => acc + (company.vehicles?.length || 0), 0),
+          totalUsers: (usersRes.data || []).length,
+          totalRevenue: (invoicesRes.data || []).reduce((acc: number, inv: { amount?: number }) => acc + (inv.amount || 0), 0),
           newUsersThisWeek: newUsers.length,
-          revenueThisWeek: newInvoices.reduce((acc: number, inv: { amount?: number }) => acc + (inv.amount || 0), 0),
+          revenueThisWeek: newInvoices.reduce((acc: number, inv: { amount?: number }) => acc + (inv.amount || 0), 0)
         })
 
         // Tính request stats
         const requestsByStatus = Object.entries(
-          requestsRes.data.reduce(
+          (requestsRes.data || []).reduce(
             (acc: Record<string, number>, req: { status: string }) => {
               acc[req.status] = (acc[req.status] || 0) + 1
               return acc
@@ -137,22 +133,22 @@ export default function AdminDashboard() {
 
         // Tạo activity log
         const activities = [
-          ...requestsRes.data.map((req: { id: string; status: string; user?: { name: string }; company?: { name: string }; updatedAt?: string; createdAt: string }) => ({
+          ...((requestsRes.data || []).map((req: { id: string; status: string; user?: { name: string }; company?: { name: string }; updatedAt?: string; createdAt: string }) => ({
             id: req.id,
             type: "request" as const,
             user: req.user?.name,
             company: req.company?.name,
             details: `Rescue request ${req.status.toLowerCase()}`,
             date: req.updatedAt || req.createdAt,
-          })),
-          ...invoicesRes.data.map((inv: { id: string; status: string; user?: { name: string }; company?: { name: string }; updatedAt?: string; createdAt: string }) => ({
+          })) || []),
+          ...((invoicesRes.data || []).map((inv: { id: string; status: string; user?: { name: string }; company?: { name: string }; updatedAt?: string; createdAt: string }) => ({
             id: inv.id,
             type: "invoice" as const,
             user: inv.user?.name,
             company: inv.company?.name,
             details: `Invoice ${inv.status.toLowerCase()}`,
             date: inv.updatedAt || inv.createdAt,
-          })),
+          })) || []),
         ]
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
           .slice(0, 10)

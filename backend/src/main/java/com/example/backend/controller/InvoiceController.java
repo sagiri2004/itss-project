@@ -45,7 +45,7 @@ public class InvoiceController {
 	 * @return Danh sách tất cả hóa đơn được đóng gói trong ResponseEntity
 	 */
 	@GetMapping
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasAuthority('ADMIN')")
 	@Operation(summary = "Lấy tất cả hóa đơn",
 			description = "Lấy tất cả hóa đơn trong hệ thống. Chỉ dành cho quản trị viên.",
 			security = @SecurityRequirement(name = "bearerAuth"))
@@ -65,7 +65,7 @@ public class InvoiceController {
 	 * @throws com.example.backend.exception.ResourceNotFoundException nếu hóa đơn không tồn tại
 	 */
 	@GetMapping("/{id}")
-	@PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'USER')")
+	@PreAuthorize("hasAnyAuthority('ADMIN', 'COMPANY', 'USER')")
 	@Operation(summary = "Lấy hóa đơn theo ID",
 			description = "Lấy một hóa đơn cụ thể bằng ID của nó",
 			security = @SecurityRequirement(name = "bearerAuth"))
@@ -90,7 +90,7 @@ public class InvoiceController {
 	 * @throws com.example.backend.exception.ResourceNotFoundException nếu không có hóa đơn nào cho yêu cầu cứu hộ
 	 */
 	@GetMapping("/by-rescue-request/{rescueRequestId}")
-	@PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'USER')")
+	@PreAuthorize("hasAnyAuthority('ADMIN', 'COMPANY', 'USER')")
 	@Operation(summary = "Lấy hóa đơn theo ID yêu cầu cứu hộ",
 			description = "Lấy hóa đơn liên quan đến một yêu cầu cứu hộ cụ thể",
 			security = @SecurityRequirement(name = "bearerAuth"))
@@ -115,7 +115,7 @@ public class InvoiceController {
 	 * @throws com.example.backend.exception.ResourceNotFoundException nếu không có hóa đơn nào với số đã cho
 	 */
 	@GetMapping("/by-invoice-number/{invoiceNumber}")
-	@PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
+	@PreAuthorize("hasAnyAuthority('ADMIN', 'COMPANY')")
 	@Operation(summary = "Lấy hóa đơn theo số hóa đơn",
 			description = "Lấy hóa đơn theo số hóa đơn duy nhất của nó",
 			security = @SecurityRequirement(name = "bearerAuth"))
@@ -139,7 +139,7 @@ public class InvoiceController {
 	 * @return Danh sách hóa đơn của người dùng đã xác thực, được đóng gói trong ResponseEntity
 	 */
 	@GetMapping("/my-invoices")
-	@PreAuthorize("hasRole('USER')")
+	@PreAuthorize("hasAuthority('USER')")
 	@Operation(summary = "Lấy hóa đơn của tôi",
 			description = "Lấy tất cả hóa đơn liên quan đến người dùng đã xác thực",
 			security = @SecurityRequirement(name = "bearerAuth"))
@@ -161,7 +161,7 @@ public class InvoiceController {
 	 * @return Danh sách hóa đơn cho người dùng được chỉ định, được đóng gói trong ResponseEntity
 	 */
 	@GetMapping("/by-user/{userId}")
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasAuthority('ADMIN')")
 	@Operation(summary = "Lấy hóa đơn theo ID người dùng",
 			description = "Lấy tất cả hóa đơn liên quan đến một người dùng cụ thể. Chỉ dành cho quản trị viên.",
 			security = @SecurityRequirement(name = "bearerAuth"))
@@ -182,7 +182,7 @@ public class InvoiceController {
 	 * @return Danh sách hóa đơn cho công ty được chỉ định, được đóng gói trong ResponseEntity
 	 */
 	@GetMapping("/by-company/{companyId}")
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasAuthority('ADMIN')")
 	@Operation(summary = "Lấy hóa đơn theo ID công ty",
 			description = "Lấy tất cả hóa đơn liên quan đến một công ty cụ thể. Chỉ dành cho quản trị viên.",
 			security = @SecurityRequirement(name = "bearerAuth"))
@@ -203,7 +203,7 @@ public class InvoiceController {
 	 * @return Danh sách hóa đơn cho công ty, được đóng gói trong ResponseEntity
 	 */
 	@GetMapping("/my-company-invoices")
-	@PreAuthorize("hasRole('COMPANY')")
+	@PreAuthorize("hasAuthority('COMPANY')")
 	@Operation(summary = "Lấy hóa đơn của công ty tôi",
 			description = "Lấy tất cả hóa đơn cho công ty do người dùng đã xác thực quản lý",
 			security = @SecurityRequirement(name = "bearerAuth"))
@@ -225,7 +225,7 @@ public class InvoiceController {
 	 * @return Danh sách hóa đơn có trạng thái được chỉ định, được đóng gói trong ResponseEntity
 	 */
 	@GetMapping("/by-status/{status}")
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasAuthority('ADMIN')")
 	@Operation(summary = "Lấy hóa đơn theo trạng thái",
 			description = "Lấy tất cả hóa đơn có trạng thái cụ thể. Chỉ dành cho quản trị viên.",
 			security = @SecurityRequirement(name = "bearerAuth"))
@@ -249,7 +249,7 @@ public class InvoiceController {
 	 * @throws IllegalStateException nếu hóa đơn đã tồn tại cho yêu cầu cứu hộ đã chỉ định
 	 */
 	@PostMapping
-	@PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
+	@PreAuthorize("hasAnyAuthority('ADMIN', 'COMPANY')")
 	@Operation(summary = "Tạo hóa đơn mới",
 			description = "Tạo một hóa đơn mới trong hệ thống. Số hóa đơn duy nhất sẽ được tự động tạo.",
 			security = @SecurityRequirement(name = "bearerAuth"))
@@ -277,7 +277,7 @@ public class InvoiceController {
 	 * @throws com.example.backend.exception.ResourceNotFoundException nếu hóa đơn không tồn tại
 	 */
 	@PutMapping("/{id}")
-	@PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
+	@PreAuthorize("hasAnyAuthority('ADMIN', 'COMPANY')")
 	@Operation(summary = "Cập nhật hóa đơn",
 			description = "Cập nhật một hóa đơn hiện có",
 			security = @SecurityRequirement(name = "bearerAuth"))
@@ -309,7 +309,7 @@ public class InvoiceController {
 	 * @throws IllegalStateException nếu hóa đơn đã được đánh dấu là đã thanh toán
 	 */
 	@PutMapping("/{id}/mark-paid")
-	@PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
+	@PreAuthorize("hasAnyAuthority('ADMIN', 'COMPANY')")
 	@Operation(summary = "Đánh dấu hóa đơn đã thanh toán",
 			description = "Đánh dấu một hóa đơn đã thanh toán, đặt ngày thanh toán và ghi lại phương thức thanh toán",
 			security = @SecurityRequirement(name = "bearerAuth"))
@@ -341,7 +341,7 @@ public class InvoiceController {
 	 * @throws IllegalStateException nếu hóa đơn đã được thanh toán hoặc người dùng không có quyền
 	 */
 	@PostMapping("/{id}/pay")
-	@PreAuthorize("hasRole('USER')")
+	@PreAuthorize("hasAuthority('USER')")
 	@Operation(summary = "Xác nhận thanh toán hóa đơn",
 			description = "Cho phép người dùng xác nhận thanh toán hóa đơn và ghi lại phương thức thanh toán",
 			security = @SecurityRequirement(name = "bearerAuth"))
@@ -373,7 +373,7 @@ public class InvoiceController {
 	 * @throws com.example.backend.exception.ResourceNotFoundException nếu hóa đơn không tồn tại
 	 */
 	@DeleteMapping("/{id}")
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasAuthority('ADMIN')")
 	@Operation(summary = "Xóa hóa đơn",
 			description = "Xóa một hóa đơn khỏi hệ thống. Chỉ dành cho quản trị viên.",
 			security = @SecurityRequirement(name = "bearerAuth"))

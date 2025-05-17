@@ -43,7 +43,7 @@ export default function AdminUsers() {
   const { toast } = useToast()
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
-  const [roleFilter, setRoleFilter] = useState<string | null>(null)
+  const [roleFilter, setRoleFilter] = useState<string | null>("ALL")
   const [users, setUsers] = useState<User[]>([])
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
@@ -59,22 +59,22 @@ export default function AdminUsers() {
     const fetchUsers = async () => {
       setIsLoading(true)
       try {
-        const response = await api.users.getUsers()
+        const response = await api.admin.getUsers()
         
         // Map response data to our interface
         const mappedUsers: User[] = response.data.map((u: any) => ({
           id: u.id,
-          name: u.name,
-          email: u.email,
+          name: u.name || u.username || "",
+          email: u.email || "",
           phone: u.phone || '',
-          role: u.role.toLowerCase(),
-          status: u.status,
+          role: (u.role || (u.roles && u.roles[0]) || "user").toLowerCase(),
+          status: u.status || "",
           isVerified: u.isVerified || false,
-          lastLogin: u.lastLogin || u.updatedAt,
-          joinDate: u.createdAt,
+          lastLogin: u.lastLogin || u.updatedAt || "",
+          joinDate: u.createdAt || "",
           requestsCount: u.requestsCount || 0,
-          companyId: u.company?.id,
-          companyName: u.company?.name
+          companyId: u.company?.id || "",
+          companyName: u.company?.name || ""
         }))
 
         setUsers(mappedUsers)
@@ -99,12 +99,12 @@ export default function AdminUsers() {
   // Filter users
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.status.toLowerCase().includes(searchTerm.toLowerCase())
+      (user.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.phone || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.status || "").toLowerCase().includes(searchTerm.toLowerCase())
 
-    const matchesRole = !roleFilter || user.role === roleFilter
+    const matchesRole = !roleFilter || roleFilter === "ALL" || user.role === roleFilter
 
     return matchesSearch && matchesRole
   })
@@ -212,7 +212,7 @@ export default function AdminUsers() {
   const resetPassword = async (id: string) => {
     try {
       // Call API to reset password
-      await api.users.resetPassword(id)
+      await api.admin.resetPassword(id)
       
       toast({
         title: "Password reset",

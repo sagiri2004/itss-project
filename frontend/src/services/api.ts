@@ -48,6 +48,7 @@ export const rescueRequestApi = {
 export const rescueCompanyApi = {
   getCompanies: (params?: any) => axios.get(`${API_BASE_URL}/rescue-companies`, { params }),
   getCompanyById: (id: string) => axios.get(`${API_BASE_URL}/rescue-companies/${id}`),
+  getCompanyBasic: (id: string) => axios.get(`${API_BASE_URL}/rescue-companies/basic/${id}`),
   createCompany: (companyData: any) => axios.post(`${API_BASE_URL}/rescue-companies`, companyData),
   updateCompany: (id: string, companyData: any) => axios.put(`${API_BASE_URL}/rescue-companies/${id}`, companyData),
   deleteCompany: (id: string) => axios.delete(`${API_BASE_URL}/rescue-companies/${id}`),
@@ -94,6 +95,7 @@ export const chatApi = {
   getMessages: (conversationId: string, params?: any) =>
     axios.get(`${API_BASE_URL}/chat/conversations/${conversationId}/messages`, { params }),
   markAsRead: (conversationId: string) => axios.put(`${API_BASE_URL}/chat/conversations/${conversationId}/read`),
+  getMessagesByAdmin: (conversationId: string, params?: any) => axios.get(`${API_BASE_URL}/admin/chats/${conversationId}/messages`, { params }),
 }
 
 // Keyword Filtering APIs
@@ -129,6 +131,10 @@ export const topicApi = {
   reportTopic: (topicId: string, reason: string) => axios.post(`${API_BASE_URL}/topics/${topicId}/report`, { reason }),
   reportComment: (topicId: string, commentId: string, reason: string) =>
     axios.post(`${API_BASE_URL}/topics/${topicId}/comments/${commentId}/report`, { reason }),
+  getTopicReports: (params?: any) => axios.get(`${API_BASE_URL}/admin/topic-reports`, { params }),
+  getCommentReports: (params?: any) => axios.get(`${API_BASE_URL}/admin/comment-reports`, { params }),
+  deleteTopicReport: (reportId: string) => axios.delete(`${API_BASE_URL}/admin/topic-reports/${reportId}`),
+  deleteCommentReport: (reportId: string) => axios.delete(`${API_BASE_URL}/admin/comment-reports/${reportId}`),
 }
 
 // Review APIs
@@ -143,12 +149,16 @@ export const reviewApi = {
   getCompanyStats: (companyId: string) => axios.get(`${API_BASE_URL}/reviews/stats/company/${companyId}`),
 }
 
-// Reports APIs
+// Report APIs (generic)
 export const reportApi = {
-  getRequestStats: (params?: any) => axios.get(`${API_BASE_URL}/reports/requests`, { params }),
-  getServiceUsageStats: (params?: any) => axios.get(`${API_BASE_URL}/reports/services/usage`, { params }),
-  getSatisfactionStats: (params?: any) => axios.get(`${API_BASE_URL}/reports/satisfaction`, { params }),
-  getOverallStats: () => axios.get(`${API_BASE_URL}/reports/overall`),
+  createReport: (data: { type: string; targetId: string; reason: string }) =>
+    axios.post(`${API_BASE_URL}/reports`, data),
+  getReports: (params?: { type?: string; status?: string }) =>
+    axios.get(`${API_BASE_URL}/reports`, { params }),
+  resolveReport: (data: { reportId: string; status: string; resolutionNote?: string }) =>
+    axios.post(`${API_BASE_URL}/reports/resolve`, data),
+  getTopReported: (type: string, limit = 5) =>
+    axios.get(`${API_BASE_URL}/reports/top`, { params: { type, limit } }),
 }
 
 // Ratings APIs
@@ -174,6 +184,68 @@ export const ratingsApi = {
     axios.get(`${API_BASE_URL}/ratings/reviewed-services/company/${companyId}`),
   getUnreviewedServicesByCompany: (companyId: string) =>
     axios.get(`${API_BASE_URL}/ratings/unreviewed-services/company/${companyId}`),
+}
+
+// Admin APIs
+export const adminApi = {
+  // Topic management
+  getTopics: (params?: any) => axios.get(`${API_BASE_URL}/admin/topics`, { params }),
+  getComments: (topicId: string) => axios.get(`${API_BASE_URL}/admin/topics/${topicId}/comments`),
+  deleteTopic: (id: string) => axios.delete(`${API_BASE_URL}/admin/topics/${id}`),
+  // Topic reports
+  getTopicReports: (params?: any) => axios.get(`${API_BASE_URL}/admin/topic-reports`, { params }),
+  deleteTopicReport: (reportId: string) => axios.delete(`${API_BASE_URL}/admin/topic-reports/${reportId}`),
+  // Comment reports
+  getCommentReports: (params?: any) => axios.get(`${API_BASE_URL}/admin/comment-reports`, { params }),
+  deleteCommentReport: (reportId: string) => axios.delete(`${API_BASE_URL}/admin/comment-reports/${reportId}`),
+  // User management
+  getUsers: (params?: any) => axios.get(`${API_BASE_URL}/admin/users`, { params }),
+  getUserById: (id: string) => axios.get(`${API_BASE_URL}/admin/users/${id}`),
+  updateUser: (id: string, data: any) => axios.put(`${API_BASE_URL}/admin/users/${id}`, data),
+  deleteUser: (id: string) => axios.delete(`${API_BASE_URL}/admin/users/${id}`),
+  // Company management
+  getCompanies: (params?: any) => axios.get(`${API_BASE_URL}/admin/companies`, { params }),
+  getCompanyById: (id: string) => axios.get(`${API_BASE_URL}/admin/companies/${id}`),
+  updateCompany: (id: string, data: any) => axios.put(`${API_BASE_URL}/admin/companies/${id}`, data),
+  deleteCompany: (id: string) => axios.delete(`${API_BASE_URL}/admin/companies/${id}`),
+  // Vehicle management
+  getVehicles: (params?: any) => axios.get(`${API_BASE_URL}/admin/vehicles`, { params }),
+  getVehicleById: (id: string) => axios.get(`${API_BASE_URL}/admin/vehicles/${id}`),
+  updateVehicle: (id: string, data: any) => axios.put(`${API_BASE_URL}/admin/vehicles/${id}`, data),
+  deleteVehicle: (id: string) => axios.delete(`${API_BASE_URL}/admin/vehicles/${id}`),
+  // Invoice management
+  getInvoices: (params?: any) => axios.get(`${API_BASE_URL}/admin/invoices`, { params }),
+  getInvoiceById: (id: string) => axios.get(`${API_BASE_URL}/admin/invoices/${id}`),
+  updateInvoice: (id: string, data: any) => axios.put(`${API_BASE_URL}/admin/invoices/${id}`, data),
+  deleteInvoice: (id: string) => axios.delete(`${API_BASE_URL}/admin/invoices/${id}`),
+  // Request management
+  getRequests: (params?: any) => axios.get(`${API_BASE_URL}/admin/requests`, { params }),
+  getRequestById: (id: string) => axios.get(`${API_BASE_URL}/admin/requests/${id}`),
+  updateRequest: (id: string, data: any) => axios.put(`${API_BASE_URL}/admin/requests/${id}`, data),
+  deleteRequest: (id: string) => axios.delete(`${API_BASE_URL}/admin/requests/${id}`),
+  // Rating management (thay cho review)
+  getRatings: (params?: any) => axios.get(`${API_BASE_URL}/admin/ratings`, { params }),
+  deleteRating: (id: string) => axios.delete(`${API_BASE_URL}/admin/ratings/${id}`),
+  // Keyword management
+  getKeywords: (params?: any) => axios.get(`${API_BASE_URL}/admin/keywords`, { params }),
+  addKeyword: (data: { word: string; severity: string }) => axios.post(`${API_BASE_URL}/admin/keywords`, data),
+  deleteKeyword: (id: string) => axios.delete(`${API_BASE_URL}/admin/keywords/${id}`),
+  // Dashboard stats
+  getDashboardStats: () => axios.get(`${API_BASE_URL}/admin/dashboard-stats`),
+  // Generic admin reports (for new generic report system)
+  getReports: (params?: any) => axios.get(`${API_BASE_URL}/admin/reports`, { params }),
+  resolveReport: (data: { reportId: string; status: string; resolutionNote?: string }) => axios.post(`${API_BASE_URL}/admin/reports/resolve`, data),
+  getTopReported: (type: string, limit = 5) => axios.get(`${API_BASE_URL}/admin/reports/top`, { params: { type, limit } }),
+  deleteReport: (id: string) => axios.delete(`${API_BASE_URL}/admin/reports/${id}`),
+  // Filter by keyword
+  filterTopicsByKeyword: (keyword: string) => axios.get(`${API_BASE_URL}/admin/filter/topics`, { params: { keyword } }),
+  filterCommentsByKeyword: (keyword: string) => axios.get(`${API_BASE_URL}/admin/filter/comments`, { params: { keyword } }),
+  filterRatingsByKeyword: (keyword: string) => axios.get(`${API_BASE_URL}/admin/filter/ratings`, { params: { keyword } }),
+  resetPassword: (id: string) => axios.post(`${API_BASE_URL}/admin/users/${id}/reset-password`),
+  // Reports/statistics
+  getRequestStats: (params?: any) => axios.get(`${API_BASE_URL}/admin/report/request-stats`, { params }),
+  getServiceUsageStats: (params?: any) => axios.get(`${API_BASE_URL}/admin/report/service-usage-stats`, { params }),
+  getTopRatedServices: (params?: any) => axios.get(`${API_BASE_URL}/admin/report/top-rated-services`, { params }),
 }
 
 // Configure axios defaults
@@ -215,6 +287,7 @@ export default {
   keywords: keywordApi,
   topics: topicApi,
   reviews: reviewApi,
-  reports: reportApi,
+  report: reportApi,
   ratings: ratingsApi,
+  admin: adminApi,
 }

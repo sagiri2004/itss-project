@@ -40,7 +40,7 @@ export function KeywordFilterModal({ isOpen, onClose }: { isOpen: boolean; onClo
     setIsLoading(true)
     try {
       // Giả định API endpoint để lấy danh sách từ khóa
-      const response = await api.keywords.getKeywords()
+      const response = await api.admin.getKeywords()
       setKeywords(response.data)
     } catch (error: any) {
       toast({
@@ -77,7 +77,7 @@ export function KeywordFilterModal({ isOpen, onClose }: { isOpen: boolean; onClo
     setIsLoading(true)
     try {
       // Giả định API endpoint để thêm từ khóa mới
-      const response = await api.keywords.addKeyword({
+      const response = await api.admin.addKeyword({
         word: newKeyword,
         severity: severity,
       })
@@ -104,7 +104,7 @@ export function KeywordFilterModal({ isOpen, onClose }: { isOpen: boolean; onClo
     setIsLoading(true)
     try {
       // Giả định API endpoint để xóa từ khóa
-      await api.keywords.deleteKeyword(id)
+      await api.admin.deleteKeyword(id)
       setKeywords(keywords.filter((keyword) => keyword.id !== id))
       toast({
         title: "Thành công",

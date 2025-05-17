@@ -27,7 +27,7 @@ import UserChangePassword from "./pages/user/change-password"
 import UserChat from "./pages/user/chat"
 import UserChats from "./pages/user/chats"
 import UserReviewManager from "./pages/user/review-manager"
-
+import UserTopics from "./pages/user/topics"
 // Company Pages
 import CompanyDashboard from "./pages/company/dashboard"
 import CompanyServices from "./pages/company/services"
@@ -51,9 +51,12 @@ import AdminMapOverview from "./pages/admin/map-overview"
 import AdminRequests from "./pages/admin/requests"
 import AdminInvoices from "./pages/admin/invoices"
 import AdminUsers from "./pages/admin/users"
-import AdminChats from "./pages/admin/chats"
 import AdminSettings from "./pages/admin/settings"
 import AdminChangePassword from "./pages/admin/change-password"
+import AdminReport from "./pages/admin/reports"
+import AdminReportManagement from "./pages/admin/report-management"
+import AdminTopics from "./pages/admin/topics"
+import AdminReviews from "./pages/admin/reviews"
 
 function WebSocketConsoleLogger() {
   const { messages } = useWebSocketContext()
@@ -93,6 +96,7 @@ function App() {
                 <Route path="chat/:id" element={<UserChat />} />
                 <Route path="chats" element={<UserChats />} />
                 <Route path="reviews" element={<UserReviewManager />} />
+                <Route path="topics" element={<UserTopics />} />
               </Route>
 
               {/* Company Routes */}
@@ -124,6 +128,10 @@ function App() {
                 {/* <Route path="chats" element={<AdminChats />} /> */}
                 <Route path="settings" element={<AdminSettings />} />
                 <Route path="change-password" element={<AdminChangePassword />} />
+                <Route path="reports" element={<AdminReport />} />
+                <Route path="report-management" element={<AdminReportManagement />} />
+                <Route path="topics" element={<AdminTopics />} />
+                <Route path="reviews" element={<AdminReviews />} />
               </Route>
 
               {/* Redirect root to login */}
