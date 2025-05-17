@@ -14,9 +14,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, User, Mail, Phone, Calendar, MapPin, Car, Shield } from "lucide-react"
 import api from "@/services/api"
+import { useParams } from "react-router-dom"
 
 export default function UserProfile() {
   const { user } = useAuth()
+  const { id: paramId } = useParams()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [userDetails, setUserDetails] = useState<any>(null)
@@ -29,8 +31,10 @@ export default function UserProfile() {
 
   useEffect(() => {
     const fetchUserProfile = async () => {
+      const userId = paramId || user?.id
+      if (!userId) return
       try {
-        const response = await api.users.getProfile()
+        const response = await api.users.getUserById(userId)
         const userData = response.data
         setUserDetails(userData)
         setFormData({
@@ -39,6 +43,10 @@ export default function UserProfile() {
           phone: userData.phone,
           address: userData.address,
         })
+        if (userData.companyId) {
+          const companyRes = await api.rescueCompanies.getCompanyBasic(userData.companyId)
+          setUserDetails((prev: any) => ({ ...prev, company: companyRes.data }))
+        }
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -47,9 +55,8 @@ export default function UserProfile() {
         })
       }
     }
-
     fetchUserProfile()
-  }, [toast])
+  }, [user, paramId, toast])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -254,6 +261,23 @@ export default function UserProfile() {
               </CardContent>
             </Card>
           </motion.div>
+
+          {userDetails?.company && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Company</CardTitle>
+                <CardDescription>Basic company info</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div><b>Name:</b> {userDetails.company.name}</div>
+                  <div><b>Phone:</b> {userDetails.company.phone}</div>
+                  <div><b>Description:</b> {userDetails.company.description}</div>
+                  <div><b>Location:</b> {userDetails.company.latitude}, {userDetails.company.longitude}</div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="vehicles" className="space-y-4">

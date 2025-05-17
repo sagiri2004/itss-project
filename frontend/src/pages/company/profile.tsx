@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { Building2, Camera, MapPin, Mail, Phone, Shield, Clock, Trash } from "lucide-react"
 import api from "@/services/api"
+import { useParams } from "react-router-dom"
 
 interface CompanyProfileData {
   id: string
@@ -39,6 +40,7 @@ interface CompanyProfileData {
 
 export default function CompanyProfile() {
   const { user } = useAuth()
+  const { id: paramId } = useParams()
   const { toast } = useToast()
   const [companyData, setCompanyData] = useState<CompanyProfileData | null>(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -47,12 +49,16 @@ export default function CompanyProfile() {
 
   useEffect(() => {
     const fetchCompanyProfile = async () => {
+      const companyId = paramId || user?.companyId
+      if (!companyId) return
       setIsLoading(true)
       try {
-        if (!user?.companyId) throw new Error("Company ID is missing");
-        const response = await api.rescueCompanies.getCompanyById(user.companyId)
-        setCompanyData(response.data)
-        setFormData(response.data)
+        const basicRes = await api.rescueCompanies.getCompanyBasic(companyId)
+        setCompanyData(basicRes.data)
+        setFormData({
+          ...basicRes.data,
+          insuranceInfo: basicRes.data.insuranceInfo || { provider: '', policyNumber: '', expiryDate: '' }
+        })
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -63,8 +69,8 @@ export default function CompanyProfile() {
         setIsLoading(false)
       }
     }
-    if (user?.companyId) fetchCompanyProfile()
-  }, [user, toast])
+    fetchCompanyProfile()
+  }, [user, paramId, toast])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (!formData) return
@@ -227,15 +233,15 @@ export default function CompanyProfile() {
                 <div className="space-y-2">
                   <div>
                     <p className="text-sm font-medium">Provider</p>
-                    <p className="text-sm text-muted-foreground">{formData.insuranceInfo.provider}</p>
+                    <p className="text-sm text-muted-foreground">{formData.insuranceInfo?.provider || ""}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium">Policy Number</p>
-                    <p className="text-sm text-muted-foreground">{formData.insuranceInfo.policyNumber}</p>
+                    <p className="text-sm text-muted-foreground">{formData.insuranceInfo?.policyNumber || ""}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium">Expiry Date</p>
-                    <p className="text-sm text-muted-foreground">{formData.insuranceInfo.expiryDate}</p>
+                    <p className="text-sm text-muted-foreground">{formData.insuranceInfo?.expiryDate || ""}</p>
                   </div>
                 </div>
               ) : (
@@ -245,7 +251,7 @@ export default function CompanyProfile() {
                     <Input
                       id="insuranceProvider"
                       name="insuranceInfo.provider"
-                      value={formData.insuranceInfo.provider}
+                      value={formData.insuranceInfo?.provider || ""}
                       onChange={handleInputChange}
                     />
                   </div>
@@ -254,7 +260,7 @@ export default function CompanyProfile() {
                     <Input
                       id="policyNumber"
                       name="insuranceInfo.policyNumber"
-                      value={formData.insuranceInfo.policyNumber}
+                      value={formData.insuranceInfo?.policyNumber || ""}
                       onChange={handleInputChange}
                     />
                   </div>
@@ -264,7 +270,7 @@ export default function CompanyProfile() {
                       id="expiryDate"
                       name="insuranceInfo.expiryDate"
                       type="date"
-                      value={formData.insuranceInfo.expiryDate}
+                      value={formData.insuranceInfo?.expiryDate || ""}
                       onChange={handleInputChange}
                     />
                   </div>
@@ -387,7 +393,7 @@ export default function CompanyProfile() {
                     <div>
                       <p className="font-medium">Services Offered</p>
                       <div className="flex flex-wrap gap-2 mt-1">
-                        {formData.serviceTypes.map((service, index) => (
+                        {(formData.serviceTypes || []).map((service, index) => (
                           <Badge key={index} variant="outline">
                             {service}
                           </Badge>

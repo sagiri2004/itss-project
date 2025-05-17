@@ -4,6 +4,9 @@ import com.example.backend.dto.request.EmailRequest;
 import com.example.backend.event.NotificationEvent;
 import com.example.backend.kafka.NotificationEventProducer;
 import com.example.backend.service.EmailService;
+import com.example.backend.dto.response.UserResponse;
+import com.example.backend.model.User;
+import com.example.backend.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -30,6 +33,9 @@ public class UserController {
 
 	@Autowired
 	private NotificationEventProducer notificationEventProducer;
+
+	@Autowired
+	private UserRepository userRepository;
 
 	@Operation(summary = "Truy cập vào trang người dùng",
 			description = "API chỉ cho phép người dùng đã xác thực với vai trò USER hoặc ADMIN truy cập",
@@ -98,5 +104,18 @@ public class UserController {
 		log.info("Sending notification: {}", notificationEvent);
 		notificationEventProducer.sendNotificationEvent(notificationEvent);
 		return ResponseEntity.ok("Notification sent successfully");
+	}
+
+	@GetMapping("/{id}")
+	public ResponseEntity<UserResponse> getUserById(@PathVariable String id) {
+		User user = userRepository.findById(id).orElseThrow();
+		UserResponse res = UserResponse.builder()
+			.id(user.getId())
+			.username(user.getUsername())
+			.name(user.getName())
+			.email(user.getEmail())
+			.role(user.getRoles().stream().findFirst().map(Enum::name).orElse(null))
+			.build();
+		return ResponseEntity.ok(res);
 	}
 }

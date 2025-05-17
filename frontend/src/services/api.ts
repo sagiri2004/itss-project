@@ -48,6 +48,7 @@ export const rescueRequestApi = {
 export const rescueCompanyApi = {
   getCompanies: (params?: any) => axios.get(`${API_BASE_URL}/rescue-companies`, { params }),
   getCompanyById: (id: string) => axios.get(`${API_BASE_URL}/rescue-companies/${id}`),
+  getCompanyBasic: (id: string) => axios.get(`${API_BASE_URL}/rescue-companies/basic/${id}`),
   createCompany: (companyData: any) => axios.post(`${API_BASE_URL}/rescue-companies`, companyData),
   updateCompany: (id: string, companyData: any) => axios.put(`${API_BASE_URL}/rescue-companies/${id}`, companyData),
   deleteCompany: (id: string) => axios.delete(`${API_BASE_URL}/rescue-companies/${id}`),

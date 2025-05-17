@@ -111,4 +111,27 @@ public class RescueCompanyController {
 	public ResponseEntity<List<RescueCompanyResponse>> getAll() {
 		return ResponseEntity.ok(rescueCompanyService.getAll());
 	}
+
+	@Operation(summary = "Lấy thông tin căn bản của công ty cứu hộ",
+			description = "API cho phép lấy thông tin căn bản của một công ty cứu hộ theo ID")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Lấy thông tin thành công",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = RescueCompanyResponse.class))),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy công ty")
+	})
+	@GetMapping("/basic/{id}")
+	public ResponseEntity<RescueCompanyResponse> getBasicInfo(@PathVariable String id) {
+		RescueCompanyResponse company = rescueCompanyService.getById(id);
+		RescueCompanyResponse basic = RescueCompanyResponse.builder()
+			.id(company.getId())
+			.name(company.getName())
+			.phone(company.getPhone())
+			.description(company.getDescription())
+			.latitude(company.getLatitude())
+			.longitude(company.getLongitude())
+			.userId(company.getUserId())
+			.build();
+		return ResponseEntity.ok(basic);
+	}
 }
