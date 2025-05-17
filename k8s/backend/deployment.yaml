@@ -2,7 +2,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend
+  name: backend-deployment
+  namespace: default
 spec:
   replicas: 1
   selector:
@@ -15,13 +16,17 @@ spec:
     spec:
       containers:
         - name: backend
-          image: sagiri2k4/backend:latest
-          imagePullPolicy: IfNotPresent
+          image: gcr.io/your-project-id/backend:latest
           ports:
             - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: backend-config
           env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "docker"
             - name: SPRING_DATASOURCE_URL
-              value: "jdbc:mysql://mysql.default.svc.cluster.local:3306/itss_db?createDatabaseIfNotExist=true"
+              value: "jdbc:mysql://mysql:3306/itss_db?createDatabaseIfNotExist=true"
             - name: SPRING_DATASOURCE_USERNAME
               value: "root"
             - name: SPRING_DATASOURCE_PASSWORD
@@ -41,11 +46,26 @@ spec:
             - name: SPRING_MAIL_PASSWORD
               value: "yiuq gvhj bcsg kydv"
             - name: JWT_SIGNER_KEY
-              value: "In this society, only those who work hard, diligently, and tirelessly will earn their share. Only by working can one eat. Those who expect to eat without working will end up eating sh*t."
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: signer-key
           resources:
             requests:
-              cpu: 200m
-              memory: 256Mi
+              cpu: 250m
+              memory: 512Mi
             limits:
               cpu: 500m
-              memory: 512Mi
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /api/v1/auth/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/auth/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 15
