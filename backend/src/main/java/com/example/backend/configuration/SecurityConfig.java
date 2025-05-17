@@ -38,16 +38,20 @@ public class SecurityConfig {
 	@Value("${jwt.signerKey}")
 	private String signerKey;
 
+	@Value("${cors.allowed-origins}")
+	private String[] allowedOrigins;
+
 	@Bean
 	public WebMvcConfigurer corsConfigurer() {
 		return new WebMvcConfigurer() {
 			@Override
 			public void addCorsMappings(CorsRegistry registry) {
-				// Cho phép mọi origin truy cập mọi endpoint
 				registry.addMapping("/**")
-						.allowedOrigins("*") // hoặc chỉ định cụ thể
-						.allowedMethods("*")
-						.allowedHeaders("*");
+						.allowedOrigins(allowedOrigins)
+						.allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+						.allowedHeaders("Content-Type", "Authorization", "Accept")
+						.allowCredentials(true)
+						.maxAge(3600);
 			}
 		};
 	}
@@ -55,7 +59,7 @@ public class SecurityConfig {
 	@Bean
 	public SecurityFilterChain apiSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
 		httpSecurity
-				.cors(cors -> {}) // Bật CORS tại đây
+				.cors(cors -> cors.configure(httpSecurity)) // Configure CORS properly
 				.csrf(AbstractHttpConfigurer::disable)
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(request -> {
