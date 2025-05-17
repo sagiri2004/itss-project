@@ -34,8 +34,9 @@ export function SatisfactionChart({
   const fetchData = async (range: string) => {
     try {
       setLoading(true)
-      const response = await api.reports.getSatisfactionStats({ timeRange: range })
-      setData(response.data)
+      const response = await api.admin.getTopRatedServices({ timeRange: range })
+      // Ensure setData always receives an array
+      setData(Array.isArray(response.data.byTime) ? response.data.byTime : [])
     } catch (error) {
       console.error("Error fetching satisfaction stats:", error)
       toast({
@@ -90,10 +91,10 @@ export function SatisfactionChart({
             type="monotone"
             dataKey="averageRating"
             name="Đánh giá trung bình"
-            stroke="#8884d8"
+            stroke="#3b82f6"
             activeDot={{ r: 8 }}
           />
-          <Line type="monotone" dataKey="totalReviews" name="Số lượng đánh giá" stroke="#82ca9d" />
+          <Line type="monotone" dataKey="totalReviews" name="Số lượng đánh giá" stroke="#f59e0b" />
         </LineChart>
       </ResponsiveContainer>
     )

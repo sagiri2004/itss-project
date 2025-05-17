@@ -30,8 +30,8 @@ export function ServiceUsageChart({ title = "Tần suất sử dụng dịch v�
   const fetchData = async (range: string) => {
     try {
       setLoading(true)
-      const response = await api.reports.getServiceUsageStats({ timeRange: range })
-      setData(response.data)
+      const response = await api.admin.getServiceUsageStats({ timeRange: range })
+      setData(Array.isArray(response.data.byService) ? response.data.byService : [])
     } catch (error) {
       console.error("Error fetching service usage stats:", error)
       toast({
@@ -44,7 +44,7 @@ export function ServiceUsageChart({ title = "Tần suất sử dụng dịch v�
     }
   }
 
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82ca9d", "#ffc658", "#8dd1e1"]
+  const COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#059669", "#f472b6", "#6366f1"]
 
   const renderChart = () => {
     if (loading) {

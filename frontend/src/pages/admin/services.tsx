@@ -28,8 +28,8 @@ interface Service {
   id: string
   name: string
   description: string
-  basePrice: number
-  duration: number
+  basePrice: number | null
+  duration: number | null
   isActive: boolean
   companies: number
   type: string
@@ -120,8 +120,8 @@ export default function AdminServices() {
       setFormData({
         name: service.name,
         description: service.description,
-        basePrice: service.basePrice.toString(),
-        duration: service.duration.toString(),
+        basePrice: service.basePrice?.toString() || "",
+        duration: service.duration?.toString() || "",
         type: service.type
       })
       setCurrentService(service)
@@ -327,8 +327,8 @@ export default function AdminServices() {
                           <div className="font-medium">{service.name}</div>
                           <div className="text-xs text-muted-foreground mt-1">{service.description}</div>
                         </TableCell>
-                        <TableCell>${service.basePrice.toFixed(2)}</TableCell>
-                        <TableCell>{service.duration} minutes</TableCell>
+                        <TableCell>${service.basePrice?.toFixed(2) ?? '0.00'}</TableCell>
+                        <TableCell>{service.duration ?? 0} minutes</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <span>{service.companies}</span>

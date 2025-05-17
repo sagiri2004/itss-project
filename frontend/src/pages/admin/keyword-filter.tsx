@@ -46,7 +46,7 @@ export default function KeywordFilterPage() {
   const fetchKeywords = async () => {
     try {
       setLoading(true)
-      const response = await api.keywords.getKeywords()
+      const response = await api.admin.getKeywords()
       setKeywords(response.data.items)
     } catch (error) {
       console.error("Error fetching keywords:", error)
@@ -71,7 +71,7 @@ export default function KeywordFilterPage() {
     }
 
     try {
-      const response = await api.keywords.addKeyword({ word: newKeyword, severity: "low" })
+      const response = await api.admin.addKeyword({ word: newKeyword, severity: "low" })
       setKeywords([...keywords, response.data])
       setNewKeyword("")
       setIsAddDialogOpen(false)
@@ -91,7 +91,7 @@ export default function KeywordFilterPage() {
 
   const handleDeleteKeyword = async (id: string) => {
     try {
-      await api.keywords.deleteKeyword(id)
+      await api.admin.deleteKeyword(id)
       setKeywords(keywords.filter((keyword) => keyword.id !== id))
       toast({
         title: "Thành công",

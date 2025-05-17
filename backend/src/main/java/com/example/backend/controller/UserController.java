@@ -56,7 +56,7 @@ public class UserController {
 			@ApiResponse(responseCode = "403", description = "Không có quyền truy cập")
 	})
 	@GetMapping("/admin")
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasAuthority('ADMIN')")
 	public String adminAccess() {
 		return "Welcome, Admin!";
 	}

@@ -36,8 +36,8 @@ export function RequestChart({
   const fetchData = async (range: string) => {
     try {
       setLoading(true)
-      const response = await api.reports.getRequestStats({ timeRange: range, groupByStatus: showStatus })
-      setData(response.data)
+      const response = await api.admin.getRequestStats({ timeRange: range, groupByStatus: showStatus })
+      setData(Array.isArray(response.data.byTime) ? response.data.byTime : [])
     } catch (error) {
       console.error("Error fetching request stats:", error)
       toast({

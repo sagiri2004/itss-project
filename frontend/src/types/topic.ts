@@ -10,6 +10,7 @@ export interface Topic {
   updatedAt: string
   commentCount: number
   viewCount: number
+  category: string
 }
 
 export interface TopicComment {

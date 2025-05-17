@@ -61,7 +61,7 @@ export default function AdminVehicles() {
     const fetchVehicles = async () => {
       setIsLoading(true)
       try {
-        const response = await api.rescueVehicles.getVehicles()
+        const response = await api.admin.getVehicles()
         
         // Map response data to our interface
         const mappedVehicles: Vehicle[] = response.data.map((v: any) => ({
@@ -158,7 +158,7 @@ export default function AdminVehicles() {
   }
 
   // Flag vehicles with upcoming maintenance (within next 7 days)
-  const isMaintenanceSoon = (dateStr: string) => {
+  const isMaintenanceSoon = (dateStr?: string) => {
     if (!dateStr) return false
     const maintenanceDate = new Date(dateStr)
     const today = new Date()

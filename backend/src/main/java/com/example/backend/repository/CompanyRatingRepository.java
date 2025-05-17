@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,4 +53,7 @@ public interface CompanyRatingRepository extends JpaRepository<CompanyRating, St
 
     @Query("SELECT s FROM RescueService s WHERE s.company = ?1 AND NOT EXISTS (SELECT r FROM CompanyRating r WHERE r.service = s)")
     List<RescueService> findUnreviewedServicesByCompany(RescueCompany company);
+
+    List<CompanyRating> findByCreatedAtAfter(LocalDateTime date);
+    List<CompanyRating> findByCommentContainingIgnoreCase(String keyword);
 }

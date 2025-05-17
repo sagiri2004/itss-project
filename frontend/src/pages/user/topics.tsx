@@ -7,8 +7,8 @@ import {
   FiTrash2,
   FiMessageCircle,
   FiX,
+  FiFlag,
 } from "react-icons/fi";
-import DashboardLayout from "@/layouts/dashboard-layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,15 +17,18 @@ import { useAuth } from "@/context/auth-context";
 import api from "@/services/api";
 import { useToast } from "@/components/ui/use-toast";
 
-const SORT_OPTIONS = {
-  NEWEST: "newest",
-  OLDEST: "oldest",
-  MOST_COMMENTS: "mostCommented",
-};
+const CATEGORIES = [
+  { label: "Tất cả", value: "all" },
+  { label: "Máy", value: "engine" },
+  { label: "Điện", value: "electrical" },
+  { label: "Lốp", value: "tire" },
+  { label: "Khác", value: "other" },
+];
 
 type NewTopic = {
   title: string;
   content: string;
+  category: string;
   imageUrl?: string;
 };
 
@@ -45,86 +48,141 @@ const CommunityTopics: React.FC = () => {
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [comments, setComments] = useState<TopicComment[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [category, setCategory] = useState<string>("all");
   const [newComment, setNewComment] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newTopic, setNewTopic] = useState<NewTopic>({
     title: "",
     content: "",
+    category: "engine",
     imageUrl: "",
   });
-  const [sortBy, setSortBy] = useState<string>(SORT_OPTIONS.NEWEST);
   const [loading, setLoading] = useState(false);
   const [commentLoading, setCommentLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reportModal, setReportModal] = useState<{
+    open: boolean;
+    type: 'topic' | 'comment' | null;
+    topicId?: string;
+    commentId?: string;
+  }>({ open: false, type: null });
+  const [reportReason, setReportReason] = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
 
-  // Fetch topics
+  // Debounce search input
   useEffect(() => {
-    const fetchTopics = async () => {
-      setLoading(true);
-      try {
-        const params: any = {
-          search: searchQuery,
-          sortBy,
-        };
-        const res = await api.topics.getTopics(params);
-        setTopics(res.data.items || res.data || []);
-      } catch (e) {
-        setTopics([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Fetch topics with loading state
+  const fetchTopics = async () => {
+    setLoading(true);
+    try {
+      const params: any = {
+        search: debouncedSearch,
+        category: category !== "all" ? category : undefined,
+      };
+      const res = await api.topics.getTopics(params);
+      setTopics(res.data.items || res.data || []);
+    } catch (e) {
+      setTopics([]);
+      toast({ title: "Không thể tải danh sách bài viết.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch comments with loading state
+  const fetchComments = async (topicId: string) => {
+    setCommentLoading(true);
+    try {
+      const res = await api.topics.getComments(topicId);
+      setComments(res.data.items || res.data || []);
+    } catch (e) {
+      setComments([]);
+      toast({ title: "Không thể tải bình luận.", variant: "destructive" });
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  // Initial fetch
+  useEffect(() => {
     fetchTopics();
-  }, [searchQuery, sortBy]);
+  }, [debouncedSearch, category]);
 
-  // Fetch comments for selected topic
+  // Fetch comments when topic is selected
   useEffect(() => {
-    if (!selectedTopic) return;
-    const fetchComments = async () => {
-      setCommentLoading(true);
-      try {
-        const res = await api.topics.getComments(selectedTopic.id);
-        setComments(res.data.items || res.data || []);
-      } catch (e) {
-        setComments([]);
-      } finally {
-        setCommentLoading(false);
-      }
-    };
-    fetchComments();
+    if (selectedTopic) {
+      fetchComments(selectedTopic.id);
+    }
   }, [selectedTopic]);
 
   const handleAddComment = async (topicId: string) => {
     if (!user) {
-      alert("Bạn cần đăng nhập để bình luận.");
+      toast({ title: "Bạn cần đăng nhập để bình luận.", variant: "destructive" });
       return;
     }
     if (!newComment.trim()) {
-      alert("Vui lòng nhập nội dung bình luận");
+      toast({ title: "Vui lòng nhập nội dung bình luận", variant: "destructive" });
       return;
     }
+    setCommentLoading(true);
+    let res;
     try {
-      setCommentLoading(true);
-      await api.topics.addComment(topicId, { content: newComment.trim() });
-      setNewComment("");
-      // Refresh comments
-      const res = await api.topics.getComments(topicId);
-      setComments(res.data.items || res.data || []);
-    } catch (e) {
-      alert("Không thể gửi bình luận. Vui lòng thử lại.");
-    } finally {
+      res = await api.topics.addComment(topicId, { content: newComment.trim() });
+    } catch (e: any) {
+      let msg = "Không thể gửi bình luận. Vui lòng thử lại.";
+      if (e?.response?.data?.message) {
+        msg = e.response.data.message;
+      }
+      toast({ title: msg, variant: "destructive" });
       setCommentLoading(false);
+      return;
     }
+    if (!res || !res.data) {
+      toast({ title: "Không thể gửi bình luận. Vui lòng thử lại.", variant: "destructive" });
+      setCommentLoading(false);
+      return;
+    }
+    setNewComment("");
+    setComments(prev => [...prev, res.data]);
+    setTopics(prevTopics =>
+      prevTopics.map(topic =>
+        topic.id === topicId
+          ? { ...topic, commentCount: topic.commentCount + 1 }
+          : topic
+      )
+    );
+    if (selectedTopic) {
+      setSelectedTopic({ ...selectedTopic, commentCount: selectedTopic.commentCount + 1 });
+    }
+    setCommentLoading(false);
   };
 
   const handleDeleteComment = async (topicId: string, commentId: string) => {
     try {
       setCommentLoading(true);
       await api.topics.deleteComment(topicId, commentId);
-      // Refresh comments
-      const res = await api.topics.getComments(topicId);
-      setComments(res.data.items || res.data || []);
+      // Remove comment from state (avoid reload all)
+      setComments(prev => prev.filter(c => c.id !== commentId));
+      // Update topic comment count in the list and detail
+      setTopics(prevTopics =>
+        prevTopics.map(topic =>
+          topic.id === topicId
+            ? { ...topic, commentCount: Math.max(0, topic.commentCount - 1) }
+            : topic
+        )
+      );
+      if (selectedTopic) {
+        setSelectedTopic({ ...selectedTopic, commentCount: Math.max(0, selectedTopic.commentCount - 1) });
+      }
     } catch (e) {
-      alert("Không thể xóa bình luận.");
+      toast({ title: "Không thể xóa bình luận.", variant: "destructive" });
     } finally {
       setCommentLoading(false);
     }
@@ -138,33 +196,46 @@ const CommunityTopics: React.FC = () => {
         await api.topics.deleteTopic(id);
         setTopics(topics.filter((topic) => topic.id !== id));
         if (selectedTopic?.id === id) setSelectedTopic(null);
+        toast({ title: "Đã xóa bài viết thành công." });
       } catch (e) {
-        alert("Không thể xóa chủ đề.");
+        toast({ title: "Không thể xóa bài viết.", variant: "destructive" });
       }
     } else {
-      alert("Bạn không có quyền xóa chủ đề này");
+      toast({ title: "Bạn không có quyền xóa bài viết này", variant: "destructive" });
     }
   };
 
   const handleCreateTopic = async () => {
     if (!user) {
-      alert("Bạn cần đăng nhập để tạo chủ đề.");
+      toast({ title: "Bạn cần đăng nhập để tạo chủ đề.", variant: "destructive" });
       return;
     }
-    if (!newTopic.title.trim() || !newTopic.content.trim()) return;
+    if (!newTopic.title.trim() || !newTopic.content.trim()) {
+      toast({ title: "Vui lòng điền đầy đủ thông tin.", variant: "destructive" });
+      return;
+    }
     try {
+      setIsSubmitting(true);
       const formData = new FormData();
-      formData.append("title", newTopic.title);
-      formData.append("content", newTopic.content);
-      if (newTopic.imageUrl) formData.append("imageUrl", newTopic.imageUrl);
-      await api.topics.createTopic(formData);
+      formData.append("title", newTopic.title.trim());
+      formData.append("content", newTopic.content.trim());
+      formData.append("category", newTopic.category);
+      if (newTopic.imageUrl) {
+        formData.append("imageUrl", newTopic.imageUrl);
+      }
+      const response = await api.topics.createTopic(formData);
       setIsCreateModalOpen(false);
-      setNewTopic({ title: "", content: "", imageUrl: "" });
-      // Refresh topics
-      const res = await api.topics.getTopics({ search: searchQuery, sortBy });
-      setTopics(res.data.items || res.data || []);
-    } catch (e) {
-      alert("Không thể tạo chủ đề mới.");
+      setNewTopic({ title: "", content: "", category: "engine", imageUrl: "" });
+      setTopics(prevTopics => [response.data, ...prevTopics]);
+      toast({ title: "Đăng bài viết thành công!" });
+    } catch (e: any) {
+      let msg = "Không thể tạo bài viết mới.";
+      if (e?.response?.data?.message) {
+        msg = e.response.data.message;
+      }
+      toast({ title: msg, variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -172,346 +243,447 @@ const CommunityTopics: React.FC = () => {
     return user?.role === "admin" || topic.userId === user?.id;
   };
 
-  // Sort topics client-side if needed (for demo, but should be sorted by API)
-  const getSortedTopics = (topicsToSort: Topic[]): Topic[] => {
-    if (sortBy === SORT_OPTIONS.MOST_COMMENTS) {
-      return [...topicsToSort].sort((a, b) => b.commentCount - a.commentCount);
-    }
-    return topicsToSort;
+  // Report topic (open modal)
+  const handleReportTopic = (topicId: string) => {
+    setReportModal({ open: true, type: 'topic', topicId });
+    setReportReason("");
   };
 
-  const filteredAndSortedTopics = getSortedTopics(
-    topics.filter((topic) =>
-      topic.title.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  );
-
-  // Report topic
-  const handleReportTopic = async (topicId: string) => {
-    const reason = window.prompt("Nhập lý do báo cáo chủ đề này:");
-    if (!reason || !reason.trim()) return;
-    try {
-      await api.topics.reportTopic(topicId, reason.trim());
-      toast({ title: "Đã gửi báo cáo chủ đề." });
-    } catch {
-      toast({ title: "Không thể gửi báo cáo.", variant: "destructive" });
-    }
+  // Report comment (open modal)
+  const handleReportComment = (topicId: string, commentId: string) => {
+    setReportModal({ open: true, type: 'comment', topicId, commentId });
+    setReportReason("");
   };
 
-  // Report comment
-  const handleReportComment = async (topicId: string, commentId: string) => {
-    const reason = window.prompt("Nhập lý do báo cáo bình luận này:");
-    if (!reason || !reason.trim()) return;
+  // Submit report
+  const handleSubmitReport = async () => {
+    if (!reportReason.trim()) {
+      toast({ title: "Vui lòng nhập lý do báo cáo", variant: "destructive" });
+      return;
+    }
+    setReportLoading(true);
     try {
-      await api.topics.reportComment(topicId, commentId, reason.trim());
-      toast({ title: "Đã gửi báo cáo bình luận." });
+      if (reportModal.type === 'topic' && reportModal.topicId) {
+        await api.report.createReport({ type: 'TOPIC', targetId: reportModal.topicId, reason: reportReason.trim() });
+        toast({ title: "Đã gửi báo cáo chủ đề." });
+      } else if (reportModal.type === 'comment' && reportModal.commentId) {
+        await api.report.createReport({ type: 'COMMENT', targetId: reportModal.commentId, reason: reportReason.trim() });
+        toast({ title: "Đã gửi báo cáo bình luận." });
+      }
+      setReportModal({ open: false, type: null });
+      setReportReason("");
     } catch {
       toast({ title: "Không thể gửi báo cáo.", variant: "destructive" });
+    } finally {
+      setReportLoading(false);
     }
   };
 
   return (
-    <DashboardLayout role="user">
-      <div className="container mx-auto p-4 min-h-screen bg-[#1e1e2f] text-white">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Community Topics</h1>
+    <div className="w-full h-full p-0 space-y-6">
+      {/* Category filter with improved styling */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {CATEGORIES.map((cat) => (
           <Button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700"
+            key={cat.value}
+            variant={category === cat.value ? "default" : "outline"}
+            className={`capitalize transition-all duration-200 ${
+              category === cat.value ? "shadow-md" : "hover:shadow-sm"
+            }`}
+            onClick={() => setCategory(cat.value)}
           >
-            <FiPlusCircle className="text-xl" /> New Topic
+            {cat.label}
           </Button>
+        ))}
+      </div>
+
+      {/* Search and Ask with improved styling */}
+      <div className="flex flex-col md:flex-row gap-4 mb-8 items-center">
+        <div className="relative flex-1 w-full">
+          <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Tìm kiếm bài viết..."
+            className="w-full bg-input text-foreground pl-10 pr-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search topics by title..."
-              className="w-full bg-[#252543] text-white pl-10 pr-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="bg-[#252543] text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-          >
-            <option value={SORT_OPTIONS.NEWEST}>Newest First</option>
-            <option value={SORT_OPTIONS.OLDEST}>Oldest First</option>
-            <option value={SORT_OPTIONS.MOST_COMMENTS}>Most Comments</option>
-          </select>
+        <Button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="flex items-center gap-2 bg-primary hover:bg-primary/90 transition-all duration-200 shadow-md hover:shadow-lg"
+        >
+          <FiPlusCircle className="text-xl" /> Đặt câu hỏi
+        </Button>
+      </div>
+
+      {/* Loading state */}
+      {loading && (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
-        <div className="grid gap-6">
-          {selectedTopic ? (
-            <Card className="bg-[#252543] rounded-lg p-6 space-y-6">
-              <Button
-                variant="ghost"
-                onClick={() => setSelectedTopic(null)}
-                className="text-gray-400 hover:text-white mb-4"
-              >
-                ← Back to Topics
-              </Button>
-              <div className="flex justify-between items-start">
-                <h2 className="text-2xl font-bold">{selectedTopic.title}</h2>
-                <div className="flex gap-2">
-                  {canDeleteTopic(selectedTopic) && (
-                    <Button
-                      variant="destructive"
-                      onClick={() => handleDeleteTopic(selectedTopic.id)}
-                      className="p-2"
-                    >
-                      <FiTrash2 />
-                    </Button>
-                  )}
+      )}
+
+      {/* List or Detail with improved styling */}
+      <div className="grid gap-6">
+        {selectedTopic ? (
+          <Card className="bg-card rounded-lg p-6 space-y-6 shadow-lg">
+            <Button
+              variant="ghost"
+              onClick={() => setSelectedTopic(null)}
+              className="text-muted-foreground hover:text-foreground mb-4 transition-colors"
+            >
+              ← Quay lại danh sách
+            </Button>
+            <div className="flex justify-between items-start">
+              <h2 className="text-2xl font-bold">{selectedTopic.title}</h2>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => handleReportTopic(selectedTopic.id)}
+                  className="p-2 hover:bg-destructive/10 transition-colors"
+                  title="Báo cáo bài viết"
+                >
+                  <FiFlag className="mr-1" /> Báo cáo
+                </Button>
+                {canDeleteTopic(selectedTopic) && (
                   <Button
-                    variant="outline"
-                    onClick={() => handleReportTopic(selectedTopic.id)}
-                    className="p-2"
+                    variant="destructive"
+                    onClick={() => handleDeleteTopic(selectedTopic.id)}
+                    className="p-2 transition-colors"
                   >
-                    Báo cáo
+                    <FiTrash2 />
                   </Button>
-                </div>
+                )}
               </div>
-              <p className="text-gray-300">{selectedTopic.content}</p>
-              <div className="text-sm text-gray-400">
-                Posted by {selectedTopic.userName} on{" "}
-                {new Date(selectedTopic.createdAt).toLocaleDateString()}
-              </div>
-              <div className="mt-8">
-                <h3 className="text-xl font-bold mb-4">
-                  Comments ({selectedTopic.commentCount})
-                </h3>
-                <div className="space-y-4 mb-6">
-                  {selectedTopic.commentCount === 0 ? (
-                    <p className="text-gray-400 italic">
-                      No comments yet. Be the first to comment!
-                    </p>
-                  ) : (
-                    comments.map((comment) => (
-                      <div
-                        key={comment.id}
-                        className="bg-[#1e1e2f] p-4 rounded-lg transition-all hover:bg-[#2a2a4a]"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage
-                                src={
-                                  comment.userAvatar ||
-                                  `https://source.unsplash.com/random/40x40?sig=${comment.id}`
-                                }
-                                alt={comment.userName}
-                              />
-                              <AvatarFallback>
-                                {getInitials(comment.userName)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="font-bold text-indigo-400 ml-2">
+            </div>
+            <div className="flex gap-2 items-center text-sm text-muted-foreground mb-2">
+              <span className="capitalize px-2 py-1 rounded bg-muted">{selectedTopic.category || "Khác"}</span>
+              <span>Đăng bởi {selectedTopic.userName}</span>
+              <span>{new Date(selectedTopic.createdAt).toLocaleDateString()}</span>
+            </div>
+            <p className="text-foreground whitespace-pre-line">{selectedTopic.content}</p>
+            <div className="mt-8">
+              <h3 className="text-xl font-bold mb-4">
+                Bình luận ({selectedTopic.commentCount})
+              </h3>
+              <div className="space-y-4 mb-6 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+                {commentLoading ? (
+                  <div className="flex justify-center items-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  </div>
+                ) : selectedTopic.commentCount === 0 ? (
+                  <p className="text-muted-foreground italic">
+                    Chưa có bình luận nào. Hãy là người đầu tiên bình luận!
+                  </p>
+                ) : (
+                  comments.map((comment) => (
+                    <div
+                      key={comment.id}
+                      className="bg-muted p-4 rounded-lg transition-all hover:bg-accent"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage
+                              src={
+                                comment.userAvatar ||
+                                `https://source.unsplash.com/random/40x40?sig=${comment.id}`
+                              }
+                              alt={comment.userName}
+                            />
+                            <AvatarFallback>
+                              {getInitials(comment.userName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="ml-2">
+                            <span className="font-bold text-primary">
                               {comment.userName}
                             </span>
-                            <span className="text-sm text-gray-400 ml-2">
-                              {new Date(comment.createdAt).toLocaleDateString()}{" "}
-                              at{" "}
-                              {new Date(comment.createdAt).toLocaleTimeString()}
+                            <span className="text-sm text-muted-foreground ml-2">
+                              {new Date(comment.createdAt).toLocaleDateString()} at {new Date(comment.createdAt).toLocaleTimeString()}
                             </span>
                           </div>
-                          <div className="flex gap-2">
-                            {(user?.role === "admin" ||
-                              comment.userId === user?.id) && (
-                              <Button
-                                variant="destructive"
-                                size="icon"
-                                onClick={() =>
-                                  handleDeleteComment(
-                                    selectedTopic.id,
-                                    comment.id
-                                  )
-                                }
-                                className="p-1 rounded-full hover:bg-red-500/10 transition-colors"
-                              >
-                                <FiTrash2 size={16} />
-                              </Button>
-                            )}
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() =>
-                                handleReportComment(
-                                  selectedTopic.id,
-                                  comment.id
-                                )
-                              }
-                              className="p-1 rounded-full"
-                            >
-                              Báo cáo
-                            </Button>
-                          </div>
                         </div>
-                        <p className="mt-2 text-gray-300">{comment.content}</p>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleReportComment(selectedTopic.id, comment.id)}
+                            className="p-1 rounded-full hover:bg-destructive/10 transition-colors"
+                            title="Báo cáo bình luận"
+                          >
+                            <FiFlag />
+                          </Button>
+                          {(user?.role === "admin" || comment.userId === user?.id) && (
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              onClick={() => handleDeleteComment(selectedTopic.id, comment.id)}
+                              className="p-1 rounded-full hover:bg-destructive/10 transition-colors"
+                            >
+                              <FiTrash2 size={16} />
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    ))
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Write your thoughts..."
-                    className="flex-1 bg-[#1e1e2f] p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-gray-500 text-white transition-all duration-200 hover:bg-[#252543]"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    onKeyPress={(e) =>
-                      e.key === "Enter" &&
-                      newComment.trim() &&
-                      handleAddComment(selectedTopic.id)
-                    }
-                  />
-                  <Button
-                    onClick={() => handleAddComment(selectedTopic.id)}
-                    className="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!newComment.trim()}
-                  >
-                    <FiMessageCircle /> Post
-                  </Button>
-                </div>
+                      <p className="mt-2 text-foreground">{comment.content}</p>
+                    </div>
+                  ))
+                )}
               </div>
-            </Card>
-          ) : (
-            filteredAndSortedTopics.map((topic) => (
-              <Card
-                key={topic.id}
-                className="bg-[#252543] rounded-lg p-6 hover:bg-[#2a2a4a] transition-colors cursor-pointer"
-              >
-                <div className="flex justify-between items-start">
-                  <h2 className="text-xl font-bold truncate">{topic.title}</h2>
-                  {canDeleteTopic(topic) && (
-                    <Button
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteTopic(topic.id);
-                      }}
-                      className="text-red-500 hover:text-red-600 p-2"
-                    >
-                      <FiTrash2 />
-                    </Button>
-                  )}
-                </div>
-                <p className="text-gray-300 mt-2 line-clamp-2">
-                  {topic.content}
-                </p>
-                <div className="flex justify-between items-center mt-4">
-                  <div className="text-sm text-gray-400">
-                    Posted by {topic.userName} on{" "}
-                    {new Date(topic.createdAt).toLocaleDateString()}
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage
-                        src={
-                          topic.userAvatar ||
-                          `https://source.unsplash.com/random/40x40?sig=${topic.id}`
-                        }
-                        alt={topic.userName}
-                      />
-                      <AvatarFallback>
-                        {getInitials(topic.userName)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="flex items-center gap-1 text-gray-400">
-                      <FiMessageCircle />
-                      {topic.commentCount}
-                    </span>
-                    <Button
-                      onClick={() => setSelectedTopic(topic)}
-                      className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition-colors"
-                    >
-                      View Details
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))
-          )}
-        </div>
-        {/* Create Topic Modal */}
-        {isCreateModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <Card className="bg-[#252543] rounded-lg p-6 w-full max-w-2xl">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">Create New Topic</h2>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Viết bình luận..."
+                  className="flex-1 bg-input p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder-muted-foreground text-foreground transition-all duration-200 hover:bg-muted"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyPress={(e) =>
+                    e.key === "Enter" &&
+                    newComment.trim() &&
+                    handleAddComment(selectedTopic.id)
+                  }
+                />
                 <Button
-                  variant="ghost"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="text-gray-400 hover:text-white"
+                  onClick={() => handleAddComment(selectedTopic.id)}
+                  className="bg-primary hover:bg-primary/90 px-6 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!newComment.trim() || commentLoading}
                 >
-                  <FiX className="text-2xl" />
+                  {commentLoading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <FiMessageCircle />
+                  )}{" "}
+                  Gửi
                 </Button>
               </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Title
-                  </label>
-                  <input
-                    type="text"
-                    value={newTopic.title}
-                    onChange={(e) =>
-                      setNewTopic({ ...newTopic, title: e.target.value })
-                    }
-                    className="w-full bg-[#1e1e2f] p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Enter topic title"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Content
-                  </label>
-                  <textarea
-                    value={newTopic.content}
-                    onChange={(e) =>
-                      setNewTopic({ ...newTopic, content: e.target.value })
-                    }
-                    className="w-full bg-[#1e1e2f] p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[200px]"
-                    placeholder="Enter topic content"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Image URL (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={newTopic.imageUrl}
-                    onChange={(e) =>
-                      setNewTopic({ ...newTopic, imageUrl: e.target.value })
-                    }
-                    className="w-full bg-[#1e1e2f] p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Enter image URL"
-                  />
-                </div>
-                <div className="flex justify-end gap-4 mt-6">
-                  <Button
-                    onClick={() => setIsCreateModalOpen(false)}
-                    className="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-700 transition-colors"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleCreateTopic}
-                    className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 transition-colors"
-                  >
-                    Create Topic
-                  </Button>
-                </div>
-              </div>
-            </Card>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2">
+            {topics.length === 0 ? (
+              <p className="text-muted-foreground italic col-span-2 text-center py-8">
+                Không có bài viết nào.
+              </p>
+            ) : (
+              topics.map((topic) => (
+                <Card
+                  key={topic.id}
+                  className="bg-card rounded-lg p-6 hover:bg-muted transition-all duration-200 cursor-pointer shadow-md hover:shadow-lg"
+                  onClick={() => setSelectedTopic(topic)}
+                >
+                  <div className="flex justify-between items-start">
+                    <h2 className="text-xl font-bold truncate">{topic.title}</h2>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReportTopic(topic.id);
+                        }}
+                        className="p-2 hover:bg-destructive/10 transition-colors"
+                        title="Báo cáo bài viết"
+                      >
+                        <FiFlag />
+                      </Button>
+                      {canDeleteTopic(topic) && (
+                        <Button
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteTopic(topic.id);
+                          }}
+                          className="text-destructive hover:text-destructive/80 p-2 transition-colors"
+                        >
+                          <FiTrash2 />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 items-center text-sm text-muted-foreground mb-2 mt-2">
+                    <span className="capitalize px-2 py-1 rounded bg-muted">{topic.category || "Khác"}</span>
+                    <span>Đăng bởi {topic.userName}</span>
+                    <span>{new Date(topic.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <p className="text-muted-foreground mt-2 line-clamp-2">
+                    {topic.content}
+                  </p>
+                  <div className="flex justify-between items-center mt-4">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage
+                          src={
+                            topic.userAvatar ||
+                            `https://source.unsplash.com/random/40x40?sig=${topic.id}`
+                          }
+                          alt={topic.userName}
+                        />
+                        <AvatarFallback>
+                          {getInitials(topic.userName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <FiMessageCircle />
+                        {topic.commentCount}
+                      </span>
+                    </div>
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedTopic(topic);
+                      }}
+                      className="bg-primary hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors"
+                    >
+                      Xem chi tiết
+                    </Button>
+                  </div>
+                </Card>
+              ))
+            )}
           </div>
         )}
       </div>
-    </DashboardLayout>
+
+      {/* Create Topic Modal with improved styling */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <Card className="bg-card rounded-lg p-6 w-full max-w-2xl shadow-xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Đặt câu hỏi mới</h2>
+              <Button
+                variant="ghost"
+                onClick={() => setIsCreateModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <FiX className="text-2xl" />
+              </Button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Chủ đề
+                </label>
+                <select
+                  value={newTopic.category}
+                  onChange={(e) => setNewTopic({ ...newTopic, category: e.target.value })}
+                  className="w-full bg-input p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground transition-all duration-200"
+                >
+                  {CATEGORIES.filter((c) => c.value !== "all").map((cat) => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Tiêu đề
+                </label>
+                <input
+                  type="text"
+                  value={newTopic.title}
+                  onChange={(e) =>
+                    setNewTopic({ ...newTopic, title: e.target.value })
+                  }
+                  className="w-full bg-input p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground transition-all duration-200"
+                  placeholder="Nhập tiêu đề câu hỏi"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Nội dung
+                </label>
+                <textarea
+                  value={newTopic.content}
+                  onChange={(e) =>
+                    setNewTopic({ ...newTopic, content: e.target.value })
+                  }
+                  className="w-full bg-input p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary min-h-[120px] text-foreground transition-all duration-200"
+                  placeholder="Nhập nội dung câu hỏi"
+                />
+              </div>
+              <div className="flex justify-end gap-4 mt-6">
+                <Button
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={handleCreateTopic}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 transition-colors flex items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : null}
+                  Đăng câu hỏi
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Report Modal */}
+      {reportModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="bg-card rounded-lg p-6 w-full max-w-md shadow-xl">
+            <h2 className="text-xl font-bold mb-4">Báo cáo {reportModal.type === 'topic' ? 'bài viết' : 'bình luận'}</h2>
+            <textarea
+              className="w-full bg-input p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] text-foreground mb-4"
+              placeholder="Nhập lý do báo cáo..."
+              value={reportReason}
+              onChange={e => setReportReason(e.target.value)}
+              disabled={reportLoading}
+            />
+            <div className="flex justify-end gap-4">
+              <Button
+                variant="ghost"
+                onClick={() => setReportModal({ open: false, type: null })}
+                className="px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                disabled={reportLoading}
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={handleSubmitReport}
+                disabled={reportLoading || !reportReason.trim()}
+                className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 transition-colors flex items-center gap-2"
+              >
+                {reportLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : null}
+                Gửi báo cáo
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
   );
 };
 
 export default CommunityTopics;
+
+// Add custom scrollbar style directly using a React fragment
+// Place this after the component export
+export function TopicsCustomScrollbarStyle() {
+  return (
+    <style>{`
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #444;
+        border-radius: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: #444 transparent;
+      }
+    `}</style>
+  );
+}

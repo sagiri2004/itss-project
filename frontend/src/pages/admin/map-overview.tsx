@@ -79,27 +79,27 @@ export default function MapOverview() {
       try {
         // Admin can access all data
         const [vehiclesRes, requestsRes] = await Promise.all([
-          api.rescueVehicles.getVehicles(),
-          api.rescueRequests.getRequests()
+          api.admin.getVehicles(),
+          api.admin.getRequests()
         ])
 
-        // Map vehicles
+        // Map vehicles từ RescueVehicleResponse
         const mappedVehicles: Vehicle[] = vehiclesRes.data.map((v: any) => ({
           id: v.id,
-          name: v.name || v.plate,
-          type: v.type,
+          name: v.name,
+          type: v.model || v.type || "",
           company: {
-            id: v.company?.id || v.companyId,
-            name: v.company?.name || v.companyName
+            id: v.companyId,
+            name: v.companyName
           },
           location: {
-            coordinates: v.location?.coordinates || [v.latitude, v.longitude],
-            lastUpdated: v.location?.lastUpdated || v.lastUpdated || v.updatedAt
+            coordinates: [v.currentLatitude, v.currentLongitude],
+            lastUpdated: v.updatedAt || v.lastMaintenanceDate || ""
           },
-          status: v.status
+          status: v.status,
         }))
 
-        // Map requests
+        // Map requests (giữ nguyên nếu backend không đổi)
         const mappedRequests: Request[] = requestsRes.data.map((r: any) => ({
           id: r.id,
           serviceType: r.serviceType || r.service,
@@ -152,13 +152,41 @@ export default function MapOverview() {
     setIsLoading(true)
     try {
       const [vehiclesRes, requestsRes] = await Promise.all([
-        api.rescueVehicles.getVehicles(),
-        api.rescueRequests.getRequests()
+        api.admin.getVehicles(),
+        api.admin.getRequests()
       ])
-
-      // Map data using same mapping logic as in useEffect
-      // ... (same mapping code)
-
+      // Map lại dữ liệu như fetchData
+      const mappedVehicles: Vehicle[] = vehiclesRes.data.map((v: any) => ({
+        id: v.id,
+        name: v.name,
+        type: v.model || v.type || "",
+        company: {
+          id: v.companyId,
+          name: v.companyName
+        },
+        location: {
+          coordinates: [v.currentLatitude, v.currentLongitude],
+          lastUpdated: v.updatedAt || v.lastMaintenanceDate || ""
+        },
+        status: v.status,
+      }))
+      const mappedRequests: Request[] = requestsRes.data.map((r: any) => ({
+        id: r.id,
+        serviceType: r.serviceType || r.service,
+        customerName: r.customerName || r.userName,
+        status: r.status,
+        location: {
+          coordinates: r.location?.coordinates || [r.latitude, r.longitude],
+          address: r.location?.address || r.address
+        },
+        company: r.company ? {
+          id: r.company.id,
+          name: r.company.name
+        } : undefined,
+        createdAt: r.createdAt || r.date
+      }))
+      setVehicles(mappedVehicles)
+      setRequests(mappedRequests)
       toast({
         title: "Data refreshed",
         description: "Map data has been updated."

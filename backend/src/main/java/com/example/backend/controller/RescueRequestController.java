@@ -20,6 +20,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -46,7 +48,6 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện")
 	})
 	@PostMapping
-	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<RescueRequestResponse> createRequest(
 			@Valid @RequestBody RescueRequestCreateRequest request,
 			@RequestHeader("Authorization") String authHeader
@@ -68,12 +69,15 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện")
 	})
 	@GetMapping("/user")
-	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<List<RescueRequestResponse>> getUserRequests(
 			@Parameter(description = "Token xác thực", required = true)
 			@RequestHeader("Authorization") String authHeader
 	) {
 		logger.info("Getting user requests");
+		org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+		logger.info("Authorities: {}", authentication.getAuthorities());
+		logger.info("Principal: {}", authentication.getPrincipal());
+		logger.info("Details: {}", authentication.getDetails());
 		String token = jwtUtil.extractTokenFromHeader(authHeader);
 		String userId = jwtUtil.extractUserId(token);
 		return ResponseEntity.ok(rescueRequestService.getUserRequests(userId));
@@ -90,13 +94,19 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "403", description = "Không có quyền thực hiện")
 	})
 	@GetMapping("/company")
-	@PreAuthorize("hasRole('COMPANY')")
 	public ResponseEntity<List<RescueRequestResponse>> getRequestsForCompany(
 			@Parameter(description = "Token xác thực", required = true)
 			@RequestHeader("Authorization") String token,
 			@Parameter(description = "Trạng thái yêu cầu cứu hộ cần lọc", required = false)
 			@RequestParam(value = "status", required = false) RescueRequestStatus status
 	) {
+		    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication != null) {
+        System.out.println("[RescueRequestController] Principal: " + authentication.getPrincipal());
+        System.out.println("[RescueRequestController] Authorities: " + authentication.getAuthorities());
+    } else {
+        System.out.println("[RescueRequestController] No authentication present");
+    }
 		return ResponseEntity.ok(rescueRequestService.getRequestsForCompany(token, status));
 	}
 
@@ -113,7 +123,6 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
 	})
 	@PutMapping("/{id}/accept")
-	@PreAuthorize("hasRole('COMPANY')")
 	public ResponseEntity<RescueRequestResponse> acceptRequest(
 			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
@@ -135,7 +144,6 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
 	})
 	@PutMapping("/{id}/cancel-by-user")
-	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<RescueRequestResponse> cancelByUser(
 			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
@@ -157,7 +165,6 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
 	})
 	@PutMapping("/{id}/cancel-by-company")
-	@PreAuthorize("hasRole('COMPANY')")
 	public ResponseEntity<RescueRequestResponse> cancelByCompany(
 			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
@@ -179,7 +186,6 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu hoặc xe")
 	})
 	@PutMapping("/{id}/dispatch-vehicle")
-	@PreAuthorize("hasRole('COMPANY')")
 	public ResponseEntity<RescueRequestResponse> dispatchRescueVehicle(
 			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
@@ -203,7 +209,6 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
 	})
 	@PutMapping("/{id}/vehicle-arrived")
-	@PreAuthorize("hasRole('COMPANY')")
 	public ResponseEntity<RescueRequestResponse> vehicleArrived(
 			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
@@ -225,7 +230,6 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
 	})
 	@PutMapping("/{id}/inspection-done")
-	@PreAuthorize("hasRole('COMPANY')")
 	public ResponseEntity<RescueRequestResponse> inspectionDone(
 			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
@@ -247,7 +251,6 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
 	})
 	@PutMapping("/{id}/update-price")
-	@PreAuthorize("hasRole('COMPANY')")
 	public ResponseEntity<RescueRequestResponse> updatePrice(
 			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
@@ -273,7 +276,6 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
 	})
 	@PutMapping("/{id}/confirm-price")
-	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<RescueRequestResponse> confirmPrice(
 			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
@@ -295,7 +297,6 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
 	})
 	@PutMapping("/{id}/reject-price")
-	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<RescueRequestResponse> rejectPrice(
 			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
@@ -317,7 +318,6 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
 	})
 	@PutMapping("/{id}/start-repair")
-	@PreAuthorize("hasRole('COMPANY')")
 	public ResponseEntity<RescueRequestResponse> startRepair(
 			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
@@ -339,7 +339,6 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu")
 	})
 	@PutMapping("/{id}/complete-repair")
-	@PreAuthorize("hasRole('COMPANY')")
 	public ResponseEntity<RescueRequestResponse> completeRepair(
 			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,
@@ -360,7 +359,6 @@ public class RescueRequestController {
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu cứu hộ")
 	})
 	@GetMapping("/{id}")
-	@PreAuthorize("hasAnyRole('USER', 'COMPANY')")
 	public ResponseEntity<RescueRequestResponse> getRescueRequestById(
 			@Parameter(description = "ID của yêu cầu cứu hộ", required = true)
 			@PathVariable String id,

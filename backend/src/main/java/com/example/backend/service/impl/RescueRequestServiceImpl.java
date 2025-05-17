@@ -200,7 +200,6 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 
 
 	@Override
-	@PreAuthorize("hasAnyRole('COMPANY', 'ADMIN')")
 	public List<RescueRequestResponse> getRequestsForCompany(String token, RescueRequestStatus status) {
 		String userId = jwtUtil.extractUserId(jwtUtil.extractTokenFromHeader(token));
 
