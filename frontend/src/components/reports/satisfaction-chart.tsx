@@ -1,53 +1,70 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/components/ui/use-toast"
-import api from "@/services/api"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
+import api from "@/services/api";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface SatisfactionData {
-  period: string
-  averageRating: number
-  totalReviews: number
+  period: string;
+  averageRating: number;
+  totalReviews: number;
 }
 
 interface SatisfactionChartProps {
-  title?: string
-  timeRange?: "week" | "month" | "year" | "all"
+  title?: string;
+  timeRange?: "week" | "month" | "year" | "all";
 }
 
 export function SatisfactionChart({
-  title = "Mức độ hài lòng của khách hàng",
+  title = "Customer Satisfaction",
   timeRange = "month",
 }: SatisfactionChartProps) {
-  const { toast } = useToast()
-  const [data, setData] = useState<SatisfactionData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedTimeRange, setSelectedTimeRange] = useState(timeRange)
+  const { toast } = useToast();
+  const [data, setData] = useState<SatisfactionData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTimeRange, setSelectedTimeRange] = useState(timeRange);
 
   useEffect(() => {
-    fetchData(selectedTimeRange)
-  }, [selectedTimeRange])
+    fetchData(selectedTimeRange);
+  }, [selectedTimeRange]);
 
   const fetchData = async (range: string) => {
     try {
-      setLoading(true)
-      const response = await api.admin.getTopRatedServices({ timeRange: range })
+      setLoading(true);
+      const response = await api.admin.getTopRatedServices({
+        timeRange: range,
+      });
       // Ensure setData always receives an array
-      setData(Array.isArray(response.data.byTime) ? response.data.byTime : [])
+      setData(Array.isArray(response.data.byTime) ? response.data.byTime : []);
     } catch (error) {
-      console.error("Error fetching satisfaction stats:", error)
+      console.error("Error fetching satisfaction stats:", error);
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể tải dữ liệu thống kê. Vui lòng thử lại sau.",
-      })
+        title: "Error",
+        description: "Unable to load statistics data. Please try again later.",
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const renderChart = () => {
     if (loading) {
@@ -55,15 +72,15 @@ export function SatisfactionChart({
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
-      )
+      );
     }
 
     if (data.length === 0) {
       return (
         <div className="flex justify-center items-center h-64">
-          <p className="text-muted-foreground">Không có dữ liệu</p>
+          <p className="text-muted-foreground">No data available</p>
         </div>
-      )
+      );
     }
 
     return (
@@ -82,41 +99,53 @@ export function SatisfactionChart({
           <YAxis domain={[0, 5]} />
           <Tooltip
             formatter={(value, name) => [
-              name === "averageRating" ? `${Number(value).toFixed(2)}/5` : value,
-              name === "averageRating" ? "Đánh giá trung bình" : "Số lượng đánh giá",
+              name === "averageRating"
+                ? `${Number(value).toFixed(2)}/5`
+                : value,
+              name === "averageRating" ? "Average Rating" : "Number of Reviews",
             ]}
           />
           <Legend />
           <Line
             type="monotone"
             dataKey="averageRating"
-            name="Đánh giá trung bình"
+            name="Average Rating"
             stroke="#3b82f6"
             activeDot={{ r: 8 }}
           />
-          <Line type="monotone" dataKey="totalReviews" name="Số lượng đánh giá" stroke="#f59e0b" />
+          <Line
+            type="monotone"
+            dataKey="totalReviews"
+            name="Number of Reviews"
+            stroke="#f59e0b"
+          />
         </LineChart>
       </ResponsiveContainer>
-    )
-  }
+    );
+  };
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>{title}</CardTitle>
-        <Select value={selectedTimeRange} onValueChange={(value) => setSelectedTimeRange(value as "week" | "month" | "year" | "all")}>
+        <Select
+          value={selectedTimeRange}
+          onValueChange={(value) =>
+            setSelectedTimeRange(value as "week" | "month" | "year" | "all")
+          }
+        >
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Chọn khoảng thời gian" />
+            <SelectValue placeholder="Select time range" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="week">Tuần này</SelectItem>
-            <SelectItem value="month">Tháng này</SelectItem>
-            <SelectItem value="year">Năm nay</SelectItem>
-            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="week">This week</SelectItem>
+            <SelectItem value="month">This month</SelectItem>
+            <SelectItem value="year">This year</SelectItem>
+            <SelectItem value="all">All time</SelectItem>
           </SelectContent>
         </Select>
       </CardHeader>
       <CardContent>{renderChart()}</CardContent>
     </Card>
-  )
+  );
 }

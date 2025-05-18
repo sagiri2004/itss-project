@@ -1,158 +1,176 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Plus, Search, AlertTriangle, Trash2 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useToast } from "@/components/ui/use-toast"
-import api from "@/services/api"
+import { useState, useEffect } from "react";
+import { Plus, Search, AlertTriangle, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/components/ui/use-toast";
+import api from "@/services/api";
 
-// Định nghĩa interface cho từ khóa
+// Define interface for keyword
 interface Keyword {
-  id: string
-  word: string
-  severity: "low" | "medium" | "high"
-  createdAt: string
-  updatedAt: string
+  id: string;
+  word: string;
+  severity: "low" | "medium" | "high";
+  createdAt: string;
+  updatedAt: string;
 }
 
-export function KeywordFilterModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { toast } = useToast()
-  const [keywords, setKeywords] = useState<Keyword[]>([])
-  const [newKeyword, setNewKeyword] = useState("")
-  const [severity, setSeverity] = useState<"low" | "medium" | "high">("medium")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState("all")
+export function KeywordFilterModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const [keywords, setKeywords] = useState<Keyword[]>([]);
+  const [newKeyword, setNewKeyword] = useState("");
+  const [severity, setSeverity] = useState<"low" | "medium" | "high">("medium");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("all");
 
-  // Lấy danh sách từ khóa khi mở modal
+  // Fetch keywords when modal opens
   useEffect(() => {
     if (isOpen) {
-      fetchKeywords()
+      fetchKeywords();
     }
-  }, [isOpen])
+  }, [isOpen]);
 
-  // Hàm lấy danh sách từ khóa từ API
+  // Fetch keywords from API
   const fetchKeywords = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      // Giả định API endpoint để lấy danh sách từ khóa
-      const response = await api.admin.getKeywords()
-      setKeywords(response.data)
+      // Assume API endpoint to get keywords
+      const response = await api.admin.getKeywords();
+      setKeywords(response.data);
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: error.response?.data?.message || "Không thể tải danh sách từ khóa",
-      })
+        title: "Error",
+        description:
+          error.response?.data?.message || "Could not load keyword list",
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  // Hàm thêm từ khóa mới
+  // Add new keyword
   const addKeyword = async () => {
     if (!newKeyword.trim()) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Vui lòng nhập từ khóa",
-      })
-      return
+        title: "Error",
+        description: "Please enter a keyword",
+      });
+      return;
     }
 
-    // Kiểm tra từ khóa đã tồn tại chưa
-    if (keywords.some((k) => k.word.toLowerCase() === newKeyword.toLowerCase())) {
+    // Check if keyword already exists
+    if (
+      keywords.some((k) => k.word.toLowerCase() === newKeyword.toLowerCase())
+    ) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Từ khóa này đã tồn tại trong danh sách",
-      })
-      return
+        title: "Error",
+        description: "This keyword already exists in the list",
+      });
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      // Giả định API endpoint để thêm từ khóa mới
+      // Assume API endpoint to add new keyword
       const response = await api.admin.addKeyword({
         word: newKeyword,
         severity: severity,
-      })
+      });
 
-      setKeywords([...keywords, response.data])
-      setNewKeyword("")
+      setKeywords([...keywords, response.data]);
+      setNewKeyword("");
       toast({
-        title: "Thành công",
-        description: "Đã thêm từ khóa vào danh sách cấm",
-      })
+        title: "Success",
+        description: "Keyword added to the banned list",
+      });
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: error.response?.data?.message || "Không thể thêm từ khóa",
-      })
+        title: "Error",
+        description: error.response?.data?.message || "Could not add keyword",
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  // Hàm xóa từ khóa
+  // Delete keyword
   const deleteKeyword = async (id: string) => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      // Giả định API endpoint để xóa từ khóa
-      await api.admin.deleteKeyword(id)
-      setKeywords(keywords.filter((keyword) => keyword.id !== id))
+      // Assume API endpoint to delete keyword
+      await api.admin.deleteKeyword(id);
+      setKeywords(keywords.filter((keyword) => keyword.id !== id));
       toast({
-        title: "Thành công",
-        description: "Đã xóa từ khóa khỏi danh sách cấm",
-      })
+        title: "Success",
+        description: "Keyword removed from the banned list",
+      });
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: error.response?.data?.message || "Không thể xóa từ khóa",
-      })
+        title: "Error",
+        description:
+          error.response?.data?.message || "Could not delete keyword",
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  // Lọc từ khóa theo tab và tìm kiếm
+  // Filter keywords by tab and search
   const filteredKeywords = keywords.filter((keyword) => {
-    const matchesSearch = keyword.word.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesTab = activeTab === "all" || keyword.severity === activeTab
-    return matchesSearch && matchesTab
-  })
+    const matchesSearch = keyword.word
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesTab = activeTab === "all" || keyword.severity === activeTab;
+    return matchesSearch && matchesTab;
+  });
 
-  // Hàm render badge severity
+  // Render severity badge
   const renderSeverityBadge = (severity: string) => {
     switch (severity) {
       case "high":
         return (
           <Badge variant="destructive" className="ml-2">
-            Nghiêm trọng
+            High
           </Badge>
-        )
+        );
       case "medium":
         return (
           <Badge variant="default" className="ml-2 bg-orange-500">
-            Trung bình
+            Medium
           </Badge>
-        )
+        );
       case "low":
         return (
           <Badge variant="outline" className="ml-2">
-            Nhẹ
+            Low
           </Badge>
-        )
+        );
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -160,19 +178,19 @@ export function KeywordFilterModal({ isOpen, onClose }: { isOpen: boolean; onClo
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <AlertTriangle className="mr-2 h-5 w-5 text-orange-500" />
-            Quản lý từ khóa không phù hợp
+            Inappropriate Keyword Management
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex items-center space-x-2 my-4">
           <Input
-            placeholder="Thêm từ khóa mới..."
+            placeholder="Add new keyword..."
             value={newKeyword}
             onChange={(e) => setNewKeyword(e.target.value)}
             className="flex-1"
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                addKeyword()
+                addKeyword();
               }
             }}
           />
@@ -180,14 +198,16 @@ export function KeywordFilterModal({ isOpen, onClose }: { isOpen: boolean; onClo
             <select
               className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={severity}
-              onChange={(e) => setSeverity(e.target.value as "low" | "medium" | "high")}
+              onChange={(e) =>
+                setSeverity(e.target.value as "low" | "medium" | "high")
+              }
             >
-              <option value="low">Nhẹ</option>
-              <option value="medium">Trung bình</option>
-              <option value="high">Nghiêm trọng</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
             </select>
             <Button onClick={addKeyword} disabled={isLoading}>
-              <Plus className="h-4 w-4 mr-1" /> Thêm
+              <Plus className="h-4 w-4 mr-1" /> Add
             </Button>
           </div>
         </div>
@@ -195,19 +215,23 @@ export function KeywordFilterModal({ isOpen, onClose }: { isOpen: boolean; onClo
         <div className="relative mb-4">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Tìm kiếm từ khóa..."
+            placeholder="Search keywords..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
         </div>
 
-        <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
+        <Tabs
+          defaultValue="all"
+          className="w-full"
+          onValueChange={setActiveTab}
+        >
           <TabsList className="grid grid-cols-4 mb-4">
-            <TabsTrigger value="all">Tất cả</TabsTrigger>
-            <TabsTrigger value="high">Nghiêm trọng</TabsTrigger>
-            <TabsTrigger value="medium">Trung bình</TabsTrigger>
-            <TabsTrigger value="low">Nhẹ</TabsTrigger>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="high">High</TabsTrigger>
+            <TabsTrigger value="medium">Medium</TabsTrigger>
+            <TabsTrigger value="low">Low</TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="mt-0">
@@ -219,7 +243,10 @@ export function KeywordFilterModal({ isOpen, onClose }: { isOpen: boolean; onClo
               ) : filteredKeywords.length > 0 ? (
                 <ul className="divide-y">
                   {filteredKeywords.map((keyword) => (
-                    <li key={keyword.id} className="flex items-center justify-between p-3 hover:bg-muted">
+                    <li
+                      key={keyword.id}
+                      className="flex items-center justify-between p-3 hover:bg-muted"
+                    >
                       <div className="flex items-center">
                         <span className="font-medium">{keyword.word}</span>
                         {renderSeverityBadge(keyword.severity)}
@@ -238,7 +265,7 @@ export function KeywordFilterModal({ isOpen, onClose }: { isOpen: boolean; onClo
               ) : (
                 <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
                   <AlertTriangle className="h-8 w-8 mb-2" />
-                  <p>Không tìm thấy từ khóa nào</p>
+                  <p>No keywords found</p>
                 </div>
               )}
             </div>
@@ -247,13 +274,15 @@ export function KeywordFilterModal({ isOpen, onClose }: { isOpen: boolean; onClo
 
         <DialogFooter className="mt-4">
           <div className="text-sm text-muted-foreground">
-            Tổng số: {keywords.length} từ khóa ({keywords.filter((k) => k.severity === "high").length} nghiêm trọng)
+            Total: {keywords.length} keywords (
+            {keywords.filter((k) => k.severity === "high").length} high
+            severity)
           </div>
           <Button variant="outline" onClick={onClose}>
-            Đóng
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

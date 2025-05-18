@@ -1,50 +1,51 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Progress } from "@/components/ui/progress"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { StarRating } from "@/components/reviews/star-rating"
-import type { ReviewStats } from "@/types/review"
-import api from "@/services/api"
-import { useToast } from "@/components/ui/use-toast"
+import { useState, useEffect } from "react";
+import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StarRating } from "@/components/reviews/star-rating";
+import type { ReviewStats } from "@/types/review";
+import api from "@/services/api";
+import { useToast } from "@/components/ui/use-toast";
 
 interface ReviewStatsProps {
-  companyId: string
+  companyId: string;
 }
 
 export function ReviewStats({ companyId }: ReviewStatsProps) {
-  const { toast } = useToast()
-  const [stats, setStats] = useState<ReviewStats | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { toast } = useToast();
+  const [stats, setStats] = useState<ReviewStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        setLoading(true)
-        const response = await api.reviews.getCompanyStats(companyId)
-        setStats(response.data)
+        setLoading(true);
+        const response = await api.reviews.getCompanyStats(companyId);
+        setStats(response.data);
       } catch (error) {
-        console.error("Error fetching review stats:", error)
+        console.error("Error fetching review stats:", error);
         toast({
           variant: "destructive",
-          title: "Lỗi",
-          description: "Không thể tải thống kê đánh giá. Vui lòng thử lại sau.",
-        })
+          title: "Error",
+          description:
+            "Unable to load review statistics. Please try again later.",
+        });
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
     if (companyId) {
-      fetchStats()
+      fetchStats();
     }
-  }, [companyId, toast])
+  }, [companyId, toast]);
 
   if (loading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Đánh giá</CardTitle>
+          <CardTitle>Reviews</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center h-40">
@@ -52,43 +53,48 @@ export function ReviewStats({ companyId }: ReviewStatsProps) {
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   if (!stats) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Đánh giá</CardTitle>
+          <CardTitle>Reviews</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <p className="text-muted-foreground">Chưa có dữ liệu đánh giá</p>
+            <p className="text-muted-foreground">No review data yet</p>
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Đánh giá</CardTitle>
+        <CardTitle>Reviews</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col md:flex-row items-center gap-6">
           <div className="flex flex-col items-center">
-            <div className="text-4xl font-bold">{stats.averageRating.toFixed(1)}</div>
+            <div className="text-4xl font-bold">
+              {stats.averageRating.toFixed(1)}
+            </div>
             <div className="mt-2">
               <StarRating rating={Math.round(stats.averageRating)} readOnly />
             </div>
-            <div className="text-sm text-muted-foreground mt-1">Dựa trên {stats.totalReviews} đánh giá</div>
+            <div className="text-sm text-muted-foreground mt-1">
+              Based on {stats.totalReviews} reviews
+            </div>
           </div>
 
           <div className="flex-1 space-y-2">
             {[5, 4, 3, 2, 1].map((rating) => {
-              const count = stats.ratingCounts[rating] || 0
-              const percentage = stats.totalReviews > 0 ? (count / stats.totalReviews) * 100 : 0
+              const count = stats.ratingCounts[rating] || 0;
+              const percentage =
+                stats.totalReviews > 0 ? (count / stats.totalReviews) * 100 : 0;
 
               return (
                 <div key={rating} className="flex items-center gap-2">
@@ -104,13 +110,15 @@ export function ReviewStats({ companyId }: ReviewStatsProps) {
                     </svg>
                   </div>
                   <Progress value={percentage} className="h-2 flex-1" />
-                  <div className="w-12 text-right text-sm text-muted-foreground">{count}</div>
+                  <div className="w-12 text-right text-sm text-muted-foreground">
+                    {count}
+                  </div>
                 </div>
-              )
+              );
             })}
           </div>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
