@@ -1,12 +1,25 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Plus, Trash2, Search, AlertTriangle } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
+import { useState, useEffect } from "react";
+import { Plus, Trash2, Search, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -15,182 +28,207 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useToast } from "@/components/ui/use-toast"
-import DashboardLayout from "@/layouts/dashboard-layout"
-import api from "@/services/api"
+} from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/use-toast";
+import DashboardLayout from "@/layouts/dashboard-layout";
+import api from "@/services/api";
 
 interface Keyword {
-  id: string
-  word: string
-  createdAt: string
+  id: string;
+  word: string;
+  createdAt: string;
 }
 
 export default function KeywordFilterPage() {
-  const { toast } = useToast()
-  const [keywords, setKeywords] = useState<Keyword[]>([])
-  const [loading, setLoading] = useState(true)
-  const [newKeyword, setNewKeyword] = useState("")
-  const [searchTerm, setSearchTerm] = useState("")
-  const [testContent, setTestContent] = useState("")
-  const [testResult, setTestResult] = useState<{ isValid: boolean; invalidWords: string[] } | null>(null)
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [isTestDialogOpen, setIsTestDialogOpen] = useState(false)
+  const { toast } = useToast();
+  const [keywords, setKeywords] = useState<Keyword[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newKeyword, setNewKeyword] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [testContent, setTestContent] = useState("");
+  const [testResult, setTestResult] = useState<{
+    isValid: boolean;
+    invalidWords: string[];
+  } | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isTestDialogOpen, setIsTestDialogOpen] = useState(false);
 
   useEffect(() => {
-    fetchKeywords()
-  }, [])
+    fetchKeywords();
+  }, []);
 
   const fetchKeywords = async () => {
     try {
-      setLoading(true)
-      const response = await api.admin.getKeywords()
-      setKeywords(response.data.items)
+      setLoading(true);
+      const response = await api.admin.getKeywords();
+      setKeywords(response.data.items);
     } catch (error) {
-      console.error("Error fetching keywords:", error)
+      console.error("Error fetching keywords:", error);
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể tải danh sách từ khóa. Vui lòng thử lại sau.",
-      })
+        title: "Error",
+        description: "Could not load keyword list. Please try again later.",
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleAddKeyword = async () => {
     if (!newKeyword.trim()) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Vui lòng nhập từ khóa.",
-      })
-      return
+        title: "Error",
+        description: "Please enter a keyword.",
+      });
+      return;
     }
 
     try {
-      const response = await api.admin.addKeyword({ word: newKeyword, severity: "low" })
-      setKeywords([...keywords, response.data])
-      setNewKeyword("")
-      setIsAddDialogOpen(false)
+      const response = await api.admin.addKeyword({
+        word: newKeyword,
+        severity: "low",
+      });
+      setKeywords([...keywords, response.data]);
+      setNewKeyword("");
+      setIsAddDialogOpen(false);
       toast({
-        title: "Thành công",
-        description: "Đã thêm từ khóa mới.",
-      })
+        title: "Success",
+        description: "New keyword has been added.",
+      });
     } catch (error) {
-      console.error("Error adding keyword:", error)
+      console.error("Error adding keyword:", error);
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể thêm từ khóa. Vui lòng thử lại sau.",
-      })
+        title: "Error",
+        description: "Could not add keyword. Please try again later.",
+      });
     }
-  }
+  };
 
   const handleDeleteKeyword = async (id: string) => {
     try {
-      await api.admin.deleteKeyword(id)
-      setKeywords(keywords.filter((keyword) => keyword.id !== id))
+      await api.admin.deleteKeyword(id);
+      setKeywords(keywords.filter((keyword) => keyword.id !== id));
       toast({
-        title: "Thành công",
-        description: "Đã xóa từ khóa.",
-      })
+        title: "Success",
+        description: "Keyword has been deleted.",
+      });
     } catch (error) {
-      console.error("Error deleting keyword:", error)
+      console.error("Error deleting keyword:", error);
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể xóa từ khóa. Vui lòng thử lại sau.",
-      })
+        title: "Error",
+        description: "Could not delete keyword. Please try again later.",
+      });
     }
-  }
+  };
 
   const handleTestContent = async () => {
     if (!testContent.trim()) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Vui lòng nhập nội dung cần kiểm tra.",
-      })
-      return
+        title: "Error",
+        description: "Please enter content to check.",
+      });
+      return;
     }
 
     try {
-      const response = await api.keywords.checkContent(testContent)
-      setTestResult(response.data)
+      const response = await api.keywords.checkContent(testContent);
+      setTestResult(response.data);
     } catch (error) {
-      console.error("Error testing content:", error)
+      console.error("Error testing content:", error);
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể kiểm tra nội dung. Vui lòng thử lại sau.",
-      })
+        title: "Error",
+        description: "Could not check content. Please try again later.",
+      });
     }
-  }
+  };
 
-  const filteredKeywords = keywords.filter((keyword) => keyword.word.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredKeywords = keywords.filter((keyword) =>
+    keyword.word.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return new Intl.DateTimeFormat("vi-VN", {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    }).format(date)
-  }
+    }).format(date);
+  };
 
   return (
     <DashboardLayout role="admin">
       <div className="container mx-auto p-4">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Quản lý từ khóa không phù hợp</h1>
+          <h1 className="text-2xl font-bold">
+            Inappropriate Keyword Management
+          </h1>
           <div className="flex gap-2">
             <Dialog open={isTestDialogOpen} onOpenChange={setIsTestDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline">
-                  <AlertTriangle className="mr-2 h-4 w-4" /> Kiểm tra nội dung
+                  <AlertTriangle className="mr-2 h-4 w-4" /> Test Content
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Kiểm tra nội dung</DialogTitle>
+                  <DialogTitle>Test Content</DialogTitle>
                   <DialogDescription>
-                    Nhập nội dung cần kiểm tra để xem có chứa từ khóa không phù hợp hay không.
+                    Enter content to check if it contains inappropriate
+                    keywords.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="grid gap-2">
-                    <label htmlFor="test-content" className="text-sm font-medium">
-                      Nội dung cần kiểm tra
+                    <label
+                      htmlFor="test-content"
+                      className="text-sm font-medium"
+                    >
+                      Content to check
                     </label>
                     <textarea
                       id="test-content"
                       className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      placeholder="Nhập nội dung cần kiểm tra..."
+                      placeholder="Enter content to check..."
                       value={testContent}
                       onChange={(e) => setTestContent(e.target.value)}
                     />
                   </div>
                   {testResult && (
-                    <Alert variant={testResult.isValid ? "default" : "destructive"}>
-                      <AlertTitle>{testResult.isValid ? "Nội dung hợp lệ" : "Nội dung không hợp lệ"}</AlertTitle>
+                    <Alert
+                      variant={testResult.isValid ? "default" : "destructive"}
+                    >
+                      <AlertTitle>
+                        {testResult.isValid
+                          ? "Content is valid"
+                          : "Content is invalid"}
+                      </AlertTitle>
                       <AlertDescription>
                         {testResult.isValid
-                          ? "Nội dung không chứa từ khóa không phù hợp."
-                          : `Nội dung chứa từ khóa không phù hợp: ${testResult.invalidWords.join(", ")}`}
+                          ? "Content doesn't contain inappropriate keywords."
+                          : `Content contains inappropriate keywords: ${testResult.invalidWords.join(
+                              ", "
+                            )}`}
                       </AlertDescription>
                     </Alert>
                   )}
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsTestDialogOpen(false)}>
-                    Đóng
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsTestDialogOpen(false)}
+                  >
+                    Close
                   </Button>
-                  <Button onClick={handleTestContent}>Kiểm tra</Button>
+                  <Button onClick={handleTestContent}>Check</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -198,32 +236,40 @@ export default function KeywordFilterPage() {
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
-                  <Plus className="mr-2 h-4 w-4" /> Thêm từ khóa
+                  <Plus className="mr-2 h-4 w-4" /> Add Keyword
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Thêm từ khóa mới</DialogTitle>
-                  <DialogDescription>Thêm từ khóa không phù hợp vào danh sách cấm.</DialogDescription>
+                  <DialogTitle>Add New Keyword</DialogTitle>
+                  <DialogDescription>
+                    Add inappropriate keyword to the banned list.
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <label htmlFor="new-keyword" className="text-sm font-medium">
-                      Từ khóa
+                    <label
+                      htmlFor="new-keyword"
+                      className="text-sm font-medium"
+                    >
+                      Keyword
                     </label>
                     <Input
                       id="new-keyword"
-                      placeholder="Nhập từ khóa..."
+                      placeholder="Enter keyword..."
                       value={newKeyword}
                       onChange={(e) => setNewKeyword(e.target.value)}
                     />
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                    Hủy
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsAddDialogOpen(false)}
+                  >
+                    Cancel
                   </Button>
-                  <Button onClick={handleAddKeyword}>Thêm</Button>
+                  <Button onClick={handleAddKeyword}>Add</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -232,9 +278,10 @@ export default function KeywordFilterPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Danh sách từ khóa không phù hợp</CardTitle>
+            <CardTitle>Inappropriate Keywords List</CardTitle>
             <CardDescription>
-              Các từ khóa này sẽ được áp dụng để lọc nội dung không phù hợp trong hệ thống.
+              These keywords will be used to filter inappropriate content in the
+              system.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -243,7 +290,7 @@ export default function KeywordFilterPage() {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                 <Input
                   type="search"
-                  placeholder="Tìm kiếm từ khóa..."
+                  placeholder="Search keywords..."
                   className="pl-8"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -259,15 +306,15 @@ export default function KeywordFilterPage() {
               </div>
             ) : filteredKeywords.length === 0 ? (
               <div className="text-center py-10">
-                <p className="text-gray-500">Không tìm thấy từ khóa nào.</p>
+                <p className="text-gray-500">No keywords found.</p>
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Từ khóa</TableHead>
-                    <TableHead>Ngày tạo</TableHead>
-                    <TableHead className="text-right">Thao tác</TableHead>
+                    <TableHead>Keyword</TableHead>
+                    <TableHead>Created Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -278,7 +325,11 @@ export default function KeywordFilterPage() {
                       </TableCell>
                       <TableCell>{formatDate(keyword.createdAt)}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteKeyword(keyword.id)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteKeyword(keyword.id)}
+                        >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       </TableCell>
@@ -292,18 +343,21 @@ export default function KeywordFilterPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Phạm vi áp dụng</CardTitle>
-            <CardDescription>Danh sách từ khóa không phù hợp sẽ được áp dụng cho các nội dung sau:</CardDescription>
+            <CardTitle>Application Scope</CardTitle>
+            <CardDescription>
+              The list of inappropriate keywords will be applied to the
+              following content:
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="list-disc pl-5 space-y-2">
-              <li>Tên topic, nội dung topic</li>
-              <li>Nội dung comment trong topic</li>
-              <li>Nội dung đánh giá dịch vụ công ty</li>
+              <li>Topic names, topic content</li>
+              <li>Comment content in topics</li>
+              <li>Content of company service reviews</li>
             </ul>
           </CardContent>
         </Card>
       </div>
     </DashboardLayout>
-  )
+  );
 }

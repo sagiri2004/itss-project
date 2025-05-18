@@ -1,54 +1,72 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/components/ui/use-toast"
-import api from "@/services/api"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
+import api from "@/services/api";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface RequestStatsData {
-  period: string
-  count: number
-  status?: string
+  period: string;
+  count: number;
+  status?: string;
 }
 
 interface RequestChartProps {
-  title?: string
-  timeRange?: "day" | "week" | "month" | "year"
-  showStatus?: boolean
+  title?: string;
+  timeRange?: "day" | "week" | "month" | "year";
+  showStatus?: boolean;
 }
 
 export function RequestChart({
-  title = "Số lượng yêu cầu cứu hộ",
+  title = "Number of Rescue Requests",
   timeRange = "month",
   showStatus = false,
 }: RequestChartProps) {
-  const { toast } = useToast()
-  const [data, setData] = useState<RequestStatsData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedTimeRange, setSelectedTimeRange] = useState(timeRange)
+  const { toast } = useToast();
+  const [data, setData] = useState<RequestStatsData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTimeRange, setSelectedTimeRange] = useState(timeRange);
 
   useEffect(() => {
-    fetchData(selectedTimeRange)
-  }, [selectedTimeRange])
+    fetchData(selectedTimeRange);
+  }, [selectedTimeRange]);
 
   const fetchData = async (range: string) => {
     try {
-      setLoading(true)
-      const response = await api.admin.getRequestStats({ timeRange: range, groupByStatus: showStatus })
-      setData(Array.isArray(response.data.byTime) ? response.data.byTime : [])
+      setLoading(true);
+      const response = await api.admin.getRequestStats({
+        timeRange: range,
+        groupByStatus: showStatus,
+      });
+      setData(Array.isArray(response.data.byTime) ? response.data.byTime : []);
     } catch (error) {
-      console.error("Error fetching request stats:", error)
+      console.error("Error fetching request stats:", error);
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể tải dữ liệu thống kê. Vui lòng thử lại sau.",
-      })
+        title: "Error",
+        description: "Unable to load statistics. Please try again later.",
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const getColors = () => {
     if (showStatus) {
@@ -59,10 +77,10 @@ export function RequestChart({
         COMPLETED: "#10b981",
         CANCELLED: "#ef4444",
         PAID: "#059669",
-      }
+      };
     }
-    return { count: "#3b82f6" }
-  }
+    return { count: "#3b82f6" };
+  };
 
   const renderChart = () => {
     if (loading) {
@@ -70,15 +88,15 @@ export function RequestChart({
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
-      )
+      );
     }
 
     if (data.length === 0) {
       return (
         <div className="flex justify-center items-center h-64">
-          <p className="text-muted-foreground">Không có dữ liệu</p>
+          <p className="text-muted-foreground">No data available</p>
         </div>
-      )
+      );
     }
 
     return (
@@ -101,36 +119,43 @@ export function RequestChart({
             Object.keys(getColors()).map((status) => (
               <Bar
                 key={status}
-                dataKey={(item: RequestStatsData) => (item.status === status ? item.count : 0)}
+                dataKey={(item: RequestStatsData) =>
+                  item.status === status ? item.count : 0
+                }
                 name={status.replace(/_/g, " ")}
                 fill={getColors()[status as keyof ReturnType<typeof getColors>]}
               />
             ))
           ) : (
-            <Bar dataKey="count" name="Số lượng" fill={getColors().count} />
+            <Bar dataKey="count" name="Count" fill={getColors().count} />
           )}
         </BarChart>
       </ResponsiveContainer>
-    )
-  }
+    );
+  };
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>{title}</CardTitle>
-        <Select value={selectedTimeRange} onValueChange={(value) => setSelectedTimeRange(value as "day" | "week" | "month" | "year")}>
+        <Select
+          value={selectedTimeRange}
+          onValueChange={(value) =>
+            setSelectedTimeRange(value as "day" | "week" | "month" | "year")
+          }
+        >
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Chọn khoảng thời gian" />
+            <SelectValue placeholder="Select time range" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="day">Theo ngày</SelectItem>
-            <SelectItem value="week">Theo tuần</SelectItem>
-            <SelectItem value="month">Theo tháng</SelectItem>
-            <SelectItem value="year">Theo năm</SelectItem>
+            <SelectItem value="day">By day</SelectItem>
+            <SelectItem value="week">By week</SelectItem>
+            <SelectItem value="month">By month</SelectItem>
+            <SelectItem value="year">By year</SelectItem>
           </SelectContent>
         </Select>
       </CardHeader>
       <CardContent>{renderChart()}</CardContent>
     </Card>
-  )
+  );
 }
