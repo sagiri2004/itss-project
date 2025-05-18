@@ -1,15 +1,34 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
-import { useAuth } from "@/context/auth-context"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { useAuth } from "@/context/auth-context";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -17,41 +36,54 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { useToast } from "@/components/ui/use-toast"
-import { Plus, Search, Edit, Trash, Calendar, Wrench, CalendarCheck } from "lucide-react"
-import api from "@/services/api"
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet"
-import "leaflet/dist/leaflet.css"
-import L from "leaflet"
+} from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash,
+  Calendar,
+  Wrench,
+  CalendarCheck,
+} from "lucide-react";
+import api from "@/services/api";
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 
-const vehicleTypes = ["Tow Truck", "Flatbed", "Motorbike", "Van", "Other"]
-const vehicleStatuses = ["AVAILABLE", "IN_USE", "MAINTENANCE", "OUT_OF_SERVICE"]
+const vehicleTypes = ["Tow Truck", "Flatbed", "Motorbike", "Van", "Other"];
+const vehicleStatuses = [
+  "AVAILABLE",
+  "IN_USE",
+  "MAINTENANCE",
+  "OUT_OF_SERVICE",
+];
 
 interface Vehicle {
-  id: string
-  name: string
-  make: string
-  licensePlate: string
-  model: string
-  status: string
-  assignedDriverName?: string
-  equipmentDetails?: string[]
-  currentLatitude: number
-  currentLongitude: number
-  lastMaintenanceDate?: string
-  nextMaintenanceDate?: string
+  id: string;
+  name: string;
+  make: string;
+  licensePlate: string;
+  model: string;
+  status: string;
+  assignedDriverName?: string;
+  equipmentDetails?: string[];
+  currentLatitude: number;
+  currentLongitude: number;
+  lastMaintenanceDate?: string;
+  nextMaintenanceDate?: string;
 }
 
 export default function CompanyVehicles() {
-  const { user } = useAuth()
-  const { toast } = useToast()
-  const [searchTerm, setSearchTerm] = useState("")
-  const [vehicles, setVehicles] = useState<Vehicle[]>([])
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -64,30 +96,30 @@ export default function CompanyVehicles() {
     nextMaintenanceDate: "",
     currentLatitude: 21.0285,
     currentLongitude: 105.8542,
-  })
+  });
 
   // Fetch vehicles from API
   const fetchVehicles = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      if (!user?.companyId) throw new Error("Company ID is missing")
-      const res = await api.rescueVehicles.getCompanyVehicles(user.companyId)
-      setVehicles(res.data)
+      if (!user?.companyId) throw new Error("Company ID is missing");
+      const res = await api.rescueVehicles.getCompanyVehicles(user.companyId);
+      setVehicles(res.data);
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
         description: error.response?.data?.message || "Failed to load vehicles",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchVehicles()
+    fetchVehicles();
     // eslint-disable-next-line
-  }, [user])
+  }, [user]);
 
   const filteredVehicles = vehicles.filter(
     (vehicle) =>
@@ -96,21 +128,23 @@ export default function CompanyVehicles() {
       vehicle.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vehicle.licensePlate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vehicle.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (vehicle.assignedDriverName || "").toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+      (vehicle.assignedDriverName || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+  );
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value)
-  }
+    setSearchTerm(e.target.value);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData({ ...formData, [name]: value })
-  }
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData({ ...formData, [name]: value })
-  }
+    setFormData({ ...formData, [name]: value });
+  };
 
   const resetForm = () => {
     setFormData({
@@ -124,10 +158,10 @@ export default function CompanyVehicles() {
       nextMaintenanceDate: "",
       currentLatitude: 21.0285,
       currentLongitude: 105.8542,
-    })
-    setCurrentVehicle(null)
-    setIsEditing(false)
-  }
+    });
+    setCurrentVehicle(null);
+    setIsEditing(false);
+  };
 
   const handleOpenDialog = (vehicle?: Vehicle) => {
     if (vehicle) {
@@ -138,116 +172,126 @@ export default function CompanyVehicles() {
         licensePlate: vehicle.licensePlate || "",
         status: vehicle.status,
         assignedDriverName: vehicle.assignedDriverName || "",
-        lastMaintenanceDate: vehicle.lastMaintenanceDate ? vehicle.lastMaintenanceDate.slice(0, 10) : "",
-        nextMaintenanceDate: vehicle.nextMaintenanceDate ? vehicle.nextMaintenanceDate.slice(0, 10) : "",
+        lastMaintenanceDate: vehicle.lastMaintenanceDate
+          ? vehicle.lastMaintenanceDate.slice(0, 10)
+          : "",
+        nextMaintenanceDate: vehicle.nextMaintenanceDate
+          ? vehicle.nextMaintenanceDate.slice(0, 10)
+          : "",
         currentLatitude: vehicle.currentLatitude,
         currentLongitude: vehicle.currentLongitude,
-      })
-      setCurrentVehicle(vehicle)
-      setIsEditing(true)
+      });
+      setCurrentVehicle(vehicle);
+      setIsEditing(true);
     } else {
-      resetForm()
+      resetForm();
     }
-    setIsDialogOpen(true)
-  }
+    setIsDialogOpen(true);
+  };
 
   const handleCloseDialog = () => {
-    setIsDialogOpen(false)
-    resetForm()
-  }
+    setIsDialogOpen(false);
+    resetForm();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!formData.name || !formData.licensePlate) {
       toast({
         variant: "destructive",
         title: "Error",
         description: "Please fill in all required fields",
-      })
-      return
+      });
+      return;
     }
     try {
       const payload = {
         ...formData,
         companyId: user?.companyId,
-        lastMaintenanceDate: formData.lastMaintenanceDate ? new Date(formData.lastMaintenanceDate) : undefined,
-        nextMaintenanceDate: formData.nextMaintenanceDate ? new Date(formData.nextMaintenanceDate) : undefined,
+        lastMaintenanceDate: formData.lastMaintenanceDate
+          ? new Date(formData.lastMaintenanceDate)
+          : undefined,
+        nextMaintenanceDate: formData.nextMaintenanceDate
+          ? new Date(formData.nextMaintenanceDate)
+          : undefined,
         currentLatitude: formData.currentLatitude,
         currentLongitude: formData.currentLongitude,
-      }
+      };
       if (isEditing && currentVehicle) {
-        await api.rescueVehicles.updateVehicle(currentVehicle.id, payload)
+        await api.rescueVehicles.updateVehicle(currentVehicle.id, payload);
         toast({
           title: "Vehicle updated",
           description: `${formData.name} has been updated successfully.`,
-        })
+        });
       } else {
-        await api.rescueVehicles.createVehicle(payload)
+        await api.rescueVehicles.createVehicle(payload);
         toast({
           title: "Vehicle added",
           description: `${formData.name} has been added to your fleet.`,
-        })
+        });
       }
-      fetchVehicles()
-      handleCloseDialog()
+      fetchVehicles();
+      handleCloseDialog();
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
         description: error.response?.data?.message || "Failed to save vehicle",
-      })
+      });
     }
-  }
+  };
 
   const deleteVehicle = async (id: string) => {
     try {
-      await api.rescueVehicles.deleteVehicle(id)
-      fetchVehicles()
+      await api.rescueVehicles.deleteVehicle(id);
+      fetchVehicles();
       toast({
         title: "Vehicle removed",
         description: `Vehicle has been removed from your fleet.`,
-      })
+      });
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.response?.data?.message || "Failed to delete vehicle",
-      })
+        description:
+          error.response?.data?.message || "Failed to delete vehicle",
+      });
     }
-  }
+  };
 
   const markForMaintenance = async (id: string) => {
     try {
-      await api.rescueVehicles.updateVehicleStatus(id, "MAINTENANCE")
-      fetchVehicles()
+      await api.rescueVehicles.updateVehicleStatus(id, "MAINTENANCE");
+      fetchVehicles();
       toast({
         title: "Maintenance scheduled",
         description: `Vehicle has been marked for maintenance.`,
-      })
+      });
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.response?.data?.message || "Failed to update vehicle status",
-      })
+        description:
+          error.response?.data?.message || "Failed to update vehicle status",
+      });
     }
-  }
+  };
 
   // Helper function to get status badge variant
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case "AVAILABLE":
-        return "success"
+        return "success";
       case "IN_USE":
-        return "default"
+        return "default";
       case "MAINTENANCE":
-        return "outline"
+        return "outline";
       case "OUT_OF_SERVICE":
-        return "destructive"
+        return "destructive";
       default:
-        return "outline"
+        return "outline";
     }
-  }
+  };
 
   // Animation variants
   const containerVariants = {
@@ -258,7 +302,7 @@ export default function CompanyVehicles() {
         staggerChildren: 0.1,
       },
     },
-  }
+  };
 
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
@@ -271,7 +315,7 @@ export default function CompanyVehicles() {
         damping: 20,
       },
     },
-  }
+  };
 
   // Map marker drag handler
   function LocationMarker() {
@@ -280,28 +324,50 @@ export default function CompanyVehicles() {
         // not used
       },
       click(e) {
-        setFormData((prev) => ({ ...prev, currentLatitude: e.latlng.lat, currentLongitude: e.latlng.lng }))
+        setFormData((prev) => ({
+          ...prev,
+          currentLatitude: e.latlng.lat,
+          currentLongitude: e.latlng.lng,
+        }));
       },
-    })
-    return (typeof formData.currentLatitude === 'number' && typeof formData.currentLongitude === 'number') ? (
+    });
+    return typeof formData.currentLatitude === "number" &&
+      typeof formData.currentLongitude === "number" ? (
       <Marker
         position={[formData.currentLatitude, formData.currentLongitude]}
         draggable={true}
         eventHandlers={{
           dragend: (e) => {
-            const marker = e.target
-            const { lat, lng } = marker.getLatLng()
-            setFormData((prev) => ({ ...prev, currentLatitude: lat, currentLongitude: lng }))
+            const marker = e.target;
+            const { lat, lng } = marker.getLatLng();
+            setFormData((prev) => ({
+              ...prev,
+              currentLatitude: lat,
+              currentLongitude: lng,
+            }));
           },
         }}
-        icon={L.icon({ iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png", iconSize: [25, 41], iconAnchor: [12, 41] })}
+        icon={L.icon({
+          iconUrl:
+            "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+        })}
       />
-    ) : null
+    ) : null;
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-6"
+    >
+      <motion.div
+        variants={itemVariants}
+        className="flex items-center justify-between"
+      >
         <h1 className="text-3xl font-bold tracking-tight">Fleet Management</h1>
         <Button onClick={() => handleOpenDialog()}>
           <Plus className="mr-2 h-4 w-4" />
@@ -313,7 +379,9 @@ export default function CompanyVehicles() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle>Manage Vehicles</CardTitle>
-            <CardDescription>Manage your fleet of rescue and service vehicles</CardDescription>
+            <CardDescription>
+              Manage your fleet of rescue and service vehicles
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between mb-4">
@@ -344,14 +412,21 @@ export default function CompanyVehicles() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-6 text-muted-foreground"
+                      >
                         Loading...
                       </TableCell>
                     </TableRow>
                   ) : filteredVehicles.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                        No vehicles found. Try adjusting your search or add a new vehicle.
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-6 text-muted-foreground"
+                      >
+                        No vehicles found. Try adjusting your search or add a
+                        new vehicle.
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -359,12 +434,18 @@ export default function CompanyVehicles() {
                       <TableRow key={vehicle.id}>
                         <TableCell>
                           <div className="font-medium">{vehicle.name}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{vehicle.model}</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {vehicle.model}
+                          </div>
                         </TableCell>
                         <TableCell>{vehicle.licensePlate}</TableCell>
-                        <TableCell>{vehicle.assignedDriverName || "Unassigned"}</TableCell>
                         <TableCell>
-                          <Badge variant={getStatusBadgeVariant(vehicle.status)}>
+                          {vehicle.assignedDriverName || "Unassigned"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={getStatusBadgeVariant(vehicle.status)}
+                          >
                             {vehicle.status.replace(/_/g, " ")}
                           </Badge>
                         </TableCell>
@@ -418,12 +499,16 @@ export default function CompanyVehicles() {
       </motion.div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] max-h-[75vh] overflow-y-auto">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
-              <DialogTitle>{isEditing ? "Edit Vehicle" : "Add New Vehicle"}</DialogTitle>
+              <DialogTitle>
+                {isEditing ? "Edit Vehicle" : "Add New Vehicle"}
+              </DialogTitle>
               <DialogDescription>
-                {isEditing ? "Update your vehicle details below." : "Add a new vehicle to your rescue fleet."}
+                {isEditing
+                  ? "Update your vehicle details below."
+                  : "Add a new vehicle to your rescue fleet."}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -472,7 +557,12 @@ export default function CompanyVehicles() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="status">Status</Label>
-                  <Select value={formData.status} onValueChange={(value) => handleSelectChange("status", value)}>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) =>
+                      handleSelectChange("status", value)
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -497,7 +587,9 @@ export default function CompanyVehicles() {
                 </div>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="lastMaintenanceDate">Last Maintenance Date</Label>
+                <Label htmlFor="lastMaintenanceDate">
+                  Last Maintenance Date
+                </Label>
                 <Input
                   id="lastMaintenanceDate"
                   name="lastMaintenanceDate"
@@ -507,7 +599,9 @@ export default function CompanyVehicles() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="nextMaintenanceDate">Next Maintenance Date</Label>
+                <Label htmlFor="nextMaintenanceDate">
+                  Next Maintenance Date
+                </Label>
                 <Input
                   id="nextMaintenanceDate"
                   name="nextMaintenanceDate"
@@ -521,8 +615,12 @@ export default function CompanyVehicles() {
                 <div className="h-56 w-full rounded-md overflow-hidden">
                   <MapContainer
                     center={[
-                      typeof formData.currentLatitude === 'number' ? formData.currentLatitude : 0,
-                      typeof formData.currentLongitude === 'number' ? formData.currentLongitude : 0,
+                      typeof formData.currentLatitude === "number"
+                        ? formData.currentLatitude
+                        : 0,
+                      typeof formData.currentLongitude === "number"
+                        ? formData.currentLongitude
+                        : 0,
                     ]}
                     zoom={13}
                     style={{ height: "100%", width: "100%" }}
@@ -539,7 +637,11 @@ export default function CompanyVehicles() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseDialog}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCloseDialog}
+              >
                 Cancel
               </Button>
               <Button type="submit">{isEditing ? "Update" : "Add"}</Button>
@@ -548,5 +650,5 @@ export default function CompanyVehicles() {
         </DialogContent>
       </Dialog>
     </motion.div>
-  )
+  );
 }

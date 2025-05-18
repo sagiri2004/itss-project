@@ -18,11 +18,11 @@ import api from "@/services/api";
 import { useToast } from "@/components/ui/use-toast";
 
 const CATEGORIES = [
-  { label: "Tất cả", value: "all" },
-  { label: "Máy", value: "engine" },
-  { label: "Điện", value: "electrical" },
-  { label: "Lốp", value: "tire" },
-  { label: "Khác", value: "other" },
+  { label: "All", value: "all" },
+  { label: "Engine", value: "engine" },
+  { label: "Electrical", value: "electrical" },
+  { label: "Tire", value: "tire" },
+  { label: "Other", value: "other" },
 ];
 
 type NewTopic = {
@@ -63,7 +63,7 @@ const CommunityTopics: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reportModal, setReportModal] = useState<{
     open: boolean;
-    type: 'topic' | 'comment' | null;
+    type: "topic" | "comment" | null;
     topicId?: string;
     commentId?: string;
   }>({ open: false, type: null });
@@ -90,7 +90,7 @@ const CommunityTopics: React.FC = () => {
       setTopics(res.data.items || res.data || []);
     } catch (e) {
       setTopics([]);
-      toast({ title: "Không thể tải danh sách bài viết.", variant: "destructive" });
+      toast({ title: "Could not load topic list.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,7 @@ const CommunityTopics: React.FC = () => {
       setComments(res.data.items || res.data || []);
     } catch (e) {
       setComments([]);
-      toast({ title: "Không thể tải bình luận.", variant: "destructive" });
+      toast({ title: "Could not load comments.", variant: "destructive" });
     } finally {
       setCommentLoading(false);
     }
@@ -124,19 +124,24 @@ const CommunityTopics: React.FC = () => {
 
   const handleAddComment = async (topicId: string) => {
     if (!user) {
-      toast({ title: "Bạn cần đăng nhập để bình luận.", variant: "destructive" });
+      toast({
+        title: "You need to log in to comment.",
+        variant: "destructive",
+      });
       return;
     }
     if (!newComment.trim()) {
-      toast({ title: "Vui lòng nhập nội dung bình luận", variant: "destructive" });
+      toast({ title: "Please enter a comment", variant: "destructive" });
       return;
     }
     setCommentLoading(true);
     let res;
     try {
-      res = await api.topics.addComment(topicId, { content: newComment.trim() });
+      res = await api.topics.addComment(topicId, {
+        content: newComment.trim(),
+      });
     } catch (e: any) {
-      let msg = "Không thể gửi bình luận. Vui lòng thử lại.";
+      let msg = "Could not send comment. Please try again.";
       if (e?.response?.data?.message) {
         msg = e.response.data.message;
       }
@@ -145,21 +150,27 @@ const CommunityTopics: React.FC = () => {
       return;
     }
     if (!res || !res.data) {
-      toast({ title: "Không thể gửi bình luận. Vui lòng thử lại.", variant: "destructive" });
+      toast({
+        title: "Could not send comment. Please try again.",
+        variant: "destructive",
+      });
       setCommentLoading(false);
       return;
     }
     setNewComment("");
-    setComments(prev => [...prev, res.data]);
-    setTopics(prevTopics =>
-      prevTopics.map(topic =>
+    setComments((prev) => [...prev, res.data]);
+    setTopics((prevTopics) =>
+      prevTopics.map((topic) =>
         topic.id === topicId
           ? { ...topic, commentCount: topic.commentCount + 1 }
           : topic
       )
     );
     if (selectedTopic) {
-      setSelectedTopic({ ...selectedTopic, commentCount: selectedTopic.commentCount + 1 });
+      setSelectedTopic({
+        ...selectedTopic,
+        commentCount: selectedTopic.commentCount + 1,
+      });
     }
     setCommentLoading(false);
   };
@@ -169,20 +180,23 @@ const CommunityTopics: React.FC = () => {
       setCommentLoading(true);
       await api.topics.deleteComment(topicId, commentId);
       // Remove comment from state (avoid reload all)
-      setComments(prev => prev.filter(c => c.id !== commentId));
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
       // Update topic comment count in the list and detail
-      setTopics(prevTopics =>
-        prevTopics.map(topic =>
+      setTopics((prevTopics) =>
+        prevTopics.map((topic) =>
           topic.id === topicId
             ? { ...topic, commentCount: Math.max(0, topic.commentCount - 1) }
             : topic
         )
       );
       if (selectedTopic) {
-        setSelectedTopic({ ...selectedTopic, commentCount: Math.max(0, selectedTopic.commentCount - 1) });
+        setSelectedTopic({
+          ...selectedTopic,
+          commentCount: Math.max(0, selectedTopic.commentCount - 1),
+        });
       }
     } catch (e) {
-      toast({ title: "Không thể xóa bình luận.", variant: "destructive" });
+      toast({ title: "Could not delete comment.", variant: "destructive" });
     } finally {
       setCommentLoading(false);
     }
@@ -196,22 +210,31 @@ const CommunityTopics: React.FC = () => {
         await api.topics.deleteTopic(id);
         setTopics(topics.filter((topic) => topic.id !== id));
         if (selectedTopic?.id === id) setSelectedTopic(null);
-        toast({ title: "Đã xóa bài viết thành công." });
+        toast({ title: "Topic deleted successfully." });
       } catch (e) {
-        toast({ title: "Không thể xóa bài viết.", variant: "destructive" });
+        toast({ title: "Could not delete topic.", variant: "destructive" });
       }
     } else {
-      toast({ title: "Bạn không có quyền xóa bài viết này", variant: "destructive" });
+      toast({
+        title: "You don't have permission to delete this topic",
+        variant: "destructive",
+      });
     }
   };
 
   const handleCreateTopic = async () => {
     if (!user) {
-      toast({ title: "Bạn cần đăng nhập để tạo chủ đề.", variant: "destructive" });
+      toast({
+        title: "You need to log in to create a topic.",
+        variant: "destructive",
+      });
       return;
     }
     if (!newTopic.title.trim() || !newTopic.content.trim()) {
-      toast({ title: "Vui lòng điền đầy đủ thông tin.", variant: "destructive" });
+      toast({
+        title: "Please fill in all information.",
+        variant: "destructive",
+      });
       return;
     }
     try {
@@ -226,10 +249,10 @@ const CommunityTopics: React.FC = () => {
       const response = await api.topics.createTopic(formData);
       setIsCreateModalOpen(false);
       setNewTopic({ title: "", content: "", category: "engine", imageUrl: "" });
-      setTopics(prevTopics => [response.data, ...prevTopics]);
-      toast({ title: "Đăng bài viết thành công!" });
+      setTopics((prevTopics) => [response.data, ...prevTopics]);
+      toast({ title: "Post published successfully!" });
     } catch (e: any) {
-      let msg = "Không thể tạo bài viết mới.";
+      let msg = "Could not create new topic.";
       if (e?.response?.data?.message) {
         msg = e.response.data.message;
       }
@@ -245,35 +268,46 @@ const CommunityTopics: React.FC = () => {
 
   // Report topic (open modal)
   const handleReportTopic = (topicId: string) => {
-    setReportModal({ open: true, type: 'topic', topicId });
+    setReportModal({ open: true, type: "topic", topicId });
     setReportReason("");
   };
 
   // Report comment (open modal)
   const handleReportComment = (topicId: string, commentId: string) => {
-    setReportModal({ open: true, type: 'comment', topicId, commentId });
+    setReportModal({ open: true, type: "comment", topicId, commentId });
     setReportReason("");
   };
 
   // Submit report
   const handleSubmitReport = async () => {
     if (!reportReason.trim()) {
-      toast({ title: "Vui lòng nhập lý do báo cáo", variant: "destructive" });
+      toast({
+        title: "Please enter a reason for reporting",
+        variant: "destructive",
+      });
       return;
     }
     setReportLoading(true);
     try {
-      if (reportModal.type === 'topic' && reportModal.topicId) {
-        await api.report.createReport({ type: 'TOPIC', targetId: reportModal.topicId, reason: reportReason.trim() });
-        toast({ title: "Đã gửi báo cáo chủ đề." });
-      } else if (reportModal.type === 'comment' && reportModal.commentId) {
-        await api.report.createReport({ type: 'COMMENT', targetId: reportModal.commentId, reason: reportReason.trim() });
-        toast({ title: "Đã gửi báo cáo bình luận." });
+      if (reportModal.type === "topic" && reportModal.topicId) {
+        await api.report.createReport({
+          type: "TOPIC",
+          targetId: reportModal.topicId,
+          reason: reportReason.trim(),
+        });
+        toast({ title: "Topic report submitted." });
+      } else if (reportModal.type === "comment" && reportModal.commentId) {
+        await api.report.createReport({
+          type: "COMMENT",
+          targetId: reportModal.commentId,
+          reason: reportReason.trim(),
+        });
+        toast({ title: "Comment report submitted." });
       }
       setReportModal({ open: false, type: null });
       setReportReason("");
     } catch {
-      toast({ title: "Không thể gửi báo cáo.", variant: "destructive" });
+      toast({ title: "Could not submit report.", variant: "destructive" });
     } finally {
       setReportLoading(false);
     }
@@ -303,7 +337,7 @@ const CommunityTopics: React.FC = () => {
           <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Tìm kiếm bài viết..."
+            placeholder="Search topics..."
             className="w-full bg-input text-foreground pl-10 pr-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -313,7 +347,7 @@ const CommunityTopics: React.FC = () => {
           onClick={() => setIsCreateModalOpen(true)}
           className="flex items-center gap-2 bg-primary hover:bg-primary/90 transition-all duration-200 shadow-md hover:shadow-lg"
         >
-          <FiPlusCircle className="text-xl" /> Đặt câu hỏi
+          <FiPlusCircle className="text-xl" /> Ask a question
         </Button>
       </div>
 
@@ -333,7 +367,7 @@ const CommunityTopics: React.FC = () => {
               onClick={() => setSelectedTopic(null)}
               className="text-muted-foreground hover:text-foreground mb-4 transition-colors"
             >
-              ← Quay lại danh sách
+              ← Back to list
             </Button>
             <div className="flex justify-between items-start">
               <h2 className="text-2xl font-bold">{selectedTopic.title}</h2>
@@ -342,9 +376,9 @@ const CommunityTopics: React.FC = () => {
                   variant="outline"
                   onClick={() => handleReportTopic(selectedTopic.id)}
                   className="p-2 hover:bg-destructive/10 transition-colors"
-                  title="Báo cáo bài viết"
+                  title="Report topic"
                 >
-                  <FiFlag className="mr-1" /> Báo cáo
+                  <FiFlag className="mr-1" /> Report
                 </Button>
                 {canDeleteTopic(selectedTopic) && (
                   <Button
@@ -358,14 +392,20 @@ const CommunityTopics: React.FC = () => {
               </div>
             </div>
             <div className="flex gap-2 items-center text-sm text-muted-foreground mb-2">
-              <span className="capitalize px-2 py-1 rounded bg-muted">{selectedTopic.category || "Khác"}</span>
-              <span>Đăng bởi {selectedTopic.userName}</span>
-              <span>{new Date(selectedTopic.createdAt).toLocaleDateString()}</span>
+              <span className="capitalize px-2 py-1 rounded bg-muted">
+                {selectedTopic.category || "Other"}
+              </span>
+              <span>Posted by {selectedTopic.userName}</span>
+              <span>
+                {new Date(selectedTopic.createdAt).toLocaleDateString()}
+              </span>
             </div>
-            <p className="text-foreground whitespace-pre-line">{selectedTopic.content}</p>
+            <p className="text-foreground whitespace-pre-line">
+              {selectedTopic.content}
+            </p>
             <div className="mt-8">
               <h3 className="text-xl font-bold mb-4">
-                Bình luận ({selectedTopic.commentCount})
+                Comments ({selectedTopic.commentCount})
               </h3>
               <div className="space-y-4 mb-6 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
                 {commentLoading ? (
@@ -374,7 +414,7 @@ const CommunityTopics: React.FC = () => {
                   </div>
                 ) : selectedTopic.commentCount === 0 ? (
                   <p className="text-muted-foreground italic">
-                    Chưa có bình luận nào. Hãy là người đầu tiên bình luận!
+                    No comments yet. Be the first to comment!
                   </p>
                 ) : (
                   comments.map((comment) => (
@@ -401,7 +441,9 @@ const CommunityTopics: React.FC = () => {
                               {comment.userName}
                             </span>
                             <span className="text-sm text-muted-foreground ml-2">
-                              {new Date(comment.createdAt).toLocaleDateString()} at {new Date(comment.createdAt).toLocaleTimeString()}
+                              {new Date(comment.createdAt).toLocaleDateString()}{" "}
+                              at{" "}
+                              {new Date(comment.createdAt).toLocaleTimeString()}
                             </span>
                           </div>
                         </div>
@@ -409,17 +451,25 @@ const CommunityTopics: React.FC = () => {
                           <Button
                             variant="outline"
                             size="icon"
-                            onClick={() => handleReportComment(selectedTopic.id, comment.id)}
+                            onClick={() =>
+                              handleReportComment(selectedTopic.id, comment.id)
+                            }
                             className="p-1 rounded-full hover:bg-destructive/10 transition-colors"
-                            title="Báo cáo bình luận"
+                            title="Report comment"
                           >
                             <FiFlag />
                           </Button>
-                          {(user?.role === "admin" || comment.userId === user?.id) && (
+                          {(user?.role === "admin" ||
+                            comment.userId === user?.id) && (
                             <Button
                               variant="destructive"
                               size="icon"
-                              onClick={() => handleDeleteComment(selectedTopic.id, comment.id)}
+                              onClick={() =>
+                                handleDeleteComment(
+                                  selectedTopic.id,
+                                  comment.id
+                                )
+                              }
                               className="p-1 rounded-full hover:bg-destructive/10 transition-colors"
                             >
                               <FiTrash2 size={16} />
@@ -435,7 +485,7 @@ const CommunityTopics: React.FC = () => {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Viết bình luận..."
+                  placeholder="Write a comment..."
                   className="flex-1 bg-input p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder-muted-foreground text-foreground transition-all duration-200 hover:bg-muted"
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
@@ -455,7 +505,7 @@ const CommunityTopics: React.FC = () => {
                   ) : (
                     <FiMessageCircle />
                   )}{" "}
-                  Gửi
+                  Send
                 </Button>
               </div>
             </div>
@@ -464,7 +514,7 @@ const CommunityTopics: React.FC = () => {
           <div className="grid gap-6 md:grid-cols-2">
             {topics.length === 0 ? (
               <p className="text-muted-foreground italic col-span-2 text-center py-8">
-                Không có bài viết nào.
+                No topics found.
               </p>
             ) : (
               topics.map((topic) => (
@@ -474,7 +524,9 @@ const CommunityTopics: React.FC = () => {
                   onClick={() => setSelectedTopic(topic)}
                 >
                   <div className="flex justify-between items-start">
-                    <h2 className="text-xl font-bold truncate">{topic.title}</h2>
+                    <h2 className="text-xl font-bold truncate">
+                      {topic.title}
+                    </h2>
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
@@ -483,7 +535,7 @@ const CommunityTopics: React.FC = () => {
                           handleReportTopic(topic.id);
                         }}
                         className="p-2 hover:bg-destructive/10 transition-colors"
-                        title="Báo cáo bài viết"
+                        title="Report topic"
                       >
                         <FiFlag />
                       </Button>
@@ -502,9 +554,13 @@ const CommunityTopics: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex gap-2 items-center text-sm text-muted-foreground mb-2 mt-2">
-                    <span className="capitalize px-2 py-1 rounded bg-muted">{topic.category || "Khác"}</span>
-                    <span>Đăng bởi {topic.userName}</span>
-                    <span>{new Date(topic.createdAt).toLocaleDateString()}</span>
+                    <span className="capitalize px-2 py-1 rounded bg-muted">
+                      {topic.category || "Other"}
+                    </span>
+                    <span>Posted by {topic.userName}</span>
+                    <span>
+                      {new Date(topic.createdAt).toLocaleDateString()}
+                    </span>
                   </div>
                   <p className="text-muted-foreground mt-2 line-clamp-2">
                     {topic.content}
@@ -535,7 +591,7 @@ const CommunityTopics: React.FC = () => {
                       }}
                       className="bg-primary hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors"
                     >
-                      Xem chi tiết
+                      View details
                     </Button>
                   </div>
                 </Card>
@@ -550,7 +606,7 @@ const CommunityTopics: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <Card className="bg-card rounded-lg p-6 w-full max-w-2xl shadow-xl">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Đặt câu hỏi mới</h2>
+              <h2 className="text-2xl font-bold">Ask a new question</h2>
               <Button
                 variant="ghost"
                 onClick={() => setIsCreateModalOpen(false)}
@@ -562,22 +618,24 @@ const CommunityTopics: React.FC = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  Chủ đề
+                  Category
                 </label>
                 <select
                   value={newTopic.category}
-                  onChange={(e) => setNewTopic({ ...newTopic, category: e.target.value })}
+                  onChange={(e) =>
+                    setNewTopic({ ...newTopic, category: e.target.value })
+                  }
                   className="w-full bg-input p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground transition-all duration-200"
                 >
                   {CATEGORIES.filter((c) => c.value !== "all").map((cat) => (
-                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                    <option key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">
-                  Tiêu đề
-                </label>
+                <label className="block text-sm font-medium mb-2">Title</label>
                 <input
                   type="text"
                   value={newTopic.title}
@@ -585,12 +643,12 @@ const CommunityTopics: React.FC = () => {
                     setNewTopic({ ...newTopic, title: e.target.value })
                   }
                   className="w-full bg-input p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground transition-all duration-200"
-                  placeholder="Nhập tiêu đề câu hỏi"
+                  placeholder="Enter question title"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  Nội dung
+                  Content
                 </label>
                 <textarea
                   value={newTopic.content}
@@ -598,7 +656,7 @@ const CommunityTopics: React.FC = () => {
                     setNewTopic({ ...newTopic, content: e.target.value })
                   }
                   className="w-full bg-input p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary min-h-[120px] text-foreground transition-all duration-200"
-                  placeholder="Nhập nội dung câu hỏi"
+                  placeholder="Enter question content"
                 />
               </div>
               <div className="flex justify-end gap-4 mt-6">
@@ -606,7 +664,7 @@ const CommunityTopics: React.FC = () => {
                   onClick={() => setIsCreateModalOpen(false)}
                   className="px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
                 >
-                  Hủy
+                  Cancel
                 </Button>
                 <Button
                   onClick={handleCreateTopic}
@@ -616,7 +674,7 @@ const CommunityTopics: React.FC = () => {
                   {isSubmitting ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   ) : null}
-                  Đăng câu hỏi
+                  Post question
                 </Button>
               </div>
             </div>
@@ -628,12 +686,14 @@ const CommunityTopics: React.FC = () => {
       {reportModal.open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="bg-card rounded-lg p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-xl font-bold mb-4">Báo cáo {reportModal.type === 'topic' ? 'bài viết' : 'bình luận'}</h2>
+            <h2 className="text-xl font-bold mb-4">
+              Report {reportModal.type === "topic" ? "topic" : "comment"}
+            </h2>
             <textarea
               className="w-full bg-input p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] text-foreground mb-4"
-              placeholder="Nhập lý do báo cáo..."
+              placeholder="Enter reason for reporting..."
               value={reportReason}
-              onChange={e => setReportReason(e.target.value)}
+              onChange={(e) => setReportReason(e.target.value)}
               disabled={reportLoading}
             />
             <div className="flex justify-end gap-4">
@@ -643,7 +703,7 @@ const CommunityTopics: React.FC = () => {
                 className="px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
                 disabled={reportLoading}
               >
-                Hủy
+                Cancel
               </Button>
               <Button
                 onClick={handleSubmitReport}
@@ -653,7 +713,7 @@ const CommunityTopics: React.FC = () => {
                 {reportLoading ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                 ) : null}
-                Gửi báo cáo
+                Submit report
               </Button>
             </div>
           </Card>

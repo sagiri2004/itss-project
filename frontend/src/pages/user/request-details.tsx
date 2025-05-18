@@ -1,78 +1,103 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useParams, useNavigate } from "react-router-dom"
-import { motion } from "framer-motion"
-import { useAuth } from "@/context/auth-context"
-import { MapView } from "@/components/map/map-view"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { formatStatus, getStatusVariant } from "@/lib/utils"
-import { useToast } from "@/components/ui/use-toast"
-import { ArrowLeft, Clock, MapPin, Phone, Car, Loader2 } from "lucide-react"
-import api from "@/services/api"
-import React from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { useAuth } from "@/context/auth-context";
+import { MapView } from "@/components/map/map-view";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { formatStatus, getStatusVariant } from "@/lib/utils";
+import { useToast } from "@/components/ui/use-toast";
+import { ArrowLeft, Clock, MapPin, Phone, Car, Loader2 } from "lucide-react";
+import api from "@/services/api";
+import React from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface Request {
-  id: string
-  userId: string
-  serviceId: string
-  serviceName: string
-  companyId: string
-  companyName: string
-  latitude: number
-  longitude: number
-  description: string
-  estimatedPrice: number
-  finalPrice: number | null
-  status: string
-  createdAt: string
-  notes: string | null
+  id: string;
+  userId: string;
+  serviceId: string;
+  serviceName: string;
+  companyId: string;
+  companyName: string;
+  latitude: number;
+  longitude: number;
+  description: string;
+  estimatedPrice: number;
+  finalPrice: number | null;
+  status: string;
+  createdAt: string;
+  notes: string | null;
   rescueServiceDetails: {
-    id: string
-    name: string
-    description: string
-    price: number
-    type: string
-    companyId: string
-    companyName: string
-  } | null
-  vehicleLicensePlate: string | null
-  vehicleModel: string | null
-  vehicleEquipmentDetails: string[] | null
-  vehicleStatus: string | null
-  vehicleMake: string | null
-  vehicleYear: string | null
-  vehicleImageUrl: string | null
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+    type: string;
+    companyId: string;
+    companyName: string;
+  } | null;
+  vehicleLicensePlate: string | null;
+  vehicleModel: string | null;
+  vehicleEquipmentDetails: string[] | null;
+  vehicleStatus: string | null;
+  vehicleMake: string | null;
+  vehicleYear: string | null;
+  vehicleImageUrl: string | null;
 }
 
 // Status steps mapping (simple)
 const MAIN_STATUS_STEPS = [
-  { key: 'CREATED', label: 'Created' },
-  { key: 'ACCEPTED_BY_COMPANY', label: 'Accepted' },
-  { key: 'RESCUE_VEHICLE_DISPATCHED', label: 'Dispatched' },
-  { key: 'RESCUE_VEHICLE_ARRIVED', label: 'Arrived' },
-  { key: 'INSPECTION_DONE', label: 'Inspected' },
-  { key: 'PRICE_UPDATED', label: 'Price Updated' },
-  { key: 'PRICE_CONFIRMED', label: 'Price Confirmed' },
-  { key: 'IN_PROGRESS', label: 'In Progress' },
-  { key: 'COMPLETED', label: 'Completed' },
-  { key: 'INVOICED', label: 'Invoiced' },
-  { key: 'PAID', label: 'Paid' },
+  { key: "CREATED", label: "Created" },
+  { key: "ACCEPTED_BY_COMPANY", label: "Accepted" },
+  { key: "RESCUE_VEHICLE_DISPATCHED", label: "Dispatched" },
+  { key: "RESCUE_VEHICLE_ARRIVED", label: "Arrived" },
+  { key: "INSPECTION_DONE", label: "Inspected" },
+  { key: "PRICE_UPDATED", label: "Price Updated" },
+  { key: "PRICE_CONFIRMED", label: "Price Confirmed" },
+  { key: "IN_PROGRESS", label: "In Progress" },
+  { key: "COMPLETED", label: "Completed" },
+  { key: "INVOICED", label: "Invoiced" },
+  { key: "PAID", label: "Paid" },
 ];
 const SPECIAL_STATUS = {
-  REJECTED_BY_USER: { key: 'REJECTED', label: 'Rejected' },
-  CANCELLED_BY_USER: { key: 'CANCELLED_BY_USER', label: 'User Cancelled' },
-  CANCELLED_BY_COMPANY: { key: 'CANCELLED_BY_COMPANY', label: 'Company Cancelled' },
+  REJECTED_BY_USER: { key: "REJECTED", label: "Rejected" },
+  CANCELLED_BY_USER: { key: "CANCELLED_BY_USER", label: "User Cancelled" },
+  CANCELLED_BY_COMPANY: {
+    key: "CANCELLED_BY_COMPANY",
+    label: "Company Cancelled",
+  },
 };
 function SimpleStatusBar({ status }: { status: string }) {
   let steps = [...MAIN_STATUS_STEPS];
-  let currentIdx = steps.findIndex(s => s.key === status);
-  const isSpecial = Object.prototype.hasOwnProperty.call(SPECIAL_STATUS, status);
+  let currentIdx = steps.findIndex((s) => s.key === status);
+  const isSpecial = Object.prototype.hasOwnProperty.call(
+    SPECIAL_STATUS,
+    status
+  );
   if (isSpecial) {
-    steps = [...MAIN_STATUS_STEPS, (SPECIAL_STATUS as Record<string, { key: string; label: string }>)[status]];
+    steps = [
+      ...MAIN_STATUS_STEPS,
+      (SPECIAL_STATUS as Record<string, { key: string; label: string }>)[
+        status
+      ],
+    ];
     currentIdx = steps.length - 1;
   }
   const visibleSteps = steps.slice(0, currentIdx + 1);
@@ -80,9 +105,15 @@ function SimpleStatusBar({ status }: { status: string }) {
     <div className="flex items-center gap-2 py-2">
       {visibleSteps.map((step, idx) => (
         <React.Fragment key={step.key}>
-          <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold
-            ${idx === currentIdx ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}
-          `}>
+          <div
+            className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold
+            ${
+              idx === currentIdx
+                ? "bg-primary text-white"
+                : "bg-muted text-muted-foreground"
+            }
+          `}
+          >
             {idx + 1}
           </div>
           {idx < visibleSteps.length - 1 && (
@@ -90,20 +121,24 @@ function SimpleStatusBar({ status }: { status: string }) {
           )}
         </React.Fragment>
       ))}
-      <span className="ml-4 text-sm font-medium">{visibleSteps[visibleSteps.length - 1].label}</span>
+      <span className="ml-4 text-sm font-medium">
+        {visibleSteps[visibleSteps.length - 1].label}
+      </span>
     </div>
   );
 }
 
 export default function RequestMap() {
-  const { user } = useAuth()
-  const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const { toast } = useToast()
-  const [request, setRequest] = useState<Request | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [mapCenter, setMapCenter] = useState<[number, number]>([40.7128, -74.006])
-  const [mapZoom, setMapZoom] = useState(13)
+  const { user } = useAuth();
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [request, setRequest] = useState<Request | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([
+    40.7128, -74.006,
+  ]);
+  const [mapZoom, setMapZoom] = useState(13);
 
   useEffect(() => {
     const fetchRequest = async () => {
@@ -112,111 +147,123 @@ export default function RequestMap() {
           variant: "destructive",
           title: "Invalid Request",
           description: "Request ID is missing.",
-        })
-        setIsLoading(false)
-        return
+        });
+        setIsLoading(false);
+        return;
       }
 
       try {
-        const response = await api.rescueRequests.getRequestById(id)
-        const requestData = response.data
+        const response = await api.rescueRequests.getRequestById(id);
+        const requestData = response.data;
         if (requestData && requestData.latitude && requestData.longitude) {
-          setRequest(requestData)
-          setMapCenter([requestData.latitude, requestData.longitude])
+          setRequest(requestData);
+          setMapCenter([requestData.latitude, requestData.longitude]);
         } else {
-          throw new Error("Invalid request data")
+          throw new Error("Invalid request data");
         }
-        setIsLoading(false)
+        setIsLoading(false);
       } catch (error: any) {
         toast({
           variant: "destructive",
           title: "Error loading request",
-          description: error.response?.data?.message || "Could not load the request details. Please try again.",
-        })
-        setIsLoading(false)
+          description:
+            error.response?.data?.message ||
+            "Could not load the request details. Please try again.",
+        });
+        setIsLoading(false);
       }
-    }
+    };
 
-    fetchRequest()
-  }, [id, toast])
+    fetchRequest();
+  }, [id, toast]);
 
   // Simulate vehicle movement (for demo purposes)
   useEffect(() => {
-    if (!isLoading && request?.status === "RESCUE_VEHICLE_DISPATCHED" && request.latitude && request.longitude) {
+    if (
+      !isLoading &&
+      request?.status === "RESCUE_VEHICLE_DISPATCHED" &&
+      request.latitude &&
+      request.longitude
+    ) {
       const interval = setInterval(() => {
         setRequest((prev) => {
-          if (!prev) return null
-          const vehicleLat = prev.latitude
-          const vehicleLng = prev.longitude
-          const requestLat = prev.latitude
-          const requestLng = prev.longitude
+          if (!prev) return null;
+          const vehicleLat = prev.latitude;
+          const vehicleLng = prev.longitude;
+          const requestLat = prev.latitude;
+          const requestLng = prev.longitude;
 
-          const newLat = vehicleLat + (requestLat - vehicleLat) * 0.1
-          const newLng = vehicleLng + (requestLng - vehicleLng) * 0.1
+          const newLat = vehicleLat + (requestLat - vehicleLat) * 0.1;
+          const newLng = vehicleLng + (requestLng - vehicleLng) * 0.1;
 
-          const distance = Math.sqrt(Math.pow(newLat - requestLat, 2) + Math.pow(newLng - requestLng, 2))
+          const distance = Math.sqrt(
+            Math.pow(newLat - requestLat, 2) + Math.pow(newLng - requestLng, 2)
+          );
 
           if (distance < 0.001) {
-            clearInterval(interval)
+            clearInterval(interval);
             return {
               ...prev,
               status: "RESCUE_VEHICLE_ARRIVED",
-            }
+            };
           }
 
           return {
             ...prev,
             latitude: newLat,
             longitude: newLng,
-          }
-        })
-      }, 3000)
+          };
+        });
+      }, 3000);
 
-      return () => clearInterval(interval)
+      return () => clearInterval(interval);
     }
-  }, [isLoading, request])
+  }, [isLoading, request]);
 
   if (isLoading || !request) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
-    )
+    );
   }
 
   // Prepare map markers
-  const mapMarkers = request.latitude && request.longitude ? [
-    {
-      id: "user-location",
-      position: [request.latitude, request.longitude] as [number, number],
-      type: "user" as const,
-      label: "Your Location",
-    },
-  ] : []
+  const mapMarkers =
+    request.latitude && request.longitude
+      ? [
+          {
+            id: "user-location",
+            position: [request.latitude, request.longitude] as [number, number],
+            type: "user" as const,
+            label: "Your Location",
+          },
+        ]
+      : [];
 
   // Calculate ETA
   const calculateETA = () => {
     if (request.status === "RESCUE_VEHICLE_ARRIVED") {
-      return "Vehicle has arrived"
+      return "Vehicle has arrived";
     }
 
     try {
-      const now = new Date()
-      const eta = new Date(request.createdAt)
+      const now = new Date();
+      const eta = new Date(request.createdAt);
       if (isNaN(eta.getTime())) {
-        return "ETA unavailable"
+        return "ETA unavailable";
       }
-      const diffMinutes = Math.round((eta.getTime() - now.getTime()) / 60000)
+      const diffMinutes = Math.round((eta.getTime() - now.getTime()) / 60000);
 
       if (diffMinutes <= 0) {
-        return "Arriving any moment"
+        return "Arriving any moment";
       }
 
-      return `${diffMinutes} minutes`
+      return `${diffMinutes} minutes`;
     } catch {
-      return "ETA unavailable"
+      return "ETA unavailable";
     }
-  }
+  };
 
   // Animation variants
   const containerVariants = {
@@ -227,7 +274,7 @@ export default function RequestMap() {
         staggerChildren: 0.1,
       },
     },
-  }
+  };
 
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
@@ -240,14 +287,24 @@ export default function RequestMap() {
         damping: 20,
       },
     },
-  }
+  };
 
-  const canCancel = !["COMPLETED", "CANCELLED_BY_USER", "CANCELLED_BY_COMPANY", "PAID"].includes(request.status)
-  const canConfirmPrice = request.status === "PRICE_UPDATED"
+  const canCancel = ![
+    "COMPLETED",
+    "CANCELLED_BY_USER",
+    "CANCELLED_BY_COMPANY",
+    "PAID",
+  ].includes(request.status);
+  const canConfirmPrice = request.status === "PRICE_UPDATED";
 
   // NEW: Detailed info card and status bar
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="w-full h-full p-0 space-y-6">
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="w-full h-full p-0 space-y-6"
+    >
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Request Details</CardTitle>
@@ -259,10 +316,18 @@ export default function RequestMap() {
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <h3 className="font-semibold mb-2">Service</h3>
-              <div>Name: {request.rescueServiceDetails?.name || request.serviceName}</div>
+              <div>
+                Name:{" "}
+                {request.rescueServiceDetails?.name || request.serviceName}
+              </div>
               <div>Type: {request.rescueServiceDetails?.type}</div>
-              <div>Description: {request.rescueServiceDetails?.description}</div>
-              <div>Price: {request.rescueServiceDetails?.price ?? request.estimatedPrice}</div>
+              <div>
+                Description: {request.rescueServiceDetails?.description}
+              </div>
+              <div>
+                Price:{" "}
+                {request.rescueServiceDetails?.price ?? request.estimatedPrice}
+              </div>
             </div>
             <div>
               <h3 className="font-semibold mb-2">Company</h3>
@@ -277,7 +342,7 @@ export default function RequestMap() {
             <div>
               <h3 className="font-semibold mb-2">Price</h3>
               <div>Estimated: {request.estimatedPrice}</div>
-              <div>Final: {request.finalPrice ?? 'N/A'}</div>
+              <div>Final: {request.finalPrice ?? "N/A"}</div>
             </div>
             <div>
               <h3 className="font-semibold mb-2">Status</h3>
@@ -299,20 +364,103 @@ export default function RequestMap() {
             )}
           </div>
         </CardContent>
+        {canConfirmPrice && (
+          <CardFooter>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="default">Accept New Price</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Do you agree with the new price?</DialogTitle>
+                </DialogHeader>
+                <DialogFooter className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={async () => {
+                      try {
+                        await api.rescueRequests.cancelRequest(request.id);
+                        setRequest((prev) =>
+                          prev ? { ...prev, status: "CANCELLED_BY_USER" } : null
+                        );
+                        toast({
+                          title: "New price rejected",
+                          description:
+                            "You have rejected the new price and canceled the request.",
+                        });
+                      } catch (error: any) {
+                        toast({
+                          variant: "destructive",
+                          title: "Error",
+                          description:
+                            error.response?.data?.message ||
+                            "Failed to reject new price.",
+                        });
+                      }
+                    }}
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    variant="default"
+                    onClick={async () => {
+                      try {
+                        await api.rescueRequests.confirmPrice(request.id);
+                        setRequest((prev) =>
+                          prev ? { ...prev, status: "PRICE_CONFIRMED" } : null
+                        );
+                        toast({
+                          title: "New price accepted",
+                          description: "You have agreed to the new price.",
+                        });
+                      } catch (error: any) {
+                        toast({
+                          variant: "destructive",
+                          title: "Error",
+                          description:
+                            error.response?.data?.message ||
+                            "Failed to accept new price.",
+                        });
+                      }
+                    }}
+                  >
+                    Accept
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardFooter>
+        )}
       </Card>
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
+      <motion.div
+        variants={itemVariants}
+        className="flex items-center justify-between"
+      >
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => navigate(`/user/requests/${id}`)}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigate(`/user/requests/${id}`)}
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Track Your Rescue</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Track Your Rescue
+          </h1>
         </div>
-        <Badge variant={getStatusVariant(request.status) || "outline"}>{formatStatus(request.status)}</Badge>
+        <Badge variant={getStatusVariant(request.status) || "outline"}>
+          {formatStatus(request.status)}
+        </Badge>
       </motion.div>
 
       <motion.div variants={itemVariants} className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2">
-          <MapView markers={mapMarkers} center={mapCenter} zoom={mapZoom} height="500px" />
+          <MapView
+            markers={mapMarkers}
+            center={mapCenter}
+            zoom={mapZoom}
+            height="500px"
+          />
         </div>
 
         <div className="space-y-6">
@@ -326,15 +474,21 @@ export default function RequestMap() {
                 <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground" />
                 <div>
                   <div className="font-medium">Your Location</div>
-                  <div className="text-sm text-muted-foreground">{request.description || "N/A"}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {request.description || "N/A"}
+                  </div>
                 </div>
               </div>
 
               {request.rescueServiceDetails ? (
                 <div>
                   <div className="font-medium">Service Type</div>
-                  <div className="text-sm text-muted-foreground">{request.rescueServiceDetails.name || "N/A"}</div>
-                  <div className="text-xs text-muted-foreground">{request.rescueServiceDetails.description || "N/A"}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {request.rescueServiceDetails.name || "N/A"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {request.rescueServiceDetails.description || "N/A"}
+                  </div>
                 </div>
               ) : (
                 <div>
@@ -346,7 +500,9 @@ export default function RequestMap() {
               {request.companyName ? (
                 <div>
                   <div className="font-medium">Rescue Company</div>
-                  <div className="text-sm text-muted-foreground">{request.companyName}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {request.companyName}
+                  </div>
                 </div>
               ) : (
                 <div>
@@ -359,7 +515,9 @@ export default function RequestMap() {
                 <Clock className="mt-0.5 h-4 w-4 text-muted-foreground" />
                 <div>
                   <div className="font-medium">Estimated Arrival</div>
-                  <div className="text-sm text-muted-foreground">{calculateETA()}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {calculateETA()}
+                  </div>
                 </div>
               </div>
 
@@ -369,8 +527,8 @@ export default function RequestMap() {
                   {request.finalPrice !== null
                     ? `${request.finalPrice} đ`
                     : request.estimatedPrice
-                      ? `${request.estimatedPrice} đ (estimated)`
-                      : "Chưa cập nhật"}
+                    ? `${request.estimatedPrice} đ (estimated)`
+                    : "Not updated yet"}
                 </div>
               </div>
             </CardContent>
@@ -379,27 +537,35 @@ export default function RequestMap() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle>Rescue Vehicle</CardTitle>
-              <CardDescription>Information about your assigned vehicle</CardDescription>
+              <CardDescription>
+                Information about your assigned vehicle
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {(request.vehicleMake || request.vehicleModel || request.vehicleYear || request.vehicleImageUrl) && (
+              {(request.vehicleMake ||
+                request.vehicleModel ||
+                request.vehicleYear ||
+                request.vehicleImageUrl) && (
                 <div className="space-y-2">
                   {request.vehicleImageUrl && (
                     <img
                       src={request.vehicleImageUrl}
                       alt="Vehicle"
                       className="w-full max-w-xs rounded border mb-2"
-                      style={{objectFit: 'cover'}}
+                      style={{ objectFit: "cover" }}
                     />
                   )}
                   <div>
-                    <span className="font-medium">Make:</span> {request.vehicleMake || 'N/A'}
+                    <span className="font-medium">Make:</span>{" "}
+                    {request.vehicleMake || "N/A"}
                   </div>
                   <div>
-                    <span className="font-medium">Model:</span> {request.vehicleModel || 'N/A'}
+                    <span className="font-medium">Model:</span>{" "}
+                    {request.vehicleModel || "N/A"}
                   </div>
                   <div>
-                    <span className="font-medium">Year:</span> {request.vehicleYear || 'N/A'}
+                    <span className="font-medium">Year:</span>{" "}
+                    {request.vehicleYear || "N/A"}
                   </div>
                 </div>
               )}
@@ -407,8 +573,12 @@ export default function RequestMap() {
                 <div className="flex items-start gap-2">
                   <Car className="mt-0.5 h-4 w-4 text-muted-foreground" />
                   <div>
-                    <div className="font-medium">{request.rescueServiceDetails.name || "N/A"}</div>
-                    <div className="text-sm text-muted-foreground">{request.rescueServiceDetails.type || "N/A"}</div>
+                    <div className="font-medium">
+                      {request.rescueServiceDetails.name || "N/A"}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {request.rescueServiceDetails.type || "N/A"}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -419,10 +589,18 @@ export default function RequestMap() {
               )}
               {request.vehicleModel ? (
                 <div>
-                  <div className="font-medium">{request.vehicleModel} ({request.vehicleLicensePlate || "N/A"})</div>
-                  <div className="text-sm text-muted-foreground">Status: {request.vehicleStatus || "N/A"}</div>
+                  <div className="font-medium">
+                    {request.vehicleModel} (
+                    {request.vehicleLicensePlate || "N/A"})
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Status: {request.vehicleStatus || "N/A"}
+                  </div>
                   <div className="text-xs text-muted-foreground">
-                    Equipment: {request.vehicleEquipmentDetails?.length ? request.vehicleEquipmentDetails.join(", ") : "N/A"}
+                    Equipment:{" "}
+                    {request.vehicleEquipmentDetails?.length
+                      ? request.vehicleEquipmentDetails.join(", ")
+                      : "N/A"}
                   </div>
                 </div>
               ) : (
@@ -438,7 +616,9 @@ export default function RequestMap() {
                 disabled={!request.rescueServiceDetails?.companyId}
                 onClick={() => {
                   if (request.rescueServiceDetails?.companyId) {
-                    window.open(`tel:${request.rescueServiceDetails.companyId}`)
+                    window.open(
+                      `tel:${request.rescueServiceDetails.companyId}`
+                    );
                   }
                 }}
               >
@@ -454,59 +634,44 @@ export default function RequestMap() {
         {canCancel && (
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="destructive">Huỷ yêu cầu</Button>
+              <Button variant="destructive">Cancel Request</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Xác nhận huỷ yêu cầu?</DialogTitle>
+                <DialogTitle>Confirm request cancellation?</DialogTitle>
               </DialogHeader>
               <DialogFooter>
-                <Button variant="destructive" onClick={async () => {
-                  try {
-                    await api.rescueRequests.cancelRequest(request.id)
-                    setRequest((prev) => prev ? { ...prev, status: "CANCELLED_BY_USER" } : null)
-                    toast({ title: "Đã huỷ yêu cầu", description: "Yêu cầu của bạn đã được huỷ thành công." })
-                  } catch (error: any) {
-                    toast({ variant: "destructive", title: "Lỗi", description: error.response?.data?.message || "Huỷ yêu cầu thất bại." })
-                  }
-                }}>Xác nhận huỷ</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
-        {canConfirmPrice && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="default">Chấp nhận giá mới</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Bạn đồng ý với mức giá mới?</DialogTitle>
-              </DialogHeader>
-              <DialogFooter className="flex gap-2">
-                <Button variant="secondary" onClick={async () => {
-                  try {
-                    await api.rescueRequests.cancelRequest(request.id)
-                    setRequest((prev) => prev ? { ...prev, status: "CANCELLED_BY_USER" } : null)
-                    toast({ title: "Đã từ chối giá mới", description: "Bạn đã từ chối mức giá mới và huỷ yêu cầu." })
-                  } catch (error: any) {
-                    toast({ variant: "destructive", title: "Lỗi", description: error.response?.data?.message || "Từ chối giá mới thất bại." })
-                  }
-                }}>Từ chối</Button>
-                <Button variant="default" onClick={async () => {
-                  try {
-                    await api.rescueRequests.confirmPrice(request.id)
-                    setRequest((prev) => prev ? { ...prev, status: "PRICE_CONFIRMED" } : null)
-                    toast({ title: "Đã chấp nhận giá mới", description: "Bạn đã đồng ý với mức giá mới." })
-                  } catch (error: any) {
-                    toast({ variant: "destructive", title: "Lỗi", description: error.response?.data?.message || "Chấp nhận giá mới thất bại." })
-                  }
-                }}>Đồng ý</Button>
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    try {
+                      await api.rescueRequests.cancelRequest(request.id);
+                      setRequest((prev) =>
+                        prev ? { ...prev, status: "CANCELLED_BY_USER" } : null
+                      );
+                      toast({
+                        title: "Request canceled",
+                        description:
+                          "Your request has been successfully canceled.",
+                      });
+                    } catch (error: any) {
+                      toast({
+                        variant: "destructive",
+                        title: "Error",
+                        description:
+                          error.response?.data?.message ||
+                          "Failed to cancel request.",
+                      });
+                    }
+                  }}
+                >
+                  Confirm Cancellation
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         )}
       </div>
     </motion.div>
-  )
+  );
 }
