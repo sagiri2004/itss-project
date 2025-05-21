@@ -46,6 +46,10 @@ springdoc:
   group-configs:
     - group: invoices
       paths-to-match: /api/v1/invoices/**
+cors:
+  allowed-origins:
+    - http://localhost:5173
+    - https://itss-project.vercel.app
 
 jwt:
   signerKey: "In this society, only those who work hard, diligently, and tirelessly will earn their share. Only by working can one eat. Those who expect to eat without working will end up eating sh*t."
