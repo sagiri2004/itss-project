@@ -38,8 +38,10 @@ public class SecurityConfig {
 	@Value("${jwt.signerKey}")
 	private String signerKey;
 
-	@Value("${cors.allowed-origins}")
-	private String[] allowedOrigins;
+	private final String[] allowedOrigins = {
+			"http://localhost:5173",
+			"https://itss-project.vercel.app"
+	};
 
 	@Bean
 	public WebMvcConfigurer corsConfigurer() {
