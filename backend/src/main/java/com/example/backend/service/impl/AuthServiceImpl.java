@@ -83,7 +83,7 @@ public class AuthServiceImpl implements AuthService {
 		if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
 			throw new AuthException("Invalid username or password");
 		}
-
+		
 		String token = jwtUtil.generateToken(user.getUsername(), user.getRoles(), user.getId());
 
 		String companyId = userRepository.findById(user.getId())
