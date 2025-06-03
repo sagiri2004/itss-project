@@ -22,13 +22,13 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import javax.crypto.spec.SecretKeySpec;
-import java.util.Arrays;
 import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+
 	private final String[] PUBLIC_AUTH_ENDPOINTS = {
 			"/api/v1/auth/**",
 			"/v3/api-docs/**",
@@ -41,54 +41,44 @@ public class SecurityConfig {
 	@Value("${jwt.signerKey}")
 	private String signerKey;
 
-	private final String[] allowedOrigins = {
-			"http://localhost:5173",
-			"https://itss-project.vercel.app",
-			"http://10.0.2.2:3000",
-			"http://127.0.0.1:3000",
-			"capacitor://localhost",
-			"ionic://localhost",
-			"exp://localhost",
-			"http://localhost:3000",
-			"https://localhost"
-	};
-
 	@Bean
-	public SecurityFilterChain apiSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
-		httpSecurity
+	public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
+		http
 				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 				.csrf(AbstractHttpConfigurer::disable)
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.authorizeHttpRequests(request -> {
-					request.requestMatchers(PUBLIC_AUTH_ENDPOINTS).permitAll();
-					request.anyRequest().authenticated();
-				})
-				.oauth2ResourceServer(oauth2 ->
-						oauth2.jwt(jwt -> {
+				.authorizeHttpRequests(auth -> auth
+						// ✅ Cho phép tất cả request OPTIONS để tránh 403 CORS preflight
+						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+						.requestMatchers(PUBLIC_AUTH_ENDPOINTS).permitAll()
+						.anyRequest().authenticated()
+				)
+				.oauth2ResourceServer(oauth2 -> oauth2
+						.jwt(jwt -> {
 							jwt.decoder(jwtDecoder());
 							jwt.jwtAuthenticationConverter(jwtAuthenticationConverter());
 						})
 				);
 
-		return httpSecurity.build();
+		return http.build();
 	}
 
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration config = new CorsConfiguration();
-		config.addAllowedOriginPattern("*");  // Cho phép mọi origin, dùng addAllowedOriginPattern thay vì setAllowedOrigins
-		config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-		config.setAllowedHeaders(List.of("*"));
-		config.setAllowCredentials(true);
+		config.addAllowedOriginPattern("*"); // ✅ Cho phép mọi origin
+		config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")); // ✅ Cho phép OPTIONS
+		config.setAllowedHeaders(List.of("*")); // ✅ Cho phép mọi header
+		config.setAllowCredentials(true); // ✅ Quan trọng nếu gửi cookie/token
 		config.setMaxAge(3600L);
 
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-		source.registerCorsConfiguration("/**", config);
+		source.registerCorsConfiguration("/**", config); // ✅ Áp dụng cho tất cả endpoints
 		return source;
 	}
 
 	@Bean
-	JwtDecoder jwtDecoder() {
+	public JwtDecoder jwtDecoder() {
 		SecretKeySpec secretKeySpec = new SecretKeySpec(signerKey.getBytes(), "HS512");
 		return NimbusJwtDecoder
 				.withSecretKey(secretKeySpec)
