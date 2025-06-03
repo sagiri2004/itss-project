@@ -26,6 +26,17 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.time.format.DateTimeFormatter;
 import java.util.DoubleSummaryStatistics;
+import org.springframework.kafka.core.KafkaTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.beans.factory.annotation.Value;
+import java.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import com.example.backend.kafka.OnlineUserEventService;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +51,13 @@ public class AdminServiceImpl implements AdminService {
     private final TopicRepository topicRepository;
     private final TopicCommentRepository topicCommentRepository;
     private final RescueVehicleRepository vehicleRepository;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ObjectMapper objectMapper;
+    private static final Logger log = LoggerFactory.getLogger(AdminServiceImpl.class);
+    private final OnlineUserEventService onlineUserEventService;
+
+    @Value("${spring.kafka.bootstrap-servers}")
+    private String bootstrapServers;
 
     // User
     public List<UserResponse> getAllUsers() {
@@ -440,5 +458,10 @@ public class AdminServiceImpl implements AdminService {
             case "year" -> date.format(DateTimeFormatter.ofPattern("MM/yyyy"));
             default -> date.format(DateTimeFormatter.ofPattern("dd/MM")); // month
         };
+    }
+
+    @Override
+    public List<String> getOnlineUsers() {
+        return onlineUserEventService.requestOnlineUsers();
     }
 } 

@@ -25,17 +25,12 @@ import api from "@/services/api"
 // Interfaces
 interface User {
   id: string
+  username: string
   name: string
   email: string
-  phone: string
   role: string
-  status: "ACTIVE" | "SUSPENDED" | "PENDING_VERIFICATION"
-  isVerified: boolean
-  lastLogin: string
-  joinDate: string
-  requestsCount: number
-  companyId?: string
-  companyName?: string
+  companyId: string | null
+  isOnline?: boolean
 }
 
 export default function AdminUsers() {
@@ -48,48 +43,44 @@ export default function AdminUsers() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([])
 
-  // Fetch users when component mounts
+  // Fetch users and online users when component mounts
   useEffect(() => {
     if (user?.role !== 'admin') {
       navigate('/login')
       return
     }
 
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       setIsLoading(true)
       try {
-        const response = await api.admin.getUsers()
-        
-        // Map response data to our interface
-        const mappedUsers: User[] = response.data.map((u: any) => ({
-          id: u.id,
-          name: u.name || u.username || "",
-          email: u.email || "",
-          phone: u.phone || '',
-          role: (u.role || (u.roles && u.roles[0]) || "user").toLowerCase(),
-          status: u.status || "",
-          isVerified: u.isVerified || false,
-          lastLogin: u.lastLogin || u.updatedAt || "",
-          joinDate: u.createdAt || "",
-          requestsCount: u.requestsCount || 0,
-          companyId: u.company?.id || "",
-          companyName: u.company?.name || ""
-        }))
-
-        setUsers(mappedUsers)
+        const [usersResponse, onlineUsersResponse] = await Promise.all([
+          api.admin.getUsers(),
+          api.admin.getOnlineUsers()
+        ])
+        setUsers(usersResponse.data)
+        setOnlineUsers(onlineUsersResponse.data)
       } catch (error: any) {
         toast({
           variant: "destructive",
-          title: "Error loading users",
-          description: error.response?.data?.message || "Could not load users"
+          title: "Error loading data",
+          description: error.response?.data?.message || "Could not load data"
         })
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchUsers()
+    fetchData()
+    // Refresh online users every 30 seconds
+    const interval = setInterval(() => {
+      api.admin.getOnlineUsers()
+        .then(response => setOnlineUsers(response.data))
+        .catch(error => console.error('Error fetching online users:', error))
+    }, 30000)
+
+    return () => clearInterval(interval)
   }, [toast, user, navigate])
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,11 +92,8 @@ export default function AdminUsers() {
     const matchesSearch =
       (user.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.phone || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.status || "").toLowerCase().includes(searchTerm.toLowerCase())
-
-    const matchesRole = !roleFilter || roleFilter === "ALL" || user.role === roleFilter
-
+      (user.username || "").toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesRole = !roleFilter || roleFilter === "ALL" || user.role.toLowerCase() === roleFilter
     return matchesSearch && matchesRole
   })
 
@@ -280,6 +268,12 @@ export default function AdminUsers() {
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Users</h1>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+            {onlineUsers.length} Online
+          </Badge>
+        </div>
       </motion.div>
 
       <motion.div variants={itemVariants}>
@@ -329,18 +323,18 @@ export default function AdminUsers() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Username</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                         No users found. Try adjusting your search.
                       </TableCell>
                     </TableRow>
@@ -348,81 +342,23 @@ export default function AdminUsers() {
                     filteredUsers.map((userData) => (
                       <TableRow key={userData.id}>
                         <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarImage src={`https://avatar.vercel.sh/${userData.name}`} />
-                              <AvatarFallback>{userData.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium">{userData.name}</div>
-                              <div className="flex items-center text-xs text-muted-foreground mt-1">
-                                <Calendar className="mr-1 h-3 w-3" />
-                                <span>Last login: {new Date(userData.lastLogin).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                          </div>
+                          {onlineUsers.includes(userData.id) ? (
+                            <Badge variant="success" className="flex items-center gap-1">
+                              <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                              Online
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="flex items-center gap-1">
+                              <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                              Offline
+                            </Badge>
+                          )}
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <Mail className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{userData.email}</span>
-                          </div>
-                          <div className="flex items-center text-xs text-muted-foreground mt-1">
-                            <Phone className="mr-1 h-3 w-3" />
-                            <span>{userData.phone}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={userData.role === "admin" ? "default" : "outline"}>
-                            {userData.role.toUpperCase()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-2">
-                            {getUserStatusBadge(userData.status)}
-                            {userData.isVerified ? (
-                              <div className="flex items-center text-xs text-green-500">
-                                <CheckCircle className="mr-1 h-3 w-3" />
-                                <span>Verified</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center text-xs text-muted-foreground">
-                                <XCircle className="mr-1 h-3 w-3" />
-                                <span>Not Verified</span>
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>{new Date(userData.joinDate).toLocaleDateString()}</div>
-                          <div className="text-xs text-muted-foreground">{userData.requestsCount} requests</div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={() => openDetailDialog(userData)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Details
-                            </Button>
-                            {userData.status === "PENDING_VERIFICATION" && (
-                              <Button size="sm" onClick={() => verifyUser(userData.id)}>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Verify
-                              </Button>
-                            )}
-                            {userData.status === "ACTIVE" && (
-                              <Button variant="outline" size="sm" onClick={() => suspendUser(userData.id)}>
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Suspend
-                              </Button>
-                            )}
-                            {userData.status === "SUSPENDED" && (
-                              <Button size="sm" onClick={() => activateUser(userData.id)}>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Activate
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
+                        <TableCell>{userData.id}</TableCell>
+                        <TableCell>{userData.username}</TableCell>
+                        <TableCell>{userData.name}</TableCell>
+                        <TableCell>{userData.email}</TableCell>
+                        <TableCell>{userData.role}</TableCell>
                       </TableRow>
                     ))
                   )}
@@ -452,7 +388,6 @@ export default function AdminUsers() {
                     <Badge variant={currentUser.role === "admin" ? "default" : "outline"} className="mr-2">
                       {currentUser.role.toUpperCase()}
                     </Badge>
-                    {getUserStatusBadge(currentUser.status)}
                   </div>
                 </div>
               </div>
@@ -465,52 +400,15 @@ export default function AdminUsers() {
                       <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
                       <span>{currentUser.email}</span>
                     </div>
-                    <div className="flex items-center text-sm">
-                      <Phone className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span>{currentUser.phone}</span>
-                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">Account Information</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm">
-                      <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span>Joined: {new Date(currentUser.joinDate).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center text-sm">
-                      <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span>Last Login: {new Date(currentUser.lastLogin).toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                <div className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium">Verification Status</div>
-                    {currentUser.isVerified ? (
-                      <Badge variant="success">Verified</Badge>
-                    ) : (
-                      <Badge variant="outline">Not Verified</Badge>
-                    )}
-                  </div>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium">Requests</div>
-                    <div className="text-sm">{currentUser.requestsCount}</div>
-                  </div>
-                </div>
               </div>
 
               {currentUser.companyId && (
                 <div className="rounded-lg border p-3">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-medium">Company</div>
-                    <div className="text-sm">{currentUser.companyName}</div>
                   </div>
                 </div>
               )}

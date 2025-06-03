@@ -3,39 +3,39 @@
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/components/ui/use-toast"
-import { Badge } from "@/components/ui/badge"
-import { Building2, Camera, MapPin, Mail, Phone, Shield, Clock, Trash } from "lucide-react"
+import { MapPin, Phone, Building2 } from "lucide-react"
 import api from "@/services/api"
 import { useParams } from "react-router-dom"
+import { MapView } from "@/components/map/map-view"
+import { MapClickEffect } from "@/components/map/map-click-effect"
+
+interface Address {
+  street: string
+  ward: string
+  district: string | null
+  city: string
+  country: string
+  fullAddress: string
+  latitude: number
+  longitude: number
+}
 
 interface CompanyProfileData {
   id: string
   name: string
-  logo?: string
-  isVerified: boolean
-  foundedYear?: string
-  employees?: number
-  address: string
   phone: string
-  email: string
-  website?: string
-  operatingHours?: string
-  insuranceInfo: {
-    provider: string
-    policyNumber: string
-    expiryDate: string
-  }
-  serviceTypes: string[]
-  serviceArea: string
   description: string
+  address: Address
+  latitude: number
+  longitude: number
+  userId: string
 }
 
 export default function CompanyProfile() {
@@ -53,12 +53,9 @@ export default function CompanyProfile() {
       if (!companyId) return
       setIsLoading(true)
       try {
-        const basicRes = await api.rescueCompanies.getCompanyBasic(companyId)
-        setCompanyData(basicRes.data)
-        setFormData({
-          ...basicRes.data,
-          insuranceInfo: basicRes.data.insuranceInfo || { provider: '', policyNumber: '', expiryDate: '' }
-        })
+        const res = await api.rescueCompanies.getCompanyById(companyId)
+        setCompanyData(res.data)
+        setFormData(res.data)
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -75,27 +72,30 @@ export default function CompanyProfile() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (!formData) return
     const { name, value } = e.target
-    if (name.startsWith("insuranceInfo.")) {
+    if (name.startsWith("address.")) {
       const key = name.split(".")[1]
       setFormData({
         ...formData,
-        insuranceInfo: { ...formData.insuranceInfo, [key]: value },
+        address: { ...formData.address, [key]: value },
       })
     } else {
       setFormData({ ...formData, [name]: value })
     }
   }
 
-  const handleSwitchChange = (name: string, checked: boolean) => {
-    if (!formData) return
-    setFormData({ ...formData, [name]: checked })
-  }
-
   const handleSave = async () => {
     if (!formData) return
     setIsLoading(true)
     try {
-      const response = await api.rescueCompanies.updateCompany(formData.id, formData)
+      // Chỉ gửi các trường cần thiết
+      const payload = {
+        name: formData.name,
+        phone: formData.phone,
+        description: formData.description,
+        latitude: Number(formData.latitude),
+        longitude: Number(formData.longitude),
+      }
+      const response = await api.rescueCompanies.updateCompany(formData.id, payload)
       setCompanyData(response.data)
       setFormData(response.data)
       setIsEditing(false)
@@ -119,27 +119,58 @@ export default function CompanyProfile() {
     setIsEditing(false)
   }
 
-  // Animation variants
+  // Handler for map click
+  const handleMapClick = async (lat: number, lng: number) => {
+    if (!isEditing || !formData) return
+    // Gọi nominatim reverse geocoding
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+      const data = await res.json()
+      // Parse address fields
+      const address = data.address || {}
+      setFormData({
+        ...formData,
+        latitude: lat,
+        longitude: lng,
+        address: {
+          street: address.road || "",
+          ward: address.suburb || address.quarter || address.neighbourhood || "",
+          district: address.city_district || address.district || address.county || "",
+          city: address.city || address.town || address.village || "",
+          country: address.country || "",
+          fullAddress: data.display_name || "",
+          latitude: lat,
+          longitude: lng,
+        },
+      })
+    } catch (err) {
+      // Nếu lỗi, chỉ cập nhật lat/lon
+      setFormData({
+        ...formData,
+        latitude: lat,
+        longitude: lng,
+        address: {
+          ...formData.address,
+          latitude: lat,
+          longitude: lng,
+        },
+      })
+    }
+  }
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
+      transition: { staggerChildren: 0.1 },
     },
   }
-
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
     visible: {
       y: 0,
       opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 260,
-        damping: 20,
-      },
+      transition: { type: "spring", stiffness: 260, damping: 20 },
     },
   }
 
@@ -159,7 +190,7 @@ export default function CompanyProfile() {
           <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
         ) : (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleCancel}>
+            <Button variant="outline" onClick={handleCancel} disabled={isLoading}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={isLoading}>
@@ -169,310 +200,160 @@ export default function CompanyProfile() {
         )}
       </motion.div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <motion.div variants={itemVariants} className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Company Logo</CardTitle>
-              <CardDescription>Your company logo used across the platform</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center">
-              <Avatar className="h-24 w-24 mb-4">
-                <AvatarImage src={formData.logo || `https://avatar.vercel.sh/${formData.name}`} />
+      <motion.div variants={itemVariants}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Basic Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={`https://avatar.vercel.sh/${formData.name}`} />
                 <AvatarFallback className="text-lg">{formData.name.substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
-              {isEditing && (
-                <Button variant="outline" size="sm">
-                  <Camera className="mr-2 h-4 w-4" />
-                  Change Logo
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Verification Status</CardTitle>
-              <CardDescription>Your company's verification status</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center">
-              {formData.isVerified ? (
-                <div className="flex flex-col items-center">
-                  <div className="rounded-full bg-success/20 p-3 mb-2">
-                    <Shield className="h-6 w-6 text-success" />
-                  </div>
-                  <p className="font-medium text-center">Verified Company</p>
-                  <p className="text-xs text-muted-foreground text-center mt-1">
-                    Your company has been verified by our team.
-                  </p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center">
-                  <div className="rounded-full bg-muted p-3 mb-2">
-                    <Shield className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <p className="font-medium text-center">Not Verified</p>
-                  <p className="text-xs text-muted-foreground text-center mt-1">
-                    We need more information to verify your company.
-                  </p>
-                  <Button variant="outline" size="sm" className="mt-4">
-                    Complete Verification
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Insurance Information</CardTitle>
-              <CardDescription>Details about your company's insurance</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!isEditing ? (
-                <div className="space-y-2">
-                  <div>
-                    <p className="text-sm font-medium">Provider</p>
-                    <p className="text-sm text-muted-foreground">{formData.insuranceInfo?.provider || ""}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Policy Number</p>
-                    <p className="text-sm text-muted-foreground">{formData.insuranceInfo?.policyNumber || ""}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Expiry Date</p>
-                    <p className="text-sm text-muted-foreground">{formData.insuranceInfo?.expiryDate || ""}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="insuranceProvider">Provider</Label>
-                    <Input
-                      id="insuranceProvider"
-                      name="insuranceInfo.provider"
-                      value={formData.insuranceInfo?.provider || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="policyNumber">Policy Number</Label>
-                    <Input
-                      id="policyNumber"
-                      name="insuranceInfo.policyNumber"
-                      value={formData.insuranceInfo?.policyNumber || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="expiryDate">Expiry Date</Label>
-                    <Input
-                      id="expiryDate"
-                      name="insuranceInfo.expiryDate"
-                      type="date"
-                      value={formData.insuranceInfo?.expiryDate || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemVariants} className="md:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Basic Information</CardTitle>
-              <CardDescription>Your company's basic details</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!isEditing ? (
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="font-medium">{formData.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Established {formData.foundedYear} • {formData.employees} employees
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="font-medium">Address</p>
-                      <p className="text-sm text-muted-foreground">{formData.address}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="font-medium">Phone</p>
-                      <p className="text-sm text-muted-foreground">{formData.phone}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="font-medium">Email</p>
-                      <p className="text-sm text-muted-foreground">{formData.email}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="font-medium">Operating Hours</p>
-                      <p className="text-sm text-muted-foreground">{formData.operatingHours}</p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Company Name</Label>
-                    <Input id="name" name="name" value={formData.name} onChange={handleInputChange} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="foundedYear">Founded Year</Label>
-                      <Input
-                        id="foundedYear"
-                        name="foundedYear"
-                        value={formData.foundedYear}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="employees">Number of Employees</Label>
-                      <Input id="employees" name="employees" value={formData.employees} onChange={handleInputChange} />
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Input id="address" name="address" value={formData.address} onChange={handleInputChange} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="phone">Phone</Label>
-                      <Input id="phone" name="phone" value={formData.phone} onChange={handleInputChange} />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} />
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="website">Website</Label>
-                    <Input id="website" name="website" value={formData.website} onChange={handleInputChange} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="operatingHours">Operating Hours</Label>
-                    <Input
-                      id="operatingHours"
-                      name="operatingHours"
-                      value={formData.operatingHours}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Service Information</CardTitle>
-              <CardDescription>Details about the services you provide</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!isEditing ? (
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Shield className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="font-medium">Services Offered</p>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {(formData.serviceTypes || []).map((service, index) => (
-                          <Badge key={index} variant="outline">
-                            {service}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="font-medium">Service Area</p>
-                      <p className="text-sm text-muted-foreground">{formData.serviceArea}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="font-medium">Description</p>
-                      <p className="text-sm text-muted-foreground">{formData.description}</p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="serviceArea">Service Area</Label>
-                    <Input
-                      id="serviceArea"
-                      name="serviceArea"
-                      value={formData.serviceArea}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="description">Company Description</Label>
-                    <Textarea
-                      id="description"
-                      name="description"
-                      value={formData.description}
-                      onChange={handleInputChange}
-                      rows={4}
-                    />
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="isVerified"
-                      checked={formData.isVerified}
-                      onCheckedChange={(checked) => handleSwitchChange("isVerified", checked)}
-                    />
-                    <Label htmlFor="isVerified">Verified Company</Label>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Danger Zone</CardTitle>
-              <CardDescription>Irreversible actions for your company account</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between rounded-lg border border-destructive/50 p-4">
-                <div>
-                  <h4 className="font-medium text-destructive">Delete Company Account</h4>
-                  <p className="text-sm text-muted-foreground">
-                    This will permanently delete your company account and all associated data. This action cannot be
-                    undone.
-                  </p>
-                </div>
-                <Button variant="destructive" size="sm">
-                  <Trash className="mr-2 h-4 w-4" />
-                  Delete Account
-                </Button>
+              <div>
+                <div className="font-bold text-xl">{formData.name}</div>
+                <div className="text-muted-foreground">ID: {formData.id}</div>
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Company Name</Label>
+                <Input id="name" name="name" value={formData.name} onChange={handleInputChange} disabled={!isEditing} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input id="phone" name="phone" value={formData.phone} onChange={handleInputChange} disabled={!isEditing} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea id="description" name="description" value={formData.description} onChange={handleInputChange} disabled={!isEditing} rows={3} />
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      <motion.div variants={itemVariants}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Address Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Map Picker */}
+            <div className="mb-4 flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!isEditing}
+                onClick={() => {
+                  if (!navigator.geolocation) {
+                    toast({
+                      variant: "destructive",
+                      title: "Geolocation not supported",
+                      description: "Trình duyệt của bạn không hỗ trợ định vị vị trí.",
+                    })
+                    return
+                  }
+                  navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                      const { latitude, longitude } = pos.coords
+                      handleMapClick(latitude, longitude)
+                    },
+                    (err) => {
+                      toast({
+                        variant: "destructive",
+                        title: "Không lấy được vị trí",
+                        description: err.message,
+                      })
+                    }
+                  )
+                }}
+              >
+                Lấy tọa độ hiện tại
+              </Button>
+              <span className="text-xs text-muted-foreground">(Chỉ hoạt động khi Edit)</span>
+            </div>
+            <div>
+              <Label className="mb-2 block">Select Location on Map</Label>
+              <MapView
+                height="300px"
+                center={[
+                  Number(formData.latitude) || 21.0285,
+                  Number(formData.longitude) || 105.8542,
+                ]}
+                zoom={15}
+                markers={[
+                  {
+                    id: formData.id,
+                    position: [Number(formData.latitude), Number(formData.longitude)],
+                    type: "user",
+                    label: formData.name,
+                  },
+                ]}
+                onMarkerClick={() => {}}
+                showControls={true}
+              />
+            </div>
+            {/* Map click handler effect */}
+            {isEditing && (
+              <MapClickEffect
+                onClick={handleMapClick}
+                mapCenter={[
+                  Number(formData.latitude) || 21.0285,
+                  Number(formData.longitude) || 105.8542,
+                ]}
+              />
+            )}
+            {/* Address fields */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="address.street">Street</Label>
+                <Input id="address.street" name="address.street" value={formData.address.street} disabled readOnly />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="address.ward">Ward</Label>
+                <Input id="address.ward" name="address.ward" value={formData.address.ward || ""} disabled readOnly />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="address.district">District</Label>
+                <Input id="address.district" name="address.district" value={formData.address.district || ""} disabled readOnly />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="address.city">City</Label>
+                <Input id="address.city" name="address.city" value={formData.address.city} disabled readOnly />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="address.country">Country</Label>
+                <Input id="address.country" name="address.country" value={formData.address.country} disabled readOnly />
+              </div>
+              <div className="grid gap-2 md:col-span-2">
+                <Label htmlFor="address.fullAddress">Full Address</Label>
+                <Input id="address.fullAddress" name="address.fullAddress" value={formData.address.fullAddress} disabled readOnly />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="address.latitude">Latitude</Label>
+                <Input id="address.latitude" name="address.latitude" value={formData.address.latitude} disabled readOnly />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="address.longitude">Longitude</Label>
+                <Input id="address.longitude" name="address.longitude" value={formData.address.longitude} disabled readOnly />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="latitude">Company Latitude</Label>
+                <Input id="latitude" name="latitude" value={formData.latitude} onChange={handleInputChange} disabled={!isEditing} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="longitude">Company Longitude</Label>
+                <Input id="longitude" name="longitude" value={formData.longitude} onChange={handleInputChange} disabled={!isEditing} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </motion.div>
   )
 }

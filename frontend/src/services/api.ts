@@ -53,6 +53,10 @@ export const authApi = {
   refreshToken: () => axiosInstance.post(`/auth/refresh-token`),
   changePassword: (passwordData: { currentPassword: string; newPassword: string }) =>
     axiosInstance.post(`/auth/change-password`, passwordData),
+  forgotPassword: (data: { username: string; email: string }) =>
+    axiosInstance.post(`/auth/forgot-password`, data),
+  resetPassword: (data: { username: string; code: string; newPassword: string }) =>
+    axiosInstance.post(`/auth/reset-password`, data),
 }
 
 // User APIs
@@ -89,7 +93,7 @@ export const rescueRequestApi = {
 // Rescue Company APIs
 export const rescueCompanyApi = {
   getCompanies: (params?: any) => axiosInstance.get(`/rescue-companies`, { params }),
-  getCompanyById: (id: string) => axiosInstance.get(`/company/${id}`),
+  getCompanyById: (id: string) => axiosInstance.get(`/rescue-companies/${id}`),
   getCompanyBasic: (id: string) => axiosInstance.get(`/rescue-companies/basic/${id}`),
   createCompany: (companyData: any) => axiosInstance.post(`/rescue-companies`, companyData),
   updateCompany: (id: string, companyData: any) => axiosInstance.put(`/rescue-companies/${id}`, companyData),
@@ -116,6 +120,9 @@ export const rescueServiceApi = {
   createService: (serviceData: any) => axiosInstance.post(`/rescue-services`, serviceData),
   updateService: (id: string, serviceData: any) => axiosInstance.put(`/rescue-services/${id}`, serviceData),
   deleteService: (id: string) => axiosInstance.delete(`/rescue-services/${id}`),
+  getServiceRatings: (serviceId: string) => axiosInstance.get(`/ratings/service/${serviceId}`),
+  getNearbyServices: (params: { latitude: number; longitude: number; serviceType: string; limit?: number }) =>
+    axiosInstance.get(`/rescue-services/nearby`, { params }),
 }
 
 // Invoice APIs
@@ -245,6 +252,7 @@ export const adminApi = {
   getUserById: (id: string) => axiosInstance.get(`/admin/users/${id}`),
   updateUser: (id: string, data: any) => axiosInstance.put(`/admin/users/${id}`, data),
   deleteUser: (id: string) => axiosInstance.delete(`/admin/users/${id}`),
+  getOnlineUsers: () => axiosInstance.get(`/admin/online-users`),
   // Company management
   getCompanies: (params?: any) => axiosInstance.get(`/admin/companies`, { params }),
   getCompanyById: (id: string) => axiosInstance.get(`/admin/companies/${id}`),

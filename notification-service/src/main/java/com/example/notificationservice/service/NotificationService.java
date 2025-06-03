@@ -7,6 +7,11 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 @Service
 @Slf4j
 public class NotificationService {
@@ -62,5 +67,39 @@ public class NotificationService {
     public void sendNotificationToAll(String message) {
         log.info("Broadcasting notification to all users");
         messagingTemplate.convertAndSend("/topic/public", message);
+    }
+
+    /**
+     * Lấy danh sách tất cả người dùng đang online
+     */
+    public List<String> getAllOnlineUsers() {
+        log.info("=== Starting getAllOnlineUsers ===");
+        
+        // Get all keys matching the pattern
+        Set<String> keys = redisTemplate.keys(USER_SESSION_PREFIX + "*");
+        log.info("Found Redis keys: {}", keys);
+
+        if (keys == null || keys.isEmpty()) {
+            log.info("No online users found in Redis");
+            return Collections.emptyList();
+        }
+
+        // Log each key's value
+        keys.forEach(key -> {
+            Object value = redisTemplate.opsForValue().get(key);
+            log.info("Redis key: {}, value: {}", key, value);
+        });
+
+        List<String> onlineUsers = keys.stream()
+            .map(key -> {
+                String userId = key.substring(USER_SESSION_PREFIX.length());
+                log.info("Processing key: {}, extracted userId: {}", key, userId);
+                return userId;
+            })
+            .collect(Collectors.toList());
+
+        log.info("Final list of online users: {}", onlineUsers);
+        log.info("=== Finished getAllOnlineUsers ===");
+        return onlineUsers;
     }
 }

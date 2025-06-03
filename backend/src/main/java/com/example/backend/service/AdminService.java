@@ -63,4 +63,6 @@ public interface AdminService {
     Map<String, Object> getServiceUsageStats(String timeRange);
     Map<String, Object> getSatisfactionStats(String timeRange);
     Map<String, Object> getTopRatedServices(String timeRange);
+    // Online users
+    List<String> getOnlineUsers();
 } 

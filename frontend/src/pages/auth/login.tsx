@@ -61,9 +61,9 @@ export default function Login() {
       // An toàn tuyệt đối khi truy cập error.response.data
       if (error && typeof error === "object" && 'response' in error && error.response && 'data' in error.response && error.response.data) {
         if (typeof error.response.data === "object") {
-          const { error: errorType, message, status } = error.response.data
+          const { error: errorType, details, status } = error.response.data
           errorTitle = errorType || "Login failed"
-          errorMsg = message || errorMsg
+          errorMsg = details || errorMsg
           if (status) errorMsg += ` (Status: ${status})`
         } else if (typeof error.response.data === "string") {
           errorMsg = error.response.data
@@ -149,7 +149,7 @@ export default function Login() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
-                  <Link to="#" className="text-xs text-primary hover:underline">
+                  <Link to="/forgot-password" className="text-xs text-primary hover:underline">
                     Forgot password?
                   </Link>
                 </div>
@@ -165,12 +165,17 @@ export default function Login() {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Please wait
+                    Signing in...
                   </>
                 ) : (
                   "Sign In"
                 )}
               </Button>
+              <div className="text-sm text-muted-foreground text-center">
+                <Link to="/auth/forgot-password" className="text-primary hover:underline">
+                  Forgot your password?
+                </Link>
+              </div>
             </form>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">

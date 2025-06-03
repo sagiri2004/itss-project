@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.web.bind.annotation.*;
 
@@ -37,6 +39,33 @@ public class NotificationController {
 
 	@Autowired
 	private MessageProducer messageProducer;
+
+	@GetMapping("/online-users")
+	public Map<String, Object> getOnlineUsers() {
+		logger.info("Fetching online users from Redis...");
+		
+		// Get all keys matching the pattern
+		Set<String> keys = redisTemplate.keys(USER_SESSION_PREFIX + "*");
+		logger.info("Found Redis keys: {}", keys);
+
+		List<String> onlineUsers = keys != null ? 
+			keys.stream()
+				.map(key -> {
+					String userId = key.substring(USER_SESSION_PREFIX.length());
+					logger.info("Processing key: {}, extracted userId: {}", key, userId);
+					return userId;
+				})
+				.collect(Collectors.toList()) 
+			: List.of();
+
+		logger.info("Final list of online users: {}", onlineUsers);
+
+		Map<String, Object> response = new HashMap<>();
+		response.put("success", true);
+		response.put("onlineUsers", onlineUsers);
+		response.put("count", onlineUsers.size());
+		return response;
+	}
 
 	@PostMapping("/user/{userId}")
 	public Map<String, Object> sendNotificationToUser(

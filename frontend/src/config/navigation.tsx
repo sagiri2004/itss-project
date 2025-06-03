@@ -207,11 +207,6 @@ export const adminNavItems = [
     title: "Account",
     items: [
       {
-        title: "Settings",
-        href: "/admin/settings",
-        icon: Settings,
-      },
-      {
         title: "Change Password",
         href: "/admin/change-password",
         icon: Lock,
