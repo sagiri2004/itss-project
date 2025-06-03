@@ -17,17 +17,20 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import javax.crypto.spec.SecretKeySpec;
+import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
 	private final String[] PUBLIC_AUTH_ENDPOINTS = {
-			"/api/v1/auth/**",  // Cho phép tất cả các endpoint trong /auth
+			"/api/v1/auth/**",
 			"/v3/api-docs/**",
 			"/swagger-ui/**",
 			"/swagger-ui.html",
@@ -41,51 +44,47 @@ public class SecurityConfig {
 	private final String[] allowedOrigins = {
 			"http://localhost:5173",
 			"https://itss-project.vercel.app",
-			"http://10.0.2.2:3000",          // Android emulator
-			"http://127.0.0.1:3000",         // iOS simulator
-			"capacitor://localhost",         // Ionic Capacitor
-			"ionic://localhost",             // Ionic Framework
-			"exp://localhost",               // Expo for React Native
-			"http://localhost:3000",          // Common dev origin
+			"http://10.0.2.2:3000",
+			"http://127.0.0.1:3000",
+			"capacitor://localhost",
+			"ionic://localhost",
+			"exp://localhost",
+			"http://localhost:3000",
 			"https://localhost"
 	};
 
 	@Bean
-	public WebMvcConfigurer corsConfigurer() {
-		return new WebMvcConfigurer() {
-			@Override
-			public void addCorsMappings(CorsRegistry registry) {
-				registry.addMapping("/**")
-						.allowedOrigins(allowedOrigins)
-						.allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-						.allowedHeaders("Content-Type", "Authorization", "Accept")
-						.allowCredentials(true)
-						.maxAge(3600);
-			}
-		};
-	}
-
-	@Bean
 	public SecurityFilterChain apiSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
 		httpSecurity
-				.cors(cors -> cors.configure(httpSecurity)) // Configure CORS properly
+				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 				.csrf(AbstractHttpConfigurer::disable)
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(request -> {
-					// Cho phép tất cả các endpoint trong PUBLIC_AUTH_ENDPOINTS
 					request.requestMatchers(PUBLIC_AUTH_ENDPOINTS).permitAll();
-					
-					// Yêu cầu xác thực cho tất cả các request khác
 					request.anyRequest().authenticated();
 				})
-				.oauth2ResourceServer(oauth2 -> 
-					oauth2.jwt(jwt -> {
-						jwt.decoder(jwtDecoder());
-						jwt.jwtAuthenticationConverter(jwtAuthenticationConverter());
-					})
+				.oauth2ResourceServer(oauth2 ->
+						oauth2.jwt(jwt -> {
+							jwt.decoder(jwtDecoder());
+							jwt.jwtAuthenticationConverter(jwtAuthenticationConverter());
+						})
 				);
 
 		return httpSecurity.build();
+	}
+
+	@Bean
+	public CorsConfigurationSource corsConfigurationSource() {
+		CorsConfiguration config = new CorsConfiguration();
+		config.setAllowedOrigins(Arrays.asList(allowedOrigins));
+		config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+		config.setAllowedHeaders(List.of("*"));
+		config.setAllowCredentials(true);
+		config.setMaxAge(3600L);
+
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", config);
+		return source;
 	}
 
 	@Bean
@@ -105,9 +104,7 @@ public class SecurityConfig {
 	@Bean
 	public JwtAuthenticationConverter jwtAuthenticationConverter() {
 		JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
-		// Không cần thêm prefix "ROLE_" vì trong token đã có
 		grantedAuthoritiesConverter.setAuthorityPrefix("");
-		// Sử dụng trường "roles" trong payload
 		grantedAuthoritiesConverter.setAuthoritiesClaimName("roles");
 
 		JwtAuthenticationConverter authenticationConverter = new JwtAuthenticationConverter();
