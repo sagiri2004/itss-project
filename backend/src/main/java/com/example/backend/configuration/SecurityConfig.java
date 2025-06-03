@@ -46,7 +46,8 @@ public class SecurityConfig {
 			"capacitor://localhost",         // Ionic Capacitor
 			"ionic://localhost",             // Ionic Framework
 			"exp://localhost",               // Expo for React Native
-			"http://localhost:3000"          // Common dev origin
+			"http://localhost:3000",          // Common dev origin
+			"https://localhost"
 	};
 
 	@Bean
