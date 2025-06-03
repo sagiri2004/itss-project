@@ -41,6 +41,7 @@ import CompanyChat from "./pages/company/chat"
 import CompanyChats from "./pages/company/chats"
 import CompanyRequestDetail from "./pages/company/request-detail"
 import CompanyReviews from "./pages/company/reviews"
+import CompanyDetail from "./pages/details-company" // Ensure this import is correct
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/dashboard"
@@ -81,6 +82,9 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/create-company" element={<CreateCompany />} />
+
+              {/* Standalone Company Detail Page */}
+              <Route path="/company/:id" element={<CompanyDetail />} />
 
               {/* User Routes */}
               <Route path="/user" element={<DashboardLayout role="user" />}>

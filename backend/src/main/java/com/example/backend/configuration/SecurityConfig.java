@@ -40,7 +40,13 @@ public class SecurityConfig {
 
 	private final String[] allowedOrigins = {
 			"http://localhost:5173",
-			"https://itss-project.vercel.app"
+			"https://itss-project.vercel.app",
+			"http://10.0.2.2:3000",          // Android emulator
+			"http://127.0.0.1:3000",         // iOS simulator
+			"capacitor://localhost",         // Ionic Capacitor
+			"ionic://localhost",             // Ionic Framework
+			"exp://localhost",               // Expo for React Native
+			"http://localhost:3000"          // Common dev origin
 	};
 
 	@Bean

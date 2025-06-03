@@ -16,12 +16,12 @@ public class RescueServiceResponse {
 	private String description;
 	private Double price;
 	private RescueServiceType type;
-	private Double distance; // Khoảng cách đến công ty (km)
 	private String companyId;
 	private String companyName;
-	private CompanyInfo company;
+	private Double distance;
 	private Double averageRating;
 	private Long totalRatings;
+	private CompanyInfo company;
 
 	@Data
 	@Builder

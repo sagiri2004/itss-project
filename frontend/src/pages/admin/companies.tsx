@@ -42,6 +42,7 @@ import {
   Truck,
 } from "lucide-react";
 import api from "@/services/api";
+import { useNavigate } from "react-router-dom"; // Added import
 
 interface Company {
   id: string;
@@ -59,31 +60,98 @@ interface Company {
   isVerified: boolean;
 }
 
+// Mock Data
+const mockCompanies: Company[] = [
+  {
+    id: "1",
+    name: "Alpha Towing & Recovery",
+    email: "contact@alphatowing.com",
+    phone: "555-0101",
+    address: "123 Main St, Anytown, USA",
+    logo: "https://avatar.vercel.sh/alpha",
+    joinDate: "2023-01-15",
+    foundedYear: "2010",
+    vehicles: 12,
+    completedRequests: 1500,
+    rating: 4.7,
+    status: "ACTIVE",
+    isVerified: true,
+  },
+  {
+    id: "2",
+    name: "Beta Roadside Assistance",
+    email: "support@betaroadside.com",
+    phone: "555-0202",
+    address: "456 Oak Ave, Otherville, USA",
+    logo: "https://avatar.vercel.sh/beta",
+    joinDate: "2024-02-20",
+    foundedYear: "2018",
+    vehicles: 8,
+    completedRequests: 650,
+    rating: 4.5,
+    status: "PENDING_VERIFICATION",
+    isVerified: false,
+  },
+  {
+    id: "3",
+    name: "Gamma Transport Solutions",
+    email: "info@gammatransport.co",
+    phone: "555-0303",
+    address: "789 Pine Ln, Sometown, USA",
+    logo: "https://avatar.vercel.sh/gamma",
+    joinDate: "2022-11-01",
+    foundedYear: "2015",
+    vehicles: 25,
+    completedRequests: 2200,
+    rating: 4.2,
+    status: "SUSPENDED",
+    isVerified: true,
+  },
+  {
+    id: "4",
+    name: "Delta Quick Rescue",
+    email: "help@deltarescue.net",
+    phone: "555-0404",
+    address: "101 Maple Dr, Anycity, USA",
+    logo: "https://avatar.vercel.sh/delta",
+    joinDate: "2023-08-10",
+    foundedYear: "2020",
+    vehicles: 5,
+    completedRequests: 300,
+    rating: 4.9,
+    status: "ACTIVE",
+    isVerified: true,
+  },
+];
+
 export default function AdminCompanies() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [currentCompany, setCurrentCompany] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
     id: string;
     action: "verify" | "suspend" | "activate";
   } | null>(null);
+  const navigate = useNavigate();
 
-  // Fetch companies from API
   const fetchCompanies = async () => {
     setIsLoading(true);
     try {
-      const res = await api.rescueCompanies.getCompanies();
-      setCompanies(res.data);
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      // Use mock data instead of API call
+      setCompanies(mockCompanies);
+      // const res = await api.rescueCompanies.getCompanies();
+      // setCompanies(res.data);
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
         description:
-          error.response?.data?.message || "Failed to load companies",
+          // error.response?.data?.message || "Failed to load companies", 
+          "Failed to load companies (mock data error simulation)", // Using mock data error message
       });
     } finally {
       setIsLoading(false);
@@ -107,9 +175,8 @@ export default function AdminCompanies() {
       company.status.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const openDetailDialog = (company: Company) => {
-    setCurrentCompany(company);
-    setIsDetailDialogOpen(true);
+  const handleViewDetails = (companyId: string) => {
+    navigate(`/company/${companyId}`);
   };
 
   const verifyCompany = async (id: string) => {
@@ -359,7 +426,7 @@ export default function AdminCompanies() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => openDetailDialog(company)}
+                              onClick={() => handleViewDetails(company.id)} // Changed onClick handler
                             >
                               <Eye className="mr-2 h-4 w-4" />
                               Details
@@ -422,136 +489,7 @@ export default function AdminCompanies() {
         </Card>
       </motion.div>
 
-      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        {currentCompany && (
-          <DialogContent className="sm:max-w-[550px]">
-            <DialogHeader>
-              <DialogTitle>Company Details</DialogTitle>
-              <DialogDescription>
-                Detailed information about {currentCompany.name}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarImage
-                    src={
-                      currentCompany.logo ||
-                      `https://avatar.vercel.sh/${currentCompany.name}`
-                    }
-                  />
-                  <AvatarFallback className="text-lg">
-                    {currentCompany.name.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="text-lg font-medium">{currentCompany.name}</h3>
-                  <div className="flex items-center mt-1">
-                    {currentCompany.isVerified ? (
-                      <Badge variant="success" className="mr-2">
-                        Verified
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="mr-2">
-                        Not Verified
-                      </Badge>
-                    )}
-                    {getCompanyStatusBadge(currentCompany.status)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 pt-4">
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                    Contact Information
-                  </h4>
-                  <div className="space-y-2">
-                    <div className="text-sm">
-                      <span className="font-medium">Email:</span>{" "}
-                      {currentCompany.email}
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium">Phone:</span>{" "}
-                      {currentCompany.phone}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                    Company Information
-                  </h4>
-                  <div className="space-y-2">
-                    <div className="text-sm">
-                      <span className="font-medium">Founded:</span>{" "}
-                      {currentCompany.foundedYear}
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium">Joined Platform:</span>{" "}
-                      {currentCompany.joinDate}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                  Location
-                </h4>
-                <div className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                  <span className="text-sm">{currentCompany.address}</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4 pt-2">
-                <div className="rounded-lg border p-3 text-center">
-                  <div className="text-2xl font-bold">
-                    {currentCompany.vehicles}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Vehicles</div>
-                </div>
-                <div className="rounded-lg border p-3 text-center">
-                  <div className="text-2xl font-bold">
-                    {currentCompany.completedRequests}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Completed Requests
-                  </div>
-                </div>
-                <div className="rounded-lg border p-3 text-center">
-                  <div className="text-2xl font-bold">
-                    {currentCompany.rating}{" "}
-                    <span className="text-lg text-yellow-500">★</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Customer Rating
-                  </div>
-                </div>
-              </div>
-            </div>
-            <DialogFooter className="flex justify-between">
-              <div>
-                <Button variant="outline" size="sm" className="mr-2">
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Vehicles
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Requests
-                </Button>
-              </div>
-              <Button
-                variant="default"
-                onClick={() => setIsDetailDialogOpen(false)}
-              >
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        )}
-      </Dialog>
+      {/* Removed Company Detail Dialog */}
 
       <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
         <DialogContent>

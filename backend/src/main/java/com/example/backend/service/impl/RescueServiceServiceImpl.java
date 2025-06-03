@@ -6,6 +6,7 @@ import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.RescueCompany;
 import com.example.backend.model.RescueService;
 import com.example.backend.model.enums.RescueServiceType;
+import com.example.backend.repository.CompanyRatingRepository;
 import com.example.backend.repository.RescueCompanyRepository;
 import com.example.backend.repository.RescueServiceRepository;
 import com.example.backend.service.RescueServiceService;
@@ -21,6 +22,7 @@ public class RescueServiceServiceImpl implements RescueServiceService {
 
 	private final RescueServiceRepository repository;
 	private final RescueCompanyRepository companyRepository;
+	private final CompanyRatingRepository ratingRepository;
 
 	@Override
 	public RescueServiceResponse create(RescueServiceRequest request) {
@@ -53,7 +55,8 @@ public class RescueServiceServiceImpl implements RescueServiceService {
 	}
 
 	@Override
-	public List<RescueServiceResponse> findNearbyServices(Double latitude, Double longitude, RescueServiceType serviceType, Integer limit) {
+	public List<RescueServiceResponse> findNearbyServices(Double latitude, Double longitude,
+			RescueServiceType serviceType, Integer limit) {
 		if (latitude == null || longitude == null || serviceType == null || limit == null || limit <= 0) {
 			throw new IllegalArgumentException("Latitude, longitude, service type, and limit must be valid");
 		}
@@ -62,7 +65,20 @@ public class RescueServiceServiceImpl implements RescueServiceService {
 		}
 
 		return repository.findNearbyServicesWithDistance(latitude, longitude, serviceType.name(), limit).stream()
-				.map(result -> toResponse((RescueService) result[0], (Double) result[1]))
+				.map(result -> {
+					RescueService service = (RescueService) result[0];
+					Double distance = (Double) result[1];
+
+					// Get average rating and total ratings for this service
+					Double averageRating = ratingRepository.calculateAverageRatingForService(service);
+					Long totalRatings = ratingRepository.countRatingsByService(service);
+
+					RescueServiceResponse response = toResponse(service, distance);
+					response.setAverageRating(averageRating != null ? averageRating : 0.0);
+					response.setTotalRatings(totalRatings != null ? totalRatings : 0L);
+
+					return response;
+				})
 				.collect(Collectors.toList());
 	}
 

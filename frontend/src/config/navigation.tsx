@@ -16,7 +16,7 @@ import {
   MessageCircle,
   BarChart,
   FileBarChart,
-} from "lucide-react"
+} from "lucide-react";
 
 // User navigation
 export const userNavItems = [
@@ -70,7 +70,7 @@ export const userNavItems = [
       },
     ],
   },
-]
+];
 
 // Company navigation
 export const companyNavItems = [
@@ -134,7 +134,7 @@ export const companyNavItems = [
       },
     ],
   },
-]
+];
 
 // Admin navigation
 export const adminNavItems = [
@@ -187,7 +187,7 @@ export const adminNavItems = [
         icon: FileBarChart,
       },
       {
-        title: "Chats",
+        title: "Statistics",
         href: "/admin/reports",
         icon: BarChart,
       },
@@ -218,4 +218,4 @@ export const adminNavItems = [
       },
     ],
   },
-]
+];
