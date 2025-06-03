@@ -17,10 +17,12 @@ public interface RescueServiceRepository extends JpaRepository<RescueService, St
 
 	List<RescueService> findByCompany(RescueCompany company);
 
-	@Query(value = "SELECT rs.*, " +
+	@Query(value = "SELECT rs.id, rs.name, rs.description, rs.price, rs.type, rs.company_id, " +
+			"c.name as company_name, c.phone, c.description as company_description, c.latitude, c.longitude, c.created_at, " +
 			"(6371 * acos(cos(radians(:latitude)) * cos(radians(c.latitude)) * " +
 			"cos(radians(c.longitude) - radians(:longitude)) + " +
-			"sin(radians(:latitude)) * sin(radians(c.latitude)))) AS distance " +
+			"sin(radians(:latitude)) * sin(radians(c.latitude)))) AS distance, " +
+			"c.street, c.ward, c.district, c.city, c.country, c.full_address " +
 			"FROM rescue_services rs JOIN rescue_companies c ON rs.company_id = c.id " +
 			"WHERE rs.type = :serviceType " +
 			"ORDER BY distance ASC LIMIT :limit", nativeQuery = true)

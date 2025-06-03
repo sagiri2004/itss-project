@@ -7,6 +7,7 @@ import com.example.backend.dto.request.ResetPasswordRequest;
 import com.example.backend.dto.response.AuthResponse;
 import com.example.backend.dto.response.UserResponse;
 import com.example.backend.exception.AuthException;
+import com.example.backend.exception.BadRequestException;
 import com.example.backend.model.RescueCompany;
 import com.example.backend.model.User;
 import com.example.backend.model.enums.UserRole;
@@ -36,12 +37,12 @@ public class AuthServiceImpl implements AuthService {
 	public AuthResponse register(RegisterRequest request) {
 		// Kiểm tra xem user đã tồn tại chưa
 		if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-			throw new AuthException("Username is already taken");
+			throw new BadRequestException("Username is already taken");
 		}
 
 		// Kiểm tra email
 		if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-			throw new AuthException("Email is already taken");
+			throw new BadRequestException("Email is already taken");
 		}
 
 		// Kiểm tra nếu là user đặc biệt
@@ -78,10 +79,10 @@ public class AuthServiceImpl implements AuthService {
 	@Override
 	public AuthResponse login(LoginRequest request) {
 		User user = userRepository.findByUsername(request.getUsername())
-				.orElseThrow(() -> new AuthException("Invalid username or password"));
+				.orElseThrow(() -> new BadRequestException("Invalid username or password"));
 
 		if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-			throw new AuthException("Invalid username or password");
+			throw new BadRequestException("Invalid username or password");
 		}
 		
 		String token = jwtUtil.generateToken(user.getUsername(), user.getRoles(), user.getId());
@@ -115,10 +116,10 @@ public class AuthServiceImpl implements AuthService {
 	@Override
 	public AuthResponse forgotPassword(ForgotPasswordRequest request) {
 		User user = userRepository.findByUsername(request.getUsername())
-				.orElseThrow(() -> new AuthException("Username or email is invalid"));
+				.orElseThrow(() -> new BadRequestException("Thông tin tài khoản không hợp lệ"));
 
 		if (!user.getEmail().equals(request.getEmail())) {
-			throw new AuthException("Username or email is invalid");
+			throw new BadRequestException("Email không khớp với tài khoản");
 		}
 
 		String resetCode = UUID.randomUUID().toString().substring(0, 8);
@@ -140,10 +141,10 @@ public class AuthServiceImpl implements AuthService {
 	@Override
 	public AuthResponse resetPassword(ResetPasswordRequest request) {
 		User user = userRepository.findByUsername(request.getUsername())
-				.orElseThrow(() -> new AuthException("Invalid username"));
+				.orElseThrow(() -> new BadRequestException("Invalid username"));
 
 		if (user.getResetCode() == null || !user.getResetCode().equals(request.getCode())) {
-			throw new AuthException("Invalid or expired code");
+			throw new BadRequestException("Invalid or expired code");
 		}
 
 		String encodedPassword = passwordEncoder.encode(request.getNewPassword());

@@ -18,9 +18,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.example.backend.utils.JwtUtil;
 
 @Slf4j
 @RestController
@@ -36,6 +38,9 @@ public class UserController {
 
 	@Autowired
 	private UserRepository userRepository;
+
+	@Autowired
+	private JwtUtil jwtUtil;
 
 	@Operation(summary = "Truy cập vào trang người dùng",
 			description = "API chỉ cho phép người dùng đã xác thực với vai trò USER hoặc ADMIN truy cập",
@@ -116,6 +121,34 @@ public class UserController {
 			.email(user.getEmail())
 			.role(user.getRoles().stream().findFirst().map(Enum::name).orElse(null))
 			.build();
+		return ResponseEntity.ok(res);
+	}
+
+	@PutMapping("/profile")
+	public ResponseEntity<UserResponse> updateProfile(
+			@RequestBody UserResponse request,
+			@RequestHeader("Authorization") String authHeader) {
+		// Lấy userId từ token
+		String token = jwtUtil.extractTokenFromHeader(authHeader);
+		String userId = jwtUtil.extractUserId(token);
+
+		User user = userRepository.findById(userId).orElseThrow();
+
+		// Chỉ cho phép cập nhật name và email
+		if (request.getName() != null) user.setName(request.getName());
+		if (request.getEmail() != null) user.setEmail(request.getEmail());
+
+		userRepository.save(user);
+
+		UserResponse res = UserResponse.builder()
+				.id(user.getId())
+				.username(user.getUsername())
+				.name(user.getName())
+				.email(user.getEmail())
+				.role(user.getRoles().stream().findFirst().map(Enum::name).orElse(null))
+				.companyId(request.getCompanyId())
+				.build();
+
 		return ResponseEntity.ok(res);
 	}
 }

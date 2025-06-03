@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
 import { useNavigate } from "react-router-dom"
@@ -20,21 +20,41 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
-import { Plus, Search, Edit, Trash, Check, X } from "lucide-react"
+import { Plus, Search, Edit, Trash, Check, X, Eye } from "lucide-react"
 import api from "@/services/api"
+import { Star } from "lucide-react"
 
 // Interface để đồng bộ với backend
 interface Service {
   id: string
   name: string
   description: string
-  basePrice: number | null
-  duration: number | null
-  isActive: boolean
-  companies: number
+  price: number
   type: string
-  createdAt: string
-  updatedAt: string
+  companyId: string | null
+  companyName: string | null
+  distance: number | null
+  averageRating: number | null
+  totalRatings: number | null
+  company?: {
+    id: string
+    name: string
+    phone: string
+    description: string
+    latitude: number
+    longitude: number
+    address: {
+      street: string
+      ward: string
+      district: string | null
+      city: string
+      country: string
+      fullAddress: string
+      latitude: number
+      longitude: number
+    }
+    createdAt: string
+  }
 }
 
 interface ServiceFormData {
@@ -43,6 +63,15 @@ interface ServiceFormData {
   basePrice: string
   duration: string
   type?: string
+}
+
+interface Rating {
+  id: string
+  userId: string
+  userName: string
+  stars: number
+  comment: string
+  createdAt: string
 }
 
 export default function AdminServices() {
@@ -55,6 +84,12 @@ export default function AdminServices() {
   const [currentService, setCurrentService] = useState<Service | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [detailService, setDetailService] = useState<Service | null>(null)
+  const [serviceRatings, setServiceRatings] = useState<Rating[]>([])
+  const [isRatingsLoading, setIsRatingsLoading] = useState(false)
+  const [ratingsStatsMap, setRatingsStatsMap] = useState<Record<string, { averageRating: number; totalRatings: number }>>({})
+  const ratingsFetchedRef = useRef(false)
 
   const [formData, setFormData] = useState<ServiceFormData>({
     name: "",
@@ -89,6 +124,30 @@ export default function AdminServices() {
     fetchServices()
   }, [toast, user, navigate])
 
+  // Fetch ratings for all services after services loaded (only once)
+  useEffect(() => {
+    if (services.length === 0 || ratingsFetchedRef.current) return
+    ratingsFetchedRef.current = true
+    const fetchAllRatings = async () => {
+      const statsMap: Record<string, { averageRating: number; totalRatings: number }> = {}
+      await Promise.all(
+        services.map(async (service) => {
+          try {
+            const res = await api.ratings.getServiceRatings(service.id)
+            const ratings = res.data
+            const total = ratings.length
+            const avg = total > 0 ? ratings.reduce((acc: number, r: any) => acc + r.stars, 0) / total : 0
+            statsMap[service.id] = { averageRating: avg, totalRatings: total }
+          } catch {
+            statsMap[service.id] = { averageRating: 0, totalRatings: 0 }
+          }
+        })
+      )
+      setRatingsStatsMap(statsMap)
+    }
+    fetchAllRatings()
+  }, [services])
+
   const filteredServices = services.filter(
     (service) =>
       service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -120,8 +179,8 @@ export default function AdminServices() {
       setFormData({
         name: service.name,
         description: service.description,
-        basePrice: service.basePrice?.toString() || "",
-        duration: service.duration?.toString() || "",
+        basePrice: service.price?.toString() || "",
+        duration: service.distance?.toString() || "",
         type: service.type
       })
       setCurrentService(service)
@@ -236,6 +295,26 @@ export default function AdminServices() {
     }
   }
 
+  const openDetailDialog = async (service: Service) => {
+    setDetailService(service)
+    setDetailDialogOpen(true)
+    setIsRatingsLoading(true)
+    try {
+      const res = await api.ratings.getServiceRatings(service.id)
+      setServiceRatings(res.data)
+    } catch {
+      setServiceRatings([])
+    } finally {
+      setIsRatingsLoading(false)
+    }
+  }
+
+  const closeDetailDialog = () => {
+    setDetailDialogOpen(false)
+    setDetailService(null)
+    setServiceRatings([])
+  }
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -306,67 +385,44 @@ export default function AdminServices() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Service</TableHead>
-                    <TableHead>Base Price</TableHead>
-                    <TableHead>Est. Duration</TableHead>
-                    <TableHead>Companies</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Company</TableHead>
+                    <TableHead>Rating</TableHead>
+                    <TableHead>Total Ratings</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredServices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                         No services found. Try adjusting your search or add a new service.
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredServices.map((service) => (
                       <TableRow key={service.id}>
+                        <TableCell>{service.name}</TableCell>
+                        <TableCell>{service.description}</TableCell>
+                        <TableCell>{service.type}</TableCell>
+                        <TableCell>${service.price?.toLocaleString()}</TableCell>
+                        <TableCell>{service.company?.name || service.companyName || "-"}</TableCell>
+                        <TableCell>{
+                          ratingsStatsMap[service.id]
+                            ? ratingsStatsMap[service.id].averageRating.toFixed(1)
+                            : "-"
+                        }</TableCell>
+                        <TableCell>{
+                          ratingsStatsMap[service.id]
+                            ? ratingsStatsMap[service.id].totalRatings
+                            : "-"
+                        }</TableCell>
                         <TableCell>
-                          <div className="font-medium">{service.name}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{service.description}</div>
-                        </TableCell>
-                        <TableCell>${service.basePrice?.toFixed(2) ?? '0.00'}</TableCell>
-                        <TableCell>{service.duration ?? 0} minutes</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <span>{service.companies}</span>
-                            <span className="text-xs text-muted-foreground">providers</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={service.isActive ? "success" : "outline"}>
-                            {service.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => toggleServiceStatus(service.id, service.isActive)}
-                              title={service.isActive ? "Deactivate" : "Activate"}
-                            >
-                              {service.isActive ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => handleOpenDialog(service)}
-                              title="Edit"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => deleteService(service.id)}
-                              title="Delete"
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <Button variant="outline" size="icon" onClick={() => openDetailDialog(service)} title="Detail">
+                            <Eye className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))
@@ -444,6 +500,84 @@ export default function AdminServices() {
               <Button type="submit">{isEditing ? "Update" : "Create"}</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Service Detail</DialogTitle>
+            <DialogDescription>
+              Thông tin chi tiết dịch vụ và đánh giá từ người dùng.
+            </DialogDescription>
+          </DialogHeader>
+          {detailService && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="font-bold text-lg mb-1">{detailService.name}</div>
+                  <div className="text-muted-foreground mb-2">{detailService.description}</div>
+                  <div className="text-sm mb-1">Type: <span className="font-medium">{detailService.type}</span></div>
+                  <div className="text-sm mb-1">Price: <span className="font-medium">${detailService.price?.toLocaleString()}</span></div>
+                  <div className="text-sm mb-1">Company: <span className="font-medium">{detailService.company?.name || detailService.companyName || "-"}</span></div>
+                  {(() => {
+                    let avg = detailService.averageRating
+                    let total = detailService.totalRatings
+                    if (!avg || !total) {
+                      if (serviceRatings.length > 0) {
+                        total = serviceRatings.length
+                        avg = serviceRatings.reduce((acc, r) => acc + r.stars, 0) / total
+                      } else {
+                        total = 0
+                        avg = 0
+                      }
+                    }
+                    return <>
+                      <div className="text-sm mb-1">Rating: <span className="font-medium">{avg ? avg.toFixed(1) : "-"}</span></div>
+                      <div className="text-sm mb-1">Total Ratings: <span className="font-medium">{total ?? "-"}</span></div>
+                    </>
+                  })()}
+                </div>
+                {detailService.company && (
+                  <div className="bg-muted rounded-lg p-3">
+                    <div className="font-medium mb-1">Company Info</div>
+                    <div className="text-sm">{detailService.company.name}</div>
+                    <div className="text-xs text-muted-foreground">{detailService.company.phone}</div>
+                    <div className="text-xs text-muted-foreground">{detailService.company.address?.fullAddress}</div>
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className="font-medium mb-2">Ratings</div>
+                {isRatingsLoading ? (
+                  <div className="text-muted-foreground">Loading ratings...</div>
+                ) : serviceRatings.length === 0 ? (
+                  <div className="text-muted-foreground">No ratings for this service.</div>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {serviceRatings.map(rating => (
+                      <div key={rating.id} className="border rounded p-2 bg-background">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium">{rating.userName}</span>
+                          <span className="flex gap-0.5">
+                            {[1,2,3,4,5].map(i => (
+                              <Star key={i} className={`h-4 w-4 ${i <= rating.stars ? 'fill-yellow-500 text-yellow-500' : 'text-muted-foreground'}`} />
+                            ))}
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-auto">{new Date(rating.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <div className="text-sm text-muted-foreground">{rating.comment}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeDetailDialog}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </motion.div>

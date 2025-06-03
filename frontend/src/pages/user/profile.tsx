@@ -5,14 +5,14 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/auth-context"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, User, Mail, Phone, Calendar, MapPin, Car, Shield } from "lucide-react"
+import { Loader2, User, Mail, Calendar, MapPin, Car, Shield } from "lucide-react"
 import api from "@/services/api"
 import { useParams } from "react-router-dom"
 
@@ -25,9 +25,8 @@ export default function UserProfile() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    phone: "",
-    address: "",
   })
+  const [userRequests, setUserRequests] = useState<any[]>([])
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -40,13 +39,13 @@ export default function UserProfile() {
         setFormData({
           name: userData.name,
           email: userData.email,
-          phone: userData.phone,
-          address: userData.address,
         })
         if (userData.companyId) {
           const companyRes = await api.rescueCompanies.getCompanyBasic(userData.companyId)
           setUserDetails((prev: any) => ({ ...prev, company: companyRes.data }))
         }
+        const reqRes = await api.rescueRequests.getRequests()
+        setUserRequests(reqRes.data || [])
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -90,14 +89,11 @@ export default function UserProfile() {
     }
   }
 
-  // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
+      transition: { staggerChildren: 0.1 },
     },
   }
 
@@ -106,18 +102,17 @@ export default function UserProfile() {
     visible: {
       y: 0,
       opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 260,
-        damping: 20,
-      },
+      transition: { type: "spring", stiffness: 260, damping: 20 },
     },
   }
 
   if (!userDetails) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="mt-2 text-foreground">Loading profile...</p>
+        </div>
       </div>
     )
   }
@@ -127,96 +122,87 @@ export default function UserProfile() {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="w-full h-full p-0 space-y-6"
+      className="container mx-auto px-4 py-6 sm:py-8 space-y-6"
     >
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
+      <motion.div variants={itemVariants}>
+        <Card className="overflow-hidden border border-border">
+          <CardContent className="p-0">
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 sm:p-8 text-primary-foreground">
+              <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                <Avatar className="h-16 w-16 sm:h-20 sm:w-20 border-2 border-background">
+                  <AvatarImage src={`https://avatar.vercel.sh/${userDetails.name}`} />
+                  <AvatarFallback className="text-lg sm:text-xl">{userDetails.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <h1 className="text-xl sm:text-2xl font-bold">{userDetails.name}</h1>
+                  <p className="text-sm sm:text-base text-primary-foreground/90 mt-1">
+                    Member since {userDetails.createdAt ? new Date(userDetails.createdAt).toLocaleDateString() : "N/A"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
-      <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="profile">Profile Information</TabsTrigger>
-          <TabsTrigger value="vehicles">My Vehicles</TabsTrigger>
+      <Tabs defaultValue="profile" className="space-y-4 sm:space-y-6">
+        <TabsList className="w-full justify-start p-1 bg-muted rounded-lg">
+          <TabsTrigger value="profile" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            Profile Information
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile" className="space-y-4">
+        <TabsContent value="profile" className="space-y-4 sm:space-y-6">
           <motion.div variants={itemVariants}>
-            <Card>
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-16 w-16">
-                    <AvatarImage src={`https://avatar.vercel.sh/${userDetails.name}`} />
-                    <AvatarFallback>{userDetails.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <CardTitle>{userDetails.name}</CardTitle>
-                    <CardDescription>
-                      Member since {new Date(userDetails.joinDate).toLocaleDateString()}
-                    </CardDescription>
-                  </div>
-                </div>
+            <Card className="bg-card border border-border">
+              <CardHeader className="border-b border-border">
+                <CardTitle className="text-foreground">Edit Profile</CardTitle>
+                <CardDescription className="text-muted-foreground">Update your account information</CardDescription>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
+              <CardContent className="pt-4 sm:pt-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      <div className="relative">
-                        <User className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="name"
-                          name="name"
-                          value={formData.name}
-                          onChange={handleInputChange}
-                          className="pl-8"
-                        />
-                      </div>
+                      <Label htmlFor="username" className="flex items-center gap-2 text-sm font-medium text-foreground">
+                        <User className="h-4 w-4 text-indigo-600" />
+                        Username
+                      </Label>
+                      <Input
+                        id="username"
+                        name="username"
+                        value={userDetails?.username || ""}
+                        disabled
+                        className="text-sm bg-muted"
+                      />
                     </div>
-
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email Address</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="email"
-                          name="email"
-                          type="email"
-                          value={formData.email}
-                          onChange={handleInputChange}
-                          className="pl-8"
-                        />
-                      </div>
+                      <Label htmlFor="name" className="flex items-center gap-2 text-sm font-medium text-foreground">
+                        <User className="h-4 w-4 text-indigo-600" />
+                        Full Name
+                      </Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        className="text-sm"
+                      />
                     </div>
-
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <div className="relative">
-                        <Phone className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="phone"
-                          name="phone"
-                          value={formData.phone}
-                          onChange={handleInputChange}
-                          className="pl-8"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="address">Address</Label>
-                      <div className="relative">
-                        <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="address"
-                          name="address"
-                          value={formData.address}
-                          onChange={handleInputChange}
-                          className="pl-8"
-                        />
-                      </div>
+                      <Label htmlFor="email" className="flex items-center gap-2 text-sm font-medium text-foreground">
+                        <Mail className="h-4 w-4 text-indigo-600" />
+                        Email
+                      </Label>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        className="text-sm"
+                      />
                     </div>
                   </div>
-
                   <div className="flex justify-end">
                     <Button type="submit" disabled={isLoading}>
                       {isLoading ? (
@@ -235,87 +221,119 @@ export default function UserProfile() {
           </motion.div>
 
           <motion.div variants={itemVariants}>
-            <Card>
-              <CardHeader>
-                <CardTitle>Account Information</CardTitle>
-                <CardDescription>Details about your account</CardDescription>
+            <Card className="bg-card border border-border">
+              <CardHeader className="border-b border-border">
+                <CardTitle className="text-foreground">Account Information</CardTitle>
+                <CardDescription className="text-muted-foreground">Details about your account</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-lg border p-3">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>Member Since</span>
+              <CardContent className="pt-4 sm:pt-6 space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex items-start gap-3">
+                    <User className="h-5 w-5 text-indigo-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium mb-1 text-foreground">User ID</p>
+                      <p className="text-sm text-muted-foreground">{userDetails.id}</p>
                     </div>
-                    <p className="mt-1 text-sm">{new Date(userDetails.joinDate).toLocaleDateString()}</p>
                   </div>
-
-                  <div className="rounded-lg border p-3">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Shield className="h-4 w-4 text-muted-foreground" />
-                      <span>Account Type</span>
+                  <div className="flex items-start gap-3">
+                    <Shield className="h-5 w-5 text-indigo-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium mb-1 text-foreground">Role</p>
+                      <p className="text-sm text-muted-foreground">{userDetails.role}</p>
                     </div>
-                    <p className="mt-1 text-sm">User</p>
                   </div>
+                  {userDetails.companyId && (
+                    <div className="flex items-start gap-3">
+                      <Car className="h-5 w-5 text-indigo-600 mt-0.5" />
+                      <div>
+                        <p className="font-medium mb-1 text-foreground">Company ID</p>
+                        <p className="text-sm text-muted-foreground">{userDetails.companyId}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </motion.div>
 
           {userDetails?.company && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Company</CardTitle>
-                <CardDescription>Basic company info</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div><b>Name:</b> {userDetails.company.name}</div>
-                  <div><b>Phone:</b> {userDetails.company.phone}</div>
-                  <div><b>Description:</b> {userDetails.company.description}</div>
-                  <div><b>Location:</b> {userDetails.company.latitude}, {userDetails.company.longitude}</div>
-                </div>
-              </CardContent>
-            </Card>
+            <motion.div variants={itemVariants}>
+              <Card className="bg-card border border-border">
+                <CardHeader className="border-b border-border">
+                  <CardTitle className="text-foreground">Company Information</CardTitle>
+                  <CardDescription className="text-muted-foreground">Basic company details</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-4 sm:pt-6 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Car className="h-5 w-5 text-indigo-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium mb-1 text-foreground">Name</p>
+                      <p className="text-sm text-muted-foreground">{userDetails.company.name}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div>
+                      <p className="font-medium mb-1 text-foreground">Phone</p>
+                      <p className="text-sm text-muted-foreground">{userDetails.company.phone}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <p className="font-medium mb-1 text-foreground">Description</p>
+                    <p className="text-sm text-muted-foreground">{userDetails.company.description}</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <MapPin className="h-5 w-5 text-indigo-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium mb-1 text-foreground">Location</p>
+                      <p className="text-sm text-muted-foreground">
+                        Lat: {userDetails.company.latitude}, Long: {userDetails.company.longitude}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           )}
-        </TabsContent>
 
-        <TabsContent value="vehicles" className="space-y-4">
           <motion.div variants={itemVariants}>
-            <Card>
-              <CardHeader>
-                <CardTitle>My Vehicles</CardTitle>
-                <CardDescription>Manage your registered vehicles</CardDescription>
+            <Card className="bg-card border border-border">
+              <CardHeader className="border-b border-border">
+                <CardTitle className="text-foreground">My Rescue Requests</CardTitle>
+                <CardDescription className="text-muted-foreground">List of your rescue requests</CardDescription>
               </CardHeader>
-              <CardContent>
-                {userDetails.vehicles && userDetails.vehicles.length > 0 ? (
-                  <div className="space-y-4">
-                    {userDetails.vehicles.map((vehicle: any) => (
-                      <div key={vehicle.id} className="rounded-lg border p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="font-medium">
-                              {vehicle.make} {vehicle.model} ({vehicle.year})
-                            </h3>
-                            <p className="text-sm text-muted-foreground">License: {vehicle.licensePlate}</p>
-                          </div>
-                          <Button variant="outline" size="sm">
-                            Edit
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+              <CardContent className="pt-4 sm:pt-6">
+                {userRequests.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-6">
+                    <Car className="mx-auto h-10 w-10 text-muted-foreground mb-4" />
+                    <p>No requests found.</p>
                   </div>
                 ) : (
-                  <div className="text-center text-muted-foreground">No vehicles registered yet.</div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted">
+                          <th className="px-4 py-2 text-left font-medium text-foreground">Request ID</th>
+                          <th className="px-4 py-2 text-left font-medium text-foreground">Status</th>
+                          <th className="px-4 py-2 text-left font-medium text-foreground">Created At</th>
+                          <th className="px-4 py-2 text-left font-medium text-foreground">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {userRequests.map((req, index) => (
+                          <tr key={req.id} className={`border-b border-border ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}>
+                            <td className="px-4 py-2 text-foreground">{req.id}</td>
+                            <td className="px-4 py-2 text-foreground">{req.status}</td>
+                            <td className="px-4 py-2 text-foreground">
+                              {req.createdAt ? new Date(req.createdAt).toLocaleString() : ''}
+                            </td>
+                            <td className="px-4 py-2 text-foreground">{req.description}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </CardContent>
-              <CardFooter>
-                <Button className="w-full">
-                  <Car className="mr-2 h-4 w-4" />
-                  Add New Vehicle
-                </Button>
-              </CardFooter>
             </Card>
           </motion.div>
         </TabsContent>

@@ -51,9 +51,14 @@ interface Service {
   averageRating?: number;
   totalRatings?: number;
   company?: {
+    id?: string;
     latitude: number;
     longitude: number;
     name: string;
+    phone?: string;
+    address?: {
+      fullAddress: string;
+    };
   };
 }
 
@@ -64,6 +69,15 @@ interface RequestData {
   vehicleModel: string;
   vehicleYear: number;
   description: string;
+}
+
+interface Rating {
+  id: string;
+  userId: string;
+  userName: string;
+  stars: number;
+  comment: string;
+  createdAt: string;
 }
 
 export default function CreateRequest() {
@@ -102,6 +116,11 @@ export default function CreateRequest() {
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedServiceDetail, setSelectedServiceDetail] = useState<Service | null>(null);
+  const [serviceRatings, setServiceRatings] = useState<Rating[]>([]);
+  const [isLoadingRatings, setIsLoadingRatings] = useState(false);
+  const [selectedRatingFilter, setSelectedRatingFilter] = useState<number | null>(null);
+  const [selectedServiceObject, setSelectedServiceObject] = useState<Service | null>(null);
 
   useEffect(() => {
     fetchServices();
@@ -170,7 +189,7 @@ export default function CreateRequest() {
     setIsLoadingNearby(true);
     try {
       const [lat, lng] = formData.location.split(",").map(Number);
-      const response = await api.rescueServices.getServices({
+      const response = await api.rescueServices.getNearbyServices({
         latitude: lat,
         longitude: lng,
         serviceType: formData.serviceType,
@@ -268,7 +287,7 @@ export default function CreateRequest() {
       }
 
       const requestData = {
-        rescueServiceId: formData.serviceType,
+        rescueServiceId: formData.selectedNearbyService,
         description: formData.description,
         latitude,
         longitude,
@@ -354,6 +373,20 @@ export default function CreateRequest() {
     iconAnchor: [16, 32],
     popupAnchor: [0, -32],
   });
+
+  const handleMarkerClick = async (service: Service) => {
+    setSelectedServiceDetail(service);
+    setIsLoadingRatings(true);
+    try {
+      const res = await api.rescueServices.getServiceRatings(service.id);
+      setServiceRatings(res.data);
+    } catch (e) {
+      setServiceRatings([]);
+    }
+    setIsLoadingRatings(false);
+    setFormData(prev => ({ ...prev, selectedNearbyService: service.id }));
+    setSelectedServiceObject(service);
+  };
 
   const renderStep3 = () => (
     <div className="space-y-6">
@@ -697,12 +730,7 @@ export default function CreateRequest() {
                                       service.company.longitude,
                                     ]}
                                     eventHandlers={{
-                                      click: () => {
-                                        setFormData((prev) => ({
-                                          ...prev,
-                                          selectedNearbyService: service.id,
-                                        }));
-                                      },
+                                      click: () => handleMarkerClick(service),
                                     }}
                                     icon={
                                       formData.selectedNearbyService ===
@@ -714,47 +742,38 @@ export default function CreateRequest() {
                                     }
                                   >
                                     <Popup>
-                                      <div>
-                                        <div className="font-semibold">
-                                          {service.name}
+                                      <div className="space-y-1">
+                                        <div className="font-semibold text-base">{service.name}</div>
+                                        <div className="text-sm text-muted-foreground mb-1">{service.description}</div>
+                                        <div className="text-xs mb-1">
+                                          <span className="font-medium">Type:</span> {service.type}
                                         </div>
-                                        <div>{service.description}</div>
-                                        <div>Price: {service.price}</div>
-                                        <div>
-                                          Company: {service.company?.name}
+                                        <div className="text-xs mb-1">
+                                          <span className="font-medium">Price:</span> {service.price}
                                         </div>
-                                        <div className="flex items-center mt-1">
-                                          <div className="flex items-center">
-                                            {[1, 2, 3, 4, 5].map((star) => (
-                                              <Star
-                                                key={star}
-                                                className={`h-4 w-4 ${
-                                                  star <=
-                                                  Math.round(
-                                                    service.averageRating || 0
-                                                  )
-                                                    ? "text-yellow-400 fill-yellow-400"
-                                                    : "text-gray-300"
-                                                }`}
-                                              />
-                                            ))}
-                                          </div>
-                                          <span className="ml-1 text-sm">
-                                            {service.averageRating?.toFixed(
-                                              1
-                                            ) || "0.0"}{" "}
-                                            ({service.totalRatings || 0})
-                                          </span>
+                                        <div className="text-xs mb-1">
+                                          <span className="font-medium">Distance:</span> {service.distance ? service.distance.toFixed(2) + ' km' : 'N/A'}
+                                        </div>
+                                        <div className="text-xs mb-1">
+                                          <span className="font-medium">Company:</span> {service.company?.name}
+                                        </div>
+                                        <div className="text-xs mb-1">
+                                          <span className="font-medium">Phone:</span> {service.company?.phone}
+                                        </div>
+                                        <div className="text-xs mb-1">
+                                          <span className="font-medium">Address:</span> {service.company?.address?.fullAddress}
+                                        </div>
+                                        <div className="flex items-center gap-1 text-xs mb-1">
+                                          <span className="font-medium">Rating:</span>
+                                          <span>{service.averageRating?.toFixed(1) || '0.0'}</span>
+                                          <span>({service.totalRatings || 0} reviews)</span>
                                         </div>
                                         <button
-                                          className="mt-2 px-2 py-1 bg-primary text-white rounded"
+                                          className="mt-2 px-2 py-1 bg-primary text-white rounded w-full"
                                           type="button"
                                           onMouseDown={(e) => {
                                             e.stopPropagation();
-                                            setFormData((prev) => ({
-                                              ...prev,
-                                              selectedNearbyService: service.id,
-                                            }));
+                                            handleMarkerClick(service);
                                           }}
                                         >
                                           Select this service
@@ -826,12 +845,7 @@ export default function CreateRequest() {
                                       service.company.longitude,
                                     ]}
                                     eventHandlers={{
-                                      click: () => {
-                                        setFormData((prev) => ({
-                                          ...prev,
-                                          selectedNearbyService: service.id,
-                                        }));
-                                      },
+                                      click: () => handleMarkerClick(service),
                                     }}
                                     icon={
                                       formData.selectedNearbyService ===
@@ -843,24 +857,38 @@ export default function CreateRequest() {
                                     }
                                   >
                                     <Popup>
-                                      <div>
-                                        <div className="font-semibold">
-                                          {service.name}
+                                      <div className="space-y-1">
+                                        <div className="font-semibold text-base">{service.name}</div>
+                                        <div className="text-sm text-muted-foreground mb-1">{service.description}</div>
+                                        <div className="text-xs mb-1">
+                                          <span className="font-medium">Type:</span> {service.type}
                                         </div>
-                                        <div>{service.description}</div>
-                                        <div>Price: {service.price}</div>
-                                        <div>
-                                          Company: {service.company?.name}
+                                        <div className="text-xs mb-1">
+                                          <span className="font-medium">Price:</span> {service.price}
+                                        </div>
+                                        <div className="text-xs mb-1">
+                                          <span className="font-medium">Distance:</span> {service.distance ? service.distance.toFixed(2) + ' km' : 'N/A'}
+                                        </div>
+                                        <div className="text-xs mb-1">
+                                          <span className="font-medium">Company:</span> {service.company?.name}
+                                        </div>
+                                        <div className="text-xs mb-1">
+                                          <span className="font-medium">Phone:</span> {service.company?.phone}
+                                        </div>
+                                        <div className="text-xs mb-1">
+                                          <span className="font-medium">Address:</span> {service.company?.address?.fullAddress}
+                                        </div>
+                                        <div className="flex items-center gap-1 text-xs mb-1">
+                                          <span className="font-medium">Rating:</span>
+                                          <span>{service.averageRating?.toFixed(1) || '0.0'}</span>
+                                          <span>({service.totalRatings || 0} reviews)</span>
                                         </div>
                                         <button
-                                          className="mt-2 px-2 py-1 bg-primary text-white rounded"
+                                          className="mt-2 px-2 py-1 bg-primary text-white rounded w-full"
                                           type="button"
                                           onMouseDown={(e) => {
                                             e.stopPropagation();
-                                            setFormData((prev) => ({
-                                              ...prev,
-                                              selectedNearbyService: service.id,
-                                            }));
+                                            handleMarkerClick(service);
                                           }}
                                         >
                                           Select this service
@@ -887,52 +915,111 @@ export default function CreateRequest() {
                     <h3 className="font-semibold mb-2">Service Information</h3>
                     <div className="space-y-2 text-sm">
                       <p>
-                        <span className="font-medium">Service Type:</span>{" "}
-                        {
-                          services.find((s) => s.id === formData.serviceType)
-                            ?.name
-                        }
+                        <span className="font-medium">Service Name:</span> {selectedServiceObject?.name}
                       </p>
                       <p>
-                        <span className="font-medium">Location:</span>{" "}
-                        {formData.location}
+                        <span className="font-medium">Description:</span> {selectedServiceObject?.description}
                       </p>
                       <p>
-                        <span className="font-medium">Description:</span>{" "}
-                        {formData.description}
+                        <span className="font-medium">Company:</span> {selectedServiceObject?.company?.name}
                       </p>
                       <p>
-                        <span className="font-medium">Selected Service:</span>{" "}
-                        {
-                          nearbyServices.find(
-                            (s) => s.id === formData.selectedNearbyService
-                          )?.name
-                        }
+                        <span className="font-medium">Phone:</span> {selectedServiceObject?.company?.phone}
+                      </p>
+                      <p>
+                        <span className="font-medium">Address:</span> {selectedServiceObject?.company?.address?.fullAddress}
+                      </p>
+                      <p>
+                        <span className="font-medium">Price:</span> {selectedServiceObject?.price}
+                      </p>
+                      <p>
+                        <span className="font-medium">Type:</span> {selectedServiceObject?.type}
+                      </p>
+                      <p>
+                        <span className="font-medium">Distance:</span> {selectedServiceObject?.distance?.toFixed(2)} km
+                      </p>
+                      <p>
+                        <span className="font-medium">Rating:</span> {selectedServiceObject?.averageRating?.toFixed(1)} ({selectedServiceObject?.totalRatings} reviews)
                       </p>
                     </div>
+                    <div className="mt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          if (selectedServiceObject?.company?.id) {
+                            navigate(`/company/details/${selectedServiceObject.company.id}`);
+                          }
+                        }}
+                      >
+                        View Company Details
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <h3 className="font-semibold mb-2">User Reviews</h3>
+                    <div className="flex gap-2 my-2">
+                      <button
+                        className={`px-2 py-1 rounded border text-xs flex items-center gap-1 ${selectedRatingFilter === null ? 'bg-primary text-white' : 'bg-muted text-foreground'}`}
+                        onClick={() => setSelectedRatingFilter(null)}
+                      >
+                        All
+                      </button>
+                      {[5,4,3,2,1].map(star => (
+                        <button
+                          key={star}
+                          className={`px-2 py-1 rounded border text-xs flex items-center gap-1 ${selectedRatingFilter === star ? 'bg-primary text-white' : 'bg-muted text-foreground'}`}
+                          onClick={() => setSelectedRatingFilter(star)}
+                        >
+                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" /> {star}
+                        </button>
+                      ))}
+                    </div>
+                    {isLoadingRatings ? (
+                      <div>Loading ratings...</div>
+                    ) : (serviceRatings.length === 0 ? (
+                      <div className="text-muted-foreground">No reviews yet.</div>
+                    ) : (
+                      <ul className="mt-2 space-y-2">
+                        {serviceRatings
+                          .filter(rating => selectedRatingFilter === null || rating.stars === selectedRatingFilter)
+                          .map(rating => (
+                            <li key={rating.id} className="border-b pb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{rating.userName}</span>
+                                <span className="flex gap-0.5">
+                                  {[1,2,3,4,5].map(i => (
+                                    <Star key={i} className={`h-3 w-3 ${i <= rating.stars ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                                  ))}
+                                </span>
+                                <span className="text-xs text-muted-foreground">{new Date(rating.createdAt).toLocaleDateString()}</span>
+                              </div>
+                              <div className="text-sm">{rating.comment}</div>
+                            </li>
+                          ))
+                        }
+                        {serviceRatings.filter(rating => selectedRatingFilter === null || rating.stars === selectedRatingFilter).length === 0 && (
+                          <div className="text-muted-foreground text-sm">No reviews for this filter.</div>
+                        )}
+                      </ul>
+                    ))}
                   </div>
                   <div className="rounded-lg border p-4">
                     <h3 className="font-semibold mb-2">Vehicle Information</h3>
                     <div className="space-y-2 text-sm">
                       <p>
-                        <span className="font-medium">Make:</span>{" "}
-                        {vehicleInfo.make}
+                        <span className="font-medium">Make:</span> {vehicleInfo.make}
                       </p>
                       <p>
-                        <span className="font-medium">Model:</span>{" "}
-                        {vehicleInfo.model}
+                        <span className="font-medium">Model:</span> {vehicleInfo.model}
                       </p>
                       <p>
-                        <span className="font-medium">Year:</span>{" "}
-                        {vehicleInfo.year}
+                        <span className="font-medium">Year:</span> {vehicleInfo.year}
                       </p>
                       <p>
-                        <span className="font-medium">License Plate:</span>{" "}
-                        {vehicleInfo.licensePlate}
+                        <span className="font-medium">License Plate:</span> {vehicleInfo.licensePlate}
                       </p>
                       <p>
-                        <span className="font-medium">Color:</span>{" "}
-                        {vehicleInfo.color}
+                        <span className="font-medium">Color:</span> {vehicleInfo.color}
                       </p>
                       {imagePreview && (
                         <div>
@@ -975,9 +1062,7 @@ export default function CreateRequest() {
                   <Button
                     type="button"
                     onClick={nextStep}
-                    disabled={
-                      currentStep === 2 && !formData.selectedNearbyService
-                    }
+                    // disabled={currentStep === 2 && !formData.selectedNearbyService}
                   >
                     Next
                   </Button>
@@ -998,6 +1083,94 @@ export default function CreateRequest() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {selectedServiceDetail && (
+        <div className="mt-4 p-4 rounded-lg border bg-card shadow">
+          <h3 className="font-bold text-lg mb-2">{selectedServiceDetail.name}</h3>
+          <div className="mb-2 text-muted-foreground">{selectedServiceDetail.description}</div>
+          <div className="mb-2">
+            <span className="font-medium">Company:</span> {selectedServiceDetail.company?.name}
+          </div>
+          <div className="mb-2">
+            <span className="font-medium">Phone:</span> {selectedServiceDetail.company?.phone}
+          </div>
+          <div className="mb-2">
+            <span className="font-medium">Address:</span> {selectedServiceDetail.company?.address?.fullAddress}
+          </div>
+          <div className="mb-2">
+            <span className="font-medium">Price:</span> {selectedServiceDetail.price}
+          </div>
+          <div className="mb-2">
+            <span className="font-medium">Type:</span> {selectedServiceDetail.type}
+          </div>
+          <div className="mb-2">
+            <span className="font-medium">Distance:</span> {selectedServiceDetail.distance?.toFixed(2)} km
+          </div>
+          <div className="mb-2">
+            <span className="font-medium">Rating:</span> {selectedServiceDetail.averageRating?.toFixed(1)} ({selectedServiceDetail.totalRatings} reviews)
+          </div>
+          <div className="mb-2">
+            <span className="font-medium">User Reviews:</span>
+            <div className="flex gap-2 my-2">
+              <button
+                className={`px-2 py-1 rounded border text-xs flex items-center gap-1 ${selectedRatingFilter === null ? 'bg-primary text-white' : 'bg-muted text-foreground'}`}
+                onClick={() => setSelectedRatingFilter(null)}
+              >
+                All
+              </button>
+              {[5,4,3,2,1].map(star => (
+                <button
+                  key={star}
+                  className={`px-2 py-1 rounded border text-xs flex items-center gap-1 ${selectedRatingFilter === star ? 'bg-primary text-white' : 'bg-muted text-foreground'}`}
+                  onClick={() => setSelectedRatingFilter(star)}
+                >
+                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" /> {star}
+                </button>
+              ))}
+            </div>
+            {isLoadingRatings ? (
+              <div>Loading ratings...</div>
+            ) : (serviceRatings.length === 0 ? (
+              <div className="text-muted-foreground">No reviews yet.</div>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {serviceRatings
+                  .filter(rating => selectedRatingFilter === null || rating.stars === selectedRatingFilter)
+                  .map(rating => (
+                    <li key={rating.id} className="border-b pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{rating.userName}</span>
+                        <span className="flex gap-0.5">
+                          {[1,2,3,4,5].map(i => (
+                            <Star key={i} className={`h-3 w-3 ${i <= rating.stars ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                          ))}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{new Date(rating.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="text-sm">{rating.comment}</div>
+                    </li>
+                  ))
+                }
+                {serviceRatings.filter(rating => selectedRatingFilter === null || rating.stars === selectedRatingFilter).length === 0 && (
+                  <div className="text-muted-foreground text-sm">No reviews for this filter.</div>
+                )}
+              </ul>
+            ))}
+          </div>
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (selectedServiceDetail.company?.id) {
+                  navigate(`/company/details/${selectedServiceDetail.company.id}`);
+                }
+              }}
+            >
+              View Company Details
+            </Button>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

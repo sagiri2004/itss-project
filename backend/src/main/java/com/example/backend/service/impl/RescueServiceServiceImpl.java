@@ -66,18 +66,70 @@ public class RescueServiceServiceImpl implements RescueServiceService {
 
 		return repository.findNearbyServicesWithDistance(latitude, longitude, serviceType.name(), limit).stream()
 				.map(result -> {
-					RescueService service = (RescueService) result[0];
-					Double distance = (Double) result[1];
+					String id = (String) result[0];
+					String name = (String) result[1];
+					String description = (String) result[2];
+					Double price = result[3] != null ? ((Number) result[3]).doubleValue() : null;
+					String type = (String) result[4];
+					String companyId = (String) result[5];
+					String companyName = (String) result[6];
+					String companyPhone = (String) result[7];
+					String companyDescription = (String) result[8];
+					Double companyLatitude = result[9] != null ? ((Number) result[9]).doubleValue() : null;
+					Double companyLongitude = result[10] != null ? ((Number) result[10]).doubleValue() : null;
+					java.sql.Timestamp companyCreatedAt = (java.sql.Timestamp) result[11];
+					Double distance = result[12] != null ? ((Number) result[12]).doubleValue() : null;
+					String street = (String) result[13];
+					String ward = (String) result[14];
+					String district = (String) result[15];
+					String city = (String) result[16];
+					String country = (String) result[17];
+					String fullAddress = (String) result[18];
 
-					// Get average rating and total ratings for this service
-					Double averageRating = ratingRepository.calculateAverageRatingForService(service);
-					Long totalRatings = ratingRepository.countRatingsByService(service);
+					com.example.backend.model.common.Address address = com.example.backend.model.common.Address.builder()
+						.street(street)
+						.ward(ward)
+						.district(district)
+						.city(city)
+						.country(country)
+						.fullAddress(fullAddress)
+						.latitude(companyLatitude)
+						.longitude(companyLongitude)
+						.build();
 
-					RescueServiceResponse response = toResponse(service, distance);
-					response.setAverageRating(averageRating != null ? averageRating : 0.0);
-					response.setTotalRatings(totalRatings != null ? totalRatings : 0L);
+					RescueServiceResponse.CompanyInfo companyInfo = RescueServiceResponse.CompanyInfo.builder()
+						.id(companyId)
+						.name(companyName)
+						.phone(companyPhone)
+						.description(companyDescription)
+						.latitude(companyLatitude)
+						.longitude(companyLongitude)
+						.address(address)
+						.createdAt(companyCreatedAt != null ? companyCreatedAt.toLocalDateTime() : null)
+						.build();
 
-					return response;
+					// Lấy danh sách ratings theo id
+					var ratings = ratingRepository.findByService_IdOrderByCreatedAtDesc(id);
+					double averageRating = 0.0;
+					long totalRatings = 0L;
+					if (ratings != null && !ratings.isEmpty()) {
+						totalRatings = ratings.size();
+						averageRating = ratings.stream().mapToInt(r -> r.getStars()).average().orElse(0.0);
+					}
+
+					return RescueServiceResponse.builder()
+						.id(id)
+						.name(name)
+						.description(description)
+						.price(price)
+						.type(type != null ? RescueServiceType.valueOf(type) : null)
+						.companyId(companyId)
+						.companyName(companyName)
+						.distance(distance)
+						.company(companyInfo)
+						.averageRating(averageRating)
+						.totalRatings(totalRatings)
+						.build();
 				})
 				.collect(Collectors.toList());
 	}

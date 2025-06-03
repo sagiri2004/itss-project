@@ -160,4 +160,9 @@ public class AdminController {
     ) {
         return ResponseEntity.ok(adminService.getTopRatedServices(timeRange));
     }
+
+    @GetMapping("/online-users")
+    public ResponseEntity<List<String>> getOnlineUsers() {
+        return ResponseEntity.ok(adminService.getOnlineUsers());
+    }
 } 

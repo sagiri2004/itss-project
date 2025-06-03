@@ -47,82 +47,37 @@ import { useNavigate } from "react-router-dom"; // Added import
 interface Company {
   id: string;
   name: string;
-  email: string;
   phone: string;
-  address: string;
-  logo?: string;
-  joinDate: string;
-  foundedYear?: string;
-  vehicles: number;
-  completedRequests: number;
-  rating: number;
-  status: "ACTIVE" | "PENDING_VERIFICATION" | "SUSPENDED" | string;
-  isVerified: boolean;
+  description: string;
+  address: {
+    street: string;
+    ward: string;
+    district: string | null;
+    city: string;
+    country: string;
+    fullAddress: string;
+    latitude: number;
+    longitude: number;
+  };
+  latitude: number;
+  longitude: number;
+  userId: string;
+  rating?: number; // Optional since we'll calculate it
 }
 
-// Mock Data
-const mockCompanies: Company[] = [
-  {
-    id: "1",
-    name: "Alpha Towing & Recovery",
-    email: "contact@alphatowing.com",
-    phone: "555-0101",
-    address: "123 Main St, Anytown, USA",
-    logo: "https://avatar.vercel.sh/alpha",
-    joinDate: "2023-01-15",
-    foundedYear: "2010",
-    vehicles: 12,
-    completedRequests: 1500,
-    rating: 4.7,
-    status: "ACTIVE",
-    isVerified: true,
-  },
-  {
-    id: "2",
-    name: "Beta Roadside Assistance",
-    email: "support@betaroadside.com",
-    phone: "555-0202",
-    address: "456 Oak Ave, Otherville, USA",
-    logo: "https://avatar.vercel.sh/beta",
-    joinDate: "2024-02-20",
-    foundedYear: "2018",
-    vehicles: 8,
-    completedRequests: 650,
-    rating: 4.5,
-    status: "PENDING_VERIFICATION",
-    isVerified: false,
-  },
-  {
-    id: "3",
-    name: "Gamma Transport Solutions",
-    email: "info@gammatransport.co",
-    phone: "555-0303",
-    address: "789 Pine Ln, Sometown, USA",
-    logo: "https://avatar.vercel.sh/gamma",
-    joinDate: "2022-11-01",
-    foundedYear: "2015",
-    vehicles: 25,
-    completedRequests: 2200,
-    rating: 4.2,
-    status: "SUSPENDED",
-    isVerified: true,
-  },
-  {
-    id: "4",
-    name: "Delta Quick Rescue",
-    email: "help@deltarescue.net",
-    phone: "555-0404",
-    address: "101 Maple Dr, Anycity, USA",
-    logo: "https://avatar.vercel.sh/delta",
-    joinDate: "2023-08-10",
-    foundedYear: "2020",
-    vehicles: 5,
-    completedRequests: 300,
-    rating: 4.9,
-    status: "ACTIVE",
-    isVerified: true,
-  },
-];
+interface Rating {
+  id: string;
+  companyId: string;
+  companyName: string;
+  serviceId: string;
+  serviceName: string;
+  userId: string;
+  userName: string;
+  stars: number;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function AdminCompanies() {
   const { toast } = useToast();
@@ -139,19 +94,41 @@ export default function AdminCompanies() {
   const fetchCompanies = async () => {
     setIsLoading(true);
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      // Use mock data instead of API call
-      setCompanies(mockCompanies);
-      // const res = await api.rescueCompanies.getCompanies();
-      // setCompanies(res.data);
+      const res = await api.rescueCompanies.getCompanies();
+      const companiesData = res.data;
+
+      // Fetch ratings for each company
+      const companiesWithRatings = await Promise.all(
+        companiesData.map(async (company: Company) => {
+          try {
+            const ratingsRes = await api.ratings.getCompanyRatings(company.id);
+            const ratings: Rating[] = ratingsRes.data;
+            
+            // Calculate average rating
+            const averageRating = ratings.length > 0
+              ? ratings.reduce((acc, curr) => acc + curr.stars, 0) / ratings.length
+              : 0;
+
+            return {
+              ...company,
+              rating: Number(averageRating.toFixed(1))
+            };
+          } catch (error) {
+            console.error(`Error fetching ratings for company ${company.id}:`, error);
+            return {
+              ...company,
+              rating: 0
+            };
+          }
+        })
+      );
+
+      setCompanies(companiesWithRatings);
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description:
-          // error.response?.data?.message || "Failed to load companies", 
-          "Failed to load companies (mock data error simulation)", // Using mock data error message
+        description: error.response?.data?.message || "Failed to load companies",
       });
     } finally {
       setIsLoading(false);
@@ -160,7 +137,6 @@ export default function AdminCompanies() {
 
   useEffect(() => {
     fetchCompanies();
-    // eslint-disable-next-line
   }, []);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -170,13 +146,12 @@ export default function AdminCompanies() {
   const filteredCompanies = companies.filter(
     (company) =>
       company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      company.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      company.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      company.status.toLowerCase().includes(searchTerm.toLowerCase())
+      company.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      company.address.fullAddress.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleViewDetails = (companyId: string) => {
-    navigate(`/company/${companyId}`);
+    navigate(`/company/details/${companyId}`);
   };
 
   const verifyCompany = async (id: string) => {
@@ -334,9 +309,8 @@ export default function AdminCompanies() {
                   <TableRow>
                     <TableHead>Company</TableHead>
                     <TableHead>Contact</TableHead>
-                    <TableHead>Vehicles</TableHead>
+                    <TableHead>Address</TableHead>
                     <TableHead>Rating</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -344,7 +318,7 @@ export default function AdminCompanies() {
                   {isLoading ? (
                     <TableRow>
                       <TableCell
-                        colSpan={6}
+                        colSpan={5}
                         className="text-center py-6 text-muted-foreground"
                       >
                         Loading...
@@ -353,7 +327,7 @@ export default function AdminCompanies() {
                   ) : filteredCompanies.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={6}
+                        colSpan={5}
                         className="text-center py-6 text-muted-foreground"
                       >
                         No companies found. Try adjusting your search.
@@ -366,10 +340,7 @@ export default function AdminCompanies() {
                           <div className="flex items-center gap-3">
                             <Avatar>
                               <AvatarImage
-                                src={
-                                  company.logo ||
-                                  `https://avatar.vercel.sh/${company.name}`
-                                }
+                                src={`https://avatar.vercel.sh/${company.name}`}
                               />
                               <AvatarFallback>
                                 {company.name.substring(0, 2).toUpperCase()}
@@ -377,27 +348,17 @@ export default function AdminCompanies() {
                             </Avatar>
                             <div>
                               <div className="font-medium">{company.name}</div>
-                              <div className="flex items-center text-xs text-muted-foreground mt-1">
-                                <Calendar className="mr-1 h-3 w-3" />
-                                <span>Joined: {company.joinDate}</span>
+                              <div className="text-sm text-muted-foreground">
+                                {company.description.substring(0, 50)}...
                               </div>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm">{company.email}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {company.phone}
-                          </div>
+                          <div className="text-sm">{company.phone}</div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center">
-                            <Truck className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{company.vehicles}</span>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {company.completedRequests} requests completed
-                          </div>
+                          <div className="text-sm">{company.address.fullAddress}</div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center">
@@ -405,78 +366,16 @@ export default function AdminCompanies() {
                             <div className="ml-1 text-yellow-500">★</div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-2">
-                            {getCompanyStatusBadge(company.status)}
-                            {company.isVerified ? (
-                              <div className="flex items-center text-xs text-green-500">
-                                <CheckCircle className="mr-1 h-3 w-3" />
-                                <span>Verified</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center text-xs text-muted-foreground">
-                                <AlertTriangle className="mr-1 h-3 w-3" />
-                                <span>Not Verified</span>
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleViewDetails(company.id)} // Changed onClick handler
+                              onClick={() => handleViewDetails(company.id)}
                             >
                               <Eye className="mr-2 h-4 w-4" />
                               Details
                             </Button>
-                            {company.status === "PENDING_VERIFICATION" && (
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  setConfirmAction({
-                                    id: company.id,
-                                    action: "verify",
-                                  });
-                                  setIsConfirmDialogOpen(true);
-                                }}
-                              >
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Verify
-                              </Button>
-                            )}
-                            {company.status === "ACTIVE" && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setConfirmAction({
-                                    id: company.id,
-                                    action: "suspend",
-                                  });
-                                  setIsConfirmDialogOpen(true);
-                                }}
-                              >
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Suspend
-                              </Button>
-                            )}
-                            {company.status === "SUSPENDED" && (
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  setConfirmAction({
-                                    id: company.id,
-                                    action: "activate",
-                                  });
-                                  setIsConfirmDialogOpen(true);
-                                }}
-                              >
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Activate
-                              </Button>
-                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -488,8 +387,6 @@ export default function AdminCompanies() {
           </CardContent>
         </Card>
       </motion.div>
-
-      {/* Removed Company Detail Dialog */}
 
       <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
         <DialogContent>

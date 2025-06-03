@@ -18,27 +18,18 @@ import api from "@/services/api"
 interface Vehicle {
   id: string
   name: string
-  type: string
   licensePlate: string
-  status: "AVAILABLE" | "IN_USE" | "MAINTENANCE" | "OUT_OF_SERVICE"
-  assignedDriver?: string
-  company: {
-    id: string
-    name: string
-  }
-  lastMaintenance?: string
+  model: string
+  make: string
+  equipmentDetails: string[]
+  status: string
+  currentLatitude: number
+  currentLongitude: number
+  assignedDriverName: string
+  companyId: string
+  companyName: string
+  lastMaintenanceDate?: string
   nextMaintenanceDate?: string
-  equipment?: string[]
-  location?: {
-    latitude: number
-    longitude: number
-    lastUpdated: string
-  }
-  currentRequest?: {
-    id: string
-    serviceType: string
-    status: string
-  }
 }
 
 export default function AdminVehicles() {
@@ -62,35 +53,7 @@ export default function AdminVehicles() {
       setIsLoading(true)
       try {
         const response = await api.admin.getVehicles()
-        
-        // Map response data to our interface
-        const mappedVehicles: Vehicle[] = response.data.map((v: any) => ({
-          id: v.id,
-          name: v.name || v.plate,
-          type: v.type,
-          licensePlate: v.licensePlate || v.plate,
-          status: v.status,
-          assignedDriver: v.driver?.name,
-          company: {
-            id: v.company?.id || v.companyId,
-            name: v.company?.name || v.companyName
-          },
-          lastMaintenance: v.lastMaintenance,
-          nextMaintenanceDate: v.nextMaintenanceDate,
-          equipment: v.equipment || [],
-          location: v.location ? {
-            latitude: v.location.latitude,
-            longitude: v.location.longitude,
-            lastUpdated: v.location.lastUpdated
-          } : undefined,
-          currentRequest: v.currentRequest ? {
-            id: v.currentRequest.id,
-            serviceType: v.currentRequest.serviceType,
-            status: v.currentRequest.status
-          } : undefined
-        }))
-
-        setVehicles(mappedVehicles)
+        setVehicles(response.data)
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -118,11 +81,11 @@ export default function AdminVehicles() {
   }
 
   // Get unique companies for filter
-  const companies = Array.from(new Set(vehicles.map((vehicle) => vehicle.company.id))).map((companyId) => {
-    const vehicle = vehicles.find((v) => v.company.id === companyId)
+  const companies = Array.from(new Set(vehicles.map((vehicle) => vehicle.companyId))).map((companyId) => {
+    const vehicle = vehicles.find((v) => v.companyId === companyId)
     return {
       id: companyId,
-      name: vehicle?.company.name || "",
+      name: vehicle?.companyName || "",
     }
   })
 
@@ -130,13 +93,14 @@ export default function AdminVehicles() {
   const filteredVehicles = vehicles.filter((vehicle) => {
     const matchesSearch =
       vehicle.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.make.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (vehicle.assignedDriver || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.company.name.toLowerCase().includes(searchTerm.toLowerCase())
+      (vehicle.assignedDriverName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.companyName.toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesStatus = !statusFilter || vehicle.status === statusFilter
-    const matchesCompany = !companyFilter || vehicle.company.id === companyFilter
+    const matchesCompany = !companyFilter || vehicle.companyId === companyFilter
 
     return matchesSearch && matchesStatus && matchesCompany
   })
@@ -259,15 +223,19 @@ export default function AdminVehicles() {
                     <TableHead>Vehicle</TableHead>
                     <TableHead>Company</TableHead>
                     <TableHead>License Plate</TableHead>
+                    <TableHead>Model</TableHead>
+                    <TableHead>Make</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Maintenance</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Current Location</TableHead>
+                    <TableHead>Driver</TableHead>
+                    <TableHead>Last Maintenance</TableHead>
+                    <TableHead>Next Maintenance</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredVehicles.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center py-6 text-muted-foreground">
                         No vehicles found. Try adjusting your search criteria.
                       </TableCell>
                     </TableRow>
@@ -276,54 +244,25 @@ export default function AdminVehicles() {
                       <TableRow key={vehicle.id}>
                         <TableCell>
                           <div className="font-medium">{vehicle.name}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{vehicle.type}</div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <Building2 className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{vehicle.company.name}</span>
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Driver: {vehicle.assignedDriver || "Unassigned"}
-                          </div>
-                        </TableCell>
+                        <TableCell>{vehicle.companyName}</TableCell>
                         <TableCell>{vehicle.licensePlate}</TableCell>
+                        <TableCell>{vehicle.model}</TableCell>
+                        <TableCell>{vehicle.make}</TableCell>
                         <TableCell>
                           <Badge variant={getStatusBadgeVariant(vehicle.status)}>
                             {vehicle.status.replace(/_/g, " ")}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center text-sm">
-                            <Calendar className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                            <span>Last: {vehicle.lastMaintenance}</span>
-                          </div>
-                          <div className="flex items-center text-xs mt-1">
-                            {isMaintenanceSoon(vehicle.nextMaintenanceDate) ? (
-                              <div className="flex items-center text-amber-500">
-                                <AlertTriangle className="mr-1 h-3 w-3" />
-                                <span>Next: {vehicle.nextMaintenanceDate}</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center text-muted-foreground">
-                                <Calendar className="mr-1 h-3 w-3" />
-                                <span>Next: {vehicle.nextMaintenanceDate}</span>
-                              </div>
-                            )}
+                          <div className="text-xs">
+                            Lat: {vehicle.currentLatitude}<br />
+                            Lon: {vehicle.currentLongitude}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" title="View Details">
-                              <Eye className="mr-2 h-4 w-4" />
-                              Details
-                            </Button>
-                            <Button variant="outline" size="sm" title="Maintenance History">
-                              <Wrench className="mr-2 h-4 w-4" />
-                              Maintenance
-                            </Button>
-                          </div>
-                        </TableCell>
+                        <TableCell>{vehicle.assignedDriverName}</TableCell>
+                        <TableCell>{vehicle.lastMaintenanceDate}</TableCell>
+                        <TableCell>{vehicle.nextMaintenanceDate}</TableCell>
                       </TableRow>
                     ))
                   )}

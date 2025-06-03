@@ -10,9 +10,11 @@ import { useWebSocketContext } from "@/context/websocket-context"
 import DashboardLayout from "./layouts/dashboard-layout"
 
 // Auth Pages
-import Login from "./pages/auth/login"
-import Register from "./pages/auth/register"
+import Login from "@/pages/auth/login"
+import Register from "@/pages/auth/register"
 import CreateCompany from "./pages/auth/create-company"
+import ForgotPassword from "@/pages/auth/forgot-password"
+import ResetPassword from "@/pages/auth/reset-password"
 
 // User Pages
 import UserDashboard from "./pages/user/dashboard"
@@ -82,9 +84,8 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/create-company" element={<CreateCompany />} />
-
-              {/* Standalone Company Detail Page */}
-              <Route path="/company/:id" element={<CompanyDetail />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
 
               {/* User Routes */}
               <Route path="/user" element={<DashboardLayout role="user" />}>
@@ -117,6 +118,7 @@ function App() {
                 <Route path="chat/:id" element={<CompanyChat />} />
                 <Route path="chats" element={<CompanyChats />} />
                 <Route path="reviews" element={<CompanyReviews />} />
+                <Route path="details/:id" element={<CompanyDetail />} />
               </Route>
 
               {/* Admin Routes */}
@@ -130,12 +132,12 @@ function App() {
                 <Route path="invoices" element={<AdminInvoices />} />
                 <Route path="users" element={<AdminUsers />} />
                 {/* <Route path="chats" element={<AdminChats />} /> */}
-                <Route path="settings" element={<AdminSettings />} />
                 <Route path="change-password" element={<AdminChangePassword />} />
                 <Route path="reports" element={<AdminReport />} />
                 <Route path="report-management" element={<AdminReportManagement />} />
                 <Route path="topics" element={<AdminTopics />} />
                 <Route path="reviews" element={<AdminReviews />} />
+                
               </Route>
 
               {/* Redirect root to login */}
