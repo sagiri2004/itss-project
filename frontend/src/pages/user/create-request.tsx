@@ -154,31 +154,24 @@ export default function CreateRequest() {
 
   const handleUseCurrentLocation = async () => {
     try {
-      // Kiểm tra xem có phải đang chạy trên mobile không
       const isMobile = Capacitor.isNativePlatform();
       
       if (isMobile) {
         // Kiểm tra quyền truy cập vị trí
         const permissionStatus = await Geolocation.checkPermissions();
         
-        if (permissionStatus.location === 'prompt') {
-          // Yêu cầu quyền truy cập vị trí
+        if (permissionStatus.location === 'prompt' || permissionStatus.location === 'denied') {
+          // Hiển thị dialog yêu cầu quyền
           const requestStatus = await Geolocation.requestPermissions();
+          
           if (requestStatus.location !== 'granted') {
             toast({
               variant: "destructive",
-              title: "Location permission denied",
+              title: "Location permission required",
               description: "Please enable location access in your device settings to use this feature.",
             });
             return;
           }
-        } else if (permissionStatus.location === 'denied') {
-          toast({
-            variant: "destructive",
-            title: "Location permission denied",
-            description: "Please enable location access in your device settings to use this feature.",
-          });
-          return;
         }
 
         // Lấy vị trí hiện tại với độ chính xác cao
@@ -216,6 +209,7 @@ export default function CreateRequest() {
               });
             },
             (error) => {
+              console.error('Geolocation error:', error);
               toast({
                 variant: "destructive",
                 title: "Location error",
