@@ -171,11 +171,6 @@ export default function Login() {
                   "Sign In"
                 )}
               </Button>
-              <div className="text-sm text-muted-foreground text-center">
-                <Link to="/auth/forgot-password" className="text-primary hover:underline">
-                  Forgot your password?
-                </Link>
-              </div>
             </form>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
