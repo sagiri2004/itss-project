@@ -108,8 +108,15 @@ export const rescueVehicleApi = {
   createVehicle: (vehicleData: any) => axiosInstance.post(`/rescue-vehicles`, vehicleData),
   updateVehicle: (id: string, vehicleData: any) => axiosInstance.put(`/rescue-vehicles/${id}`, vehicleData),
   deleteVehicle: (id: string) => axiosInstance.delete(`/rescue-vehicles/${id}`),
-  updateVehicleStatus: (id: string, status: string) =>
-    axiosInstance.put(`/rescue-vehicles/${id}/status`, { status }),
+  updateVehicleStatus: (id: string, status: string, maintenanceNote?: string, maintenanceReason?: string) =>
+    axiosInstance.put(`/rescue-vehicles/${id}/status`, { 
+      status,
+      maintenanceNote,
+      maintenanceReason
+    }),
+  getVehicleEquipment: () => axiosInstance.get(`/rescue-vehicles/equipment-types`),
+  updateVehicleEquipment: (id: string, equipment: string[]) =>
+    axiosInstance.put(`/rescue-vehicles/${id}/equipment`, { equipment }),
 }
 
 // Rescue Service APIs
@@ -123,6 +130,10 @@ export const rescueServiceApi = {
   getServiceRatings: (serviceId: string) => axiosInstance.get(`/ratings/service/${serviceId}`),
   getNearbyServices: (params: { latitude: number; longitude: number; serviceType: string; limit?: number }) =>
     axiosInstance.get(`/rescue-services/nearby`, { params }),
+  toggleServiceStatus: (id: string, status: 'ACTIVE' | 'INACTIVE') => 
+    axiosInstance.put(`/rescue-services/${id}`, { status }),
+  requestServiceDeletion: (id: string, reason: string) => 
+    axiosInstance.post(`/rescue-services/${id}/request-deletion`, { reason }),
 }
 
 // Invoice APIs
@@ -296,6 +307,12 @@ export const adminApi = {
   getRequestStats: (params?: any) => axiosInstance.get(`/admin/report/request-stats`, { params }),
   getServiceUsageStats: (params?: any) => axiosInstance.get(`/admin/report/service-usage-stats`, { params }),
   getTopRatedServices: (params?: any) => axiosInstance.get(`/admin/report/top-rated-services`, { params }),
+  // Service deletion requests
+  getServiceDeletionRequests: () => axiosInstance.get(`/admin/service-deletion-requests`),
+  getServiceDeletionRequestById: (id: string) => axiosInstance.get(`/admin/service-deletion-requests/${id}`),
+  approveServiceDeletion: (id: string) => axiosInstance.post(`/admin/service-deletion-requests/${id}/approve`),
+  rejectServiceDeletion: (id: string, reason: string) => 
+    axiosInstance.post(`/admin/service-deletion-requests/${id}/reject`, null, { params: { reason } }),
 }
 
 export default {

@@ -22,4 +22,6 @@ public interface RescueRequestRepository extends JpaRepository<RescueRequest, St
 	List<RescueRequest> findByUser(User user);
 
 	List<RescueRequest> findByCreatedAtAfter(LocalDateTime date);
+
+	List<RescueRequest> findByRescueServiceId(String serviceId);
 }

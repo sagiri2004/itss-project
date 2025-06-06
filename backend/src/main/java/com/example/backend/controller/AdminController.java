@@ -12,6 +12,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -164,5 +168,29 @@ public class AdminController {
     @GetMapping("/online-users")
     public ResponseEntity<List<String>> getOnlineUsers() {
         return ResponseEntity.ok(adminService.getOnlineUsers());
+    }
+
+    // Service deletion requests
+    @GetMapping("/service-deletion-requests")
+    public ResponseEntity<List<RescueServiceDeletionResponse>> getServiceDeletionRequests() {
+        return ResponseEntity.ok(adminService.getServiceDeletionRequests());
+    }
+
+    @GetMapping("/service-deletion-requests/{id}")
+    public ResponseEntity<RescueServiceDeletionResponse> getServiceDeletionRequestById(@PathVariable String id) {
+        return ResponseEntity.ok(adminService.getServiceDeletionRequestById(id));
+    }
+
+    @PostMapping("/service-deletion-requests/{id}/approve")
+    public ResponseEntity<RescueServiceDeletionResponse> approveServiceDeletion(
+            @PathVariable String id) {
+        return ResponseEntity.ok(adminService.approveServiceDeletion(id));
+    }
+
+    @PostMapping("/service-deletion-requests/{id}/reject")
+    public ResponseEntity<RescueServiceDeletionResponse> rejectServiceDeletion(
+            @PathVariable String id,
+            @RequestParam String reason) {
+        return ResponseEntity.ok(adminService.rejectServiceDeletion(id, reason));
     }
 } 

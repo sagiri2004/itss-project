@@ -22,9 +22,9 @@ public interface RescueServiceRepository extends JpaRepository<RescueService, St
 			"(6371 * acos(cos(radians(:latitude)) * cos(radians(c.latitude)) * " +
 			"cos(radians(c.longitude) - radians(:longitude)) + " +
 			"sin(radians(:latitude)) * sin(radians(c.latitude)))) AS distance, " +
-			"c.street, c.ward, c.district, c.city, c.country, c.full_address " +
+			"c.street, c.ward, c.district, c.city, c.country, c.full_address, rs.status " +
 			"FROM rescue_services rs JOIN rescue_companies c ON rs.company_id = c.id " +
-			"WHERE rs.type = :serviceType " +
+			"WHERE rs.type = :serviceType AND rs.status = 'ACTIVE' " +
 			"ORDER BY distance ASC LIMIT :limit", nativeQuery = true)
 	List<Object[]> findNearbyServicesWithDistance(
 			@Param("latitude") Double latitude,

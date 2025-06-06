@@ -11,6 +11,21 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import api from "@/services/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Textarea,
+  TextareaProps,
+} from "@/components/ui/textarea";
+import {
+  Label,
+} from "@/components/ui/label";
 
 const REPORT_TYPES = [
   { value: "ALL", label: "All" },
@@ -19,6 +34,7 @@ const REPORT_TYPES = [
   { value: "RESCUE_REQUEST", label: "Rescue Request" },
   { value: "INVOICE", label: "Invoice" },
   { value: "COMPANY", label: "Company" },
+  { value: "SERVICE_DELETION", label: "Service Deletion" },
   // Add other types if needed
 ];
 const REPORT_STATUS = [
@@ -37,6 +53,11 @@ const AdminReportManagementPage: React.FC = () => {
   const [topReported, setTopReported] = useState<any[]>([]);
   const [topType, setTopType] = useState("TOPIC");
   const [topLoading, setTopLoading] = useState(false);
+  const [serviceDeletionRequests, setServiceDeletionRequests] = useState<any[]>([]);
+  const [deletionLoading, setDeletionLoading] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -65,8 +86,21 @@ const AdminReportManagementPage: React.FC = () => {
     }
   };
 
+  const fetchServiceDeletionRequests = async () => {
+    setDeletionLoading(true);
+    try {
+      const res = await api.admin.getServiceDeletionRequests();
+      setServiceDeletionRequests(res.data || []);
+    } catch {
+      setServiceDeletionRequests([]);
+    } finally {
+      setDeletionLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchReports();
+    fetchServiceDeletionRequests();
   }, [type, status]);
   useEffect(() => {
     fetchTopReported();
@@ -94,6 +128,38 @@ const AdminReportManagementPage: React.FC = () => {
       fetchReports();
     } catch {
       toast({ title: "Error deleting report", variant: "destructive" });
+    }
+  };
+
+  const handleApproveDeletion = async (requestId: string) => {
+    try {
+      await api.admin.approveServiceDeletion(requestId);
+      toast({ title: "Service deletion approved" });
+      fetchServiceDeletionRequests();
+    } catch {
+      toast({ title: "Error approving deletion", variant: "destructive" });
+    }
+  };
+
+  const handleRejectDeletion = async () => {
+    if (!selectedRequestId || !rejectReason) {
+      toast({ 
+        title: "Error", 
+        description: "Please provide a reason for rejection",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    try {
+      await api.admin.rejectServiceDeletion(selectedRequestId, rejectReason);
+      toast({ title: "Service deletion rejected" });
+      setShowRejectDialog(false);
+      setRejectReason("");
+      setSelectedRequestId(null);
+      fetchServiceDeletionRequests();
+    } catch {
+      toast({ title: "Error rejecting deletion", variant: "destructive" });
     }
   };
 
@@ -283,6 +349,124 @@ const AdminReportManagementPage: React.FC = () => {
           )}
         </CardContent>
       </Card>
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Service Deletion Requests</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {deletionLoading ? (
+            <p>Loading...</p>
+          ) : serviceDeletionRequests.length === 0 ? (
+            <p>No service deletion requests found.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm border border-gray-700 rounded-lg">
+                <thead>
+                  <tr className="bg-gray-100 dark:bg-gray-800">
+                    <th className="p-2 text-left">Service</th>
+                    <th className="p-2 text-left">Company</th>
+                    <th className="p-2 text-left">Reason</th>
+                    <th className="p-2 text-left">Status</th>
+                    <th className="p-2 text-left">Requested At</th>
+                    <th className="p-2 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {serviceDeletionRequests.map((request) => (
+                    <tr
+                      key={request.id}
+                      className="border-b border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900 transition"
+                    >
+                      <td className="p-2">{request.serviceName}</td>
+                      <td className="p-2">{request.companyName}</td>
+                      <td className="p-2">{request.reason}</td>
+                      <td className="p-2">
+                        <Badge
+                          variant={
+                            request.status === "PENDING"
+                              ? "secondary"
+                              : request.status === "APPROVED"
+                              ? "success"
+                              : "destructive"
+                          }
+                        >
+                          {request.status}
+                        </Badge>
+                      </td>
+                      <td className="p-2">
+                        {new Date(request.createdAt).toLocaleString()}
+                      </td>
+                      <td className="p-2 text-center space-x-2">
+                        {request.status === "PENDING" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleApproveDeletion(request.id)}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => {
+                                setSelectedRequestId(request.id);
+                                setShowRejectDialog(true);
+                              }}
+                            >
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Service Deletion Request</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this deletion request.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="reason">Rejection Reason</Label>
+              <Textarea
+                id="reason"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Enter reason for rejection..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRejectDialog(false);
+                setRejectReason("");
+                setSelectedRequestId(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRejectDeletion}
+            >
+              Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

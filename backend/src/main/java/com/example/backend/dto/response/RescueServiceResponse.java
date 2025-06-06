@@ -2,6 +2,7 @@ package com.example.backend.dto.response;
 
 import com.example.backend.model.common.Address;
 import com.example.backend.model.enums.RescueServiceType;
+import com.example.backend.model.enums.RescueServiceStatus;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -16,6 +17,7 @@ public class RescueServiceResponse {
 	private String description;
 	private Double price;
 	private RescueServiceType type;
+	private RescueServiceStatus status;
 	private String companyId;
 	private String companyName;
 	private Double distance;

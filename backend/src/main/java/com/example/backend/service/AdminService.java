@@ -12,6 +12,7 @@ import com.example.backend.dto.response.InvoiceResponse;
 import com.example.backend.dto.response.RescueRequestResponse;
 import com.example.backend.dto.response.CompanyRatingResponse;
 import com.example.backend.dto.response.RescueVehicleResponse;
+import com.example.backend.dto.response.RescueServiceDeletionResponse;
 
 public interface AdminService {
     // User
@@ -65,4 +66,9 @@ public interface AdminService {
     Map<String, Object> getTopRatedServices(String timeRange);
     // Online users
     List<String> getOnlineUsers();
+    // Service deletion requests
+    List<RescueServiceDeletionResponse> getServiceDeletionRequests();
+    RescueServiceDeletionResponse getServiceDeletionRequestById(String id);
+    RescueServiceDeletionResponse approveServiceDeletion(String requestId);
+    RescueServiceDeletionResponse rejectServiceDeletion(String requestId, String reason);
 } 

@@ -98,7 +98,7 @@ export default function CreateCompany() {
           title: "Company created successfully",
           description: "Your company profile has been created.",
         });
-        navigate("/company");
+        navigate("/login");
       }
     } catch (error: any) {
       let errorTitle = "Failed to create company";
