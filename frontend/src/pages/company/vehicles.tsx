@@ -51,13 +51,27 @@ import api from "@/services/api";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 
 const vehicleTypes = ["Tow Truck", "Flatbed", "Motorbike", "Van", "Other"];
 const vehicleStatuses = [
   "AVAILABLE",
-  "IN_USE",
-  "MAINTENANCE",
-  "OUT_OF_SERVICE",
+  "ON_DUTY",
+  "OUT_OF_SERVICE"
+];
+
+const equipmentOptions = [
+  { value: "WINCH", label: "Winch" },
+  { value: "TIRE_REPAIR_KIT", label: "Tire Repair Kit" },
+  { value: "JACK", label: "Jack" },
+  { value: "JUMPER_CABLES", label: "Jumper Cables" },
+  { value: "FUEL_CAN", label: "Fuel Can" },
+  { value: "AIR_COMPRESSOR", label: "Air Compressor" },
+  { value: "TOOL_BOX", label: "Tool Box" },
+  { value: "TOW_CHAIN", label: "Tow Chain" },
+  { value: "LIGHTING", label: "Lighting" },
+  { value: "FIRE_EXTINGUISHER", label: "Fire Extinguisher" }
 ];
 
 interface Vehicle {
@@ -68,7 +82,7 @@ interface Vehicle {
   model: string;
   status: string;
   assignedDriverName?: string;
-  equipmentDetails?: string[];
+  equipmentDetails: string[];
   currentLatitude: number;
   currentLongitude: number;
   lastMaintenanceDate?: string;
@@ -84,6 +98,10 @@ export default function CompanyVehicles() {
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showMaintenanceDialog, setShowMaintenanceDialog] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [maintenanceNote, setMaintenanceNote] = useState("");
+  const [maintenanceReason, setMaintenanceReason] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -96,6 +114,7 @@ export default function CompanyVehicles() {
     nextMaintenanceDate: "",
     currentLatitude: 21.0285,
     currentLongitude: 105.8542,
+    equipmentDetails: [] as string[]
   });
 
   // Fetch vehicles from API
@@ -158,9 +177,19 @@ export default function CompanyVehicles() {
       nextMaintenanceDate: "",
       currentLatitude: 21.0285,
       currentLongitude: 105.8542,
+      equipmentDetails: []
     });
     setCurrentVehicle(null);
     setIsEditing(false);
+  };
+
+  const handleEquipmentChange = (equipment: string) => {
+    setFormData(prev => ({
+      ...prev,
+      equipmentDetails: prev.equipmentDetails.includes(equipment)
+        ? prev.equipmentDetails.filter(e => e !== equipment)
+        : [...prev.equipmentDetails, equipment]
+    }));
   };
 
   const handleOpenDialog = (vehicle?: Vehicle) => {
@@ -180,6 +209,7 @@ export default function CompanyVehicles() {
           : "",
         currentLatitude: vehicle.currentLatitude,
         currentLongitude: vehicle.currentLongitude,
+        equipmentDetails: vehicle.equipmentDetails || []
       });
       setCurrentVehicle(vehicle);
       setIsEditing(true);
@@ -259,20 +289,39 @@ export default function CompanyVehicles() {
     }
   };
 
-  const markForMaintenance = async (id: string) => {
+  const handleOpenMaintenanceDialog = (vehicleId: string) => {
+    setSelectedVehicleId(vehicleId);
+    setShowMaintenanceDialog(true);
+  };
+
+  const handleCloseMaintenanceDialog = () => {
+    setShowMaintenanceDialog(false);
+    setSelectedVehicleId(null);
+    setMaintenanceNote("");
+    setMaintenanceReason("");
+  };
+
+  const markForMaintenance = async () => {
+    if (!selectedVehicleId) return;
+
     try {
-      await api.rescueVehicles.updateVehicleStatus(id, "MAINTENANCE");
+      await api.rescueVehicles.updateVehicleStatus(
+        selectedVehicleId,
+        "OUT_OF_SERVICE",
+        maintenanceNote,
+        maintenanceReason
+      );
       fetchVehicles();
+      handleCloseMaintenanceDialog();
       toast({
         title: "Maintenance scheduled",
-        description: `Vehicle has been marked for maintenance.`,
+        description: "Vehicle has been marked for maintenance.",
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description:
-          error.response?.data?.message || "Failed to update vehicle status",
+        description: error.response?.data?.message || "Failed to update vehicle status",
       });
     }
   };
@@ -282,10 +331,8 @@ export default function CompanyVehicles() {
     switch (status) {
       case "AVAILABLE":
         return "success";
-      case "IN_USE":
+      case "ON_DUTY":
         return "default";
-      case "MAINTENANCE":
-        return "outline";
       case "OUT_OF_SERVICE":
         return "destructive";
       default:
@@ -405,6 +452,7 @@ export default function CompanyVehicles() {
                     <TableHead>License Plate</TableHead>
                     <TableHead>Driver</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Equipment</TableHead>
                     <TableHead>Maintenance</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -413,7 +461,7 @@ export default function CompanyVehicles() {
                   {isLoading ? (
                     <TableRow>
                       <TableCell
-                        colSpan={6}
+                        colSpan={7}
                         className="text-center py-6 text-muted-foreground"
                       >
                         Loading...
@@ -422,7 +470,7 @@ export default function CompanyVehicles() {
                   ) : filteredVehicles.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={6}
+                        colSpan={7}
                         className="text-center py-6 text-muted-foreground"
                       >
                         No vehicles found. Try adjusting your search or add a
@@ -450,6 +498,15 @@ export default function CompanyVehicles() {
                           </Badge>
                         </TableCell>
                         <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {vehicle.equipmentDetails?.map((equipment) => (
+                              <Badge key={equipment} variant="outline">
+                                {equipment.replace(/_/g, " ")}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
                           <div className="flex items-center text-sm">
                             <Calendar className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
                             <span>Last: {vehicle.lastMaintenanceDate}</span>
@@ -464,9 +521,9 @@ export default function CompanyVehicles() {
                             <Button
                               variant="outline"
                               size="icon"
-                              onClick={() => markForMaintenance(vehicle.id)}
+                              onClick={() => handleOpenMaintenanceDialog(vehicle.id)}
                               title="Schedule Maintenance"
-                              disabled={vehicle.status === "MAINTENANCE"}
+                              disabled={vehicle.status === "OUT_OF_SERVICE"}
                             >
                               <Wrench className="h-4 w-4" />
                             </Button>
@@ -611,6 +668,26 @@ export default function CompanyVehicles() {
                 />
               </div>
               <div className="grid gap-2">
+                <Label>Equipment</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {equipmentOptions.map((equipment) => (
+                    <div key={equipment.value} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={equipment.value}
+                        checked={formData.equipmentDetails.includes(equipment.value)}
+                        onCheckedChange={() => handleEquipmentChange(equipment.value)}
+                      />
+                      <label
+                        htmlFor={equipment.value}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {equipment.label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-2">
                 <Label>Vehicle Location</Label>
                 <div className="h-56 w-full rounded-md overflow-hidden">
                   <MapContainer
@@ -647,6 +724,52 @@ export default function CompanyVehicles() {
               <Button type="submit">{isEditing ? "Update" : "Add"}</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showMaintenanceDialog} onOpenChange={setShowMaintenanceDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Vehicle Maintenance</DialogTitle>
+            <DialogDescription>
+              Please provide details about the maintenance required.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="maintenanceReason">Maintenance Reason</Label>
+              <Input
+                id="maintenanceReason"
+                value={maintenanceReason}
+                onChange={(e) => setMaintenanceReason(e.target.value)}
+                placeholder="e.g., Regular maintenance, Oil change"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="maintenanceNote">Additional Notes</Label>
+              <Textarea
+                id="maintenanceNote"
+                value={maintenanceNote}
+                onChange={(e) => setMaintenanceNote(e.target.value)}
+                placeholder="Enter any additional details about the maintenance..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCloseMaintenanceDialog}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={markForMaintenance}
+              disabled={!maintenanceReason}
+            >
+              Schedule Maintenance
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </motion.div>

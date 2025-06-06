@@ -1,6 +1,8 @@
 package com.example.backend.service.impl;
 
+import com.example.backend.dto.request.RescueServiceDeletionRequest;
 import com.example.backend.dto.request.RescueServiceRequest;
+import com.example.backend.dto.response.RescueServiceDeletionResponse;
 import com.example.backend.dto.response.RescueServiceResponse;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.RescueCompany;
@@ -8,11 +10,13 @@ import com.example.backend.model.RescueService;
 import com.example.backend.model.enums.RescueServiceType;
 import com.example.backend.repository.CompanyRatingRepository;
 import com.example.backend.repository.RescueCompanyRepository;
+import com.example.backend.repository.RescueServiceDeletionRequestRepository;
 import com.example.backend.repository.RescueServiceRepository;
 import com.example.backend.service.RescueServiceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,6 +27,7 @@ public class RescueServiceServiceImpl implements RescueServiceService {
 	private final RescueServiceRepository repository;
 	private final RescueCompanyRepository companyRepository;
 	private final CompanyRatingRepository ratingRepository;
+	private final RescueServiceDeletionRequestRepository rescueServiceDeletionRequestRepository;
 
 	@Override
 	public RescueServiceResponse create(RescueServiceRequest request) {
@@ -35,6 +40,7 @@ public class RescueServiceServiceImpl implements RescueServiceService {
 				.price(request.getPrice())
 				.type(request.getType())
 				.company(company)
+				.status(request.getStatus() != null ? request.getStatus() : com.example.backend.model.enums.RescueServiceStatus.ACTIVE)
 				.build();
 
 		return toResponse(repository.save(service), null);
@@ -85,6 +91,7 @@ public class RescueServiceServiceImpl implements RescueServiceService {
 					String city = (String) result[16];
 					String country = (String) result[17];
 					String fullAddress = (String) result[18];
+					String status = (String) result[19];
 
 					com.example.backend.model.common.Address address = com.example.backend.model.common.Address.builder()
 						.street(street)
@@ -129,6 +136,7 @@ public class RescueServiceServiceImpl implements RescueServiceService {
 						.company(companyInfo)
 						.averageRating(averageRating)
 						.totalRatings(totalRatings)
+						.status(status != null ? com.example.backend.model.enums.RescueServiceStatus.valueOf(status) : com.example.backend.model.enums.RescueServiceStatus.ACTIVE)
 						.build();
 				})
 				.collect(Collectors.toList());
@@ -146,6 +154,7 @@ public class RescueServiceServiceImpl implements RescueServiceService {
 				.description(service.getDescription())
 				.price(service.getPrice())
 				.type(service.getType())
+				.status(service.getStatus())
 				.distance(distance)
 				.company(RescueServiceResponse.CompanyInfo.builder()
 						.id(company.getId())
@@ -158,5 +167,75 @@ public class RescueServiceServiceImpl implements RescueServiceService {
 						.createdAt(company.getCreatedAt())
 						.build())
 				.build();
+	}
+
+
+	@Override
+	public RescueServiceDeletionResponse requestDeletion(String serviceId, RescueServiceDeletionRequest request) {
+		// Validate service exists
+		RescueService service = repository.findById(serviceId)
+				.orElseThrow(() -> new ResourceNotFoundException("Rescue service not found with id: " + serviceId));
+		
+		// Get company from service
+		RescueCompany company = service.getCompany();
+		if (company == null) {
+			throw new IllegalStateException("Service must have an associated company");
+		}
+
+		// Create deletion request with generated ID
+		com.example.backend.model.RescueServiceDeletionRequest deletionRequest = com.example.backend.model.RescueServiceDeletionRequest.builder()
+				.id(java.util.UUID.randomUUID().toString()) // Generate UUID for the request
+				.service(service)
+				.company(company)
+				.reason(request.getReason())
+				.status(com.example.backend.model.RescueServiceDeletionRequest.Status.PENDING)
+				.createdAt(LocalDateTime.now())
+				.build();
+
+		// Save deletion request
+		com.example.backend.model.RescueServiceDeletionRequest savedRequest = rescueServiceDeletionRequestRepository.save(deletionRequest);
+
+		// Return response
+		return RescueServiceDeletionResponse.builder()
+				.id(savedRequest.getId())
+				.serviceId(service.getId())
+				.serviceName(service.getName())
+				.companyId(company.getId())
+				.companyName(company.getName())
+				.reason(savedRequest.getReason())
+				.status(savedRequest.getStatus())
+				.createdAt(savedRequest.getCreatedAt())
+				.processedAt(savedRequest.getProcessedAt())
+				.build();
+	}
+
+	@Override
+	public RescueServiceResponse update(String serviceId, RescueServiceRequest request) {
+		// Validate service exists
+		RescueService service = repository.findById(serviceId)
+				.orElseThrow(() -> new ResourceNotFoundException("Rescue service not found with id: " + serviceId));
+		
+		// Validate company exists and matches
+		RescueCompany company = companyRepository.findById(request.getCompanyId())
+				.orElseThrow(() -> new ResourceNotFoundException("Company not found with id: " + request.getCompanyId()));
+		
+		if (!service.getCompany().getId().equals(company.getId())) {
+			throw new IllegalArgumentException("Service does not belong to the specified company");
+		}
+
+		// Update service information
+		service.setName(request.getName());
+		service.setDescription(request.getDescription());
+		service.setPrice(request.getPrice());
+		service.setType(request.getType());
+		if (request.getStatus() != null) {
+			service.setStatus(request.getStatus());
+		}
+
+		// Save updated service
+		RescueService updatedService = repository.save(service);
+
+		// Return response
+		return toResponse(updatedService, null);
 	}
 }

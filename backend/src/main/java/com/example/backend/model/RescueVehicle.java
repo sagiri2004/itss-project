@@ -48,6 +48,12 @@ public class RescueVehicle {
 	private LocalDateTime lastMaintenanceDate;
 	private LocalDateTime nextMaintenanceDate;
 
+	@Column(length = 1000)
+	private String maintenanceNote;
+
+	@Column(length = 500)
+	private String maintenanceReason;
+
 	@ManyToOne
 	@JoinColumn(name = "company_id")
 	private RescueCompany company;

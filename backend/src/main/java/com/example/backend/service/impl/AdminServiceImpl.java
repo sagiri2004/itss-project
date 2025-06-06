@@ -1,11 +1,12 @@
 package com.example.backend.service.impl;
 
-import com.example.backend.dto.response.RescueCompanyResponse;
+import com.example.backend.dto.response.*;
 import com.example.backend.model.*;
 import com.example.backend.repository.*;
 import com.example.backend.service.AdminService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import com.example.backend.model.enums.ReportType;
 import com.example.backend.model.enums.ReportStatus;
@@ -14,12 +15,8 @@ import com.example.backend.model.CompanyRating;
 import com.example.backend.repository.CompanyRatingRepository;
 import com.example.backend.repository.TopicRepository;
 import com.example.backend.repository.TopicCommentRepository;
-import com.example.backend.dto.response.UserResponse;
-import com.example.backend.dto.response.InvoiceResponse;
-import com.example.backend.dto.response.RescueRequestResponse;
-import com.example.backend.dto.response.CompanyRatingResponse;
+
 import java.util.stream.Collectors;
-import com.example.backend.dto.response.RescueVehicleResponse;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -37,6 +34,7 @@ import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.example.backend.kafka.OnlineUserEventService;
+import com.example.backend.exception.ResourceNotFoundException;
 
 @Service
 @RequiredArgsConstructor
@@ -55,6 +53,9 @@ public class AdminServiceImpl implements AdminService {
     private final ObjectMapper objectMapper;
     private static final Logger log = LoggerFactory.getLogger(AdminServiceImpl.class);
     private final OnlineUserEventService onlineUserEventService;
+    private final RescueServiceDeletionRequestRepository rescueServiceDeletionRequestRepository;
+    private final RescueServiceRepository rescueServiceRepository;
+    private final RescueRequestRepository rescueRequestRepository;
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
@@ -463,5 +464,119 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public List<String> getOnlineUsers() {
         return onlineUserEventService.requestOnlineUsers();
+    }
+
+    @Override
+    public List<RescueServiceDeletionResponse> getServiceDeletionRequests() {
+        return rescueServiceDeletionRequestRepository.findAll().stream()
+            .map(this::toDeletionResponse)
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public RescueServiceDeletionResponse getServiceDeletionRequestById(String id) {
+        return rescueServiceDeletionRequestRepository.findById(id)
+            .map(this::toDeletionResponse)
+            .orElseThrow(() -> new ResourceNotFoundException("Deletion request not found with id: " + id));
+    }
+
+    @Override
+    @Transactional
+    public RescueServiceDeletionResponse approveServiceDeletion(String requestId) {
+        log.info("Starting service deletion approval for request ID: {}", requestId);
+
+        // First, get and validate the deletion request
+        com.example.backend.model.RescueServiceDeletionRequest request = rescueServiceDeletionRequestRepository.findById(requestId)
+            .orElseThrow(() -> new ResourceNotFoundException("Deletion request not found with id: " + requestId));
+        log.info("Found deletion request: {}", request.getId());
+
+        if (request.getStatus() != com.example.backend.model.RescueServiceDeletionRequest.Status.PENDING) {
+            log.error("Cannot approve non-pending deletion request. Current status: {}", request.getStatus());
+            throw new IllegalStateException("Can only approve pending deletion requests");
+        }
+
+        // Get the service and ensure it's managed
+        RescueService service = rescueServiceRepository.findById(request.getService().getId())
+            .orElseThrow(() -> new ResourceNotFoundException("Service not found"));
+        log.info("Found service to delete: {}", service.getId());
+
+        // Store service info before clearing references
+        String serviceId = service.getId();
+        String serviceName = service.getName();
+        String companyId = service.getCompany().getId();
+        String companyName = service.getCompany().getName();
+
+        // 1. Update rescue requests to remove service reference
+        List<RescueRequest> requests = rescueRequestRepository.findByRescueServiceId(serviceId);
+        log.info("Found {} rescue requests to update", requests.size());
+        
+        for (RescueRequest req : requests) {
+            req.setRescueService(null);
+            rescueRequestRepository.save(req);
+            log.info("Updated rescue request: {}", req.getId());
+        }
+
+        // 2. Delete ratings
+        log.info("Deleting ratings for service: {}", serviceId);
+        companyRatingRepository.deleteByServiceId(serviceId);
+
+        // 3. Clear references in deletion request
+        request.setService(null);
+        request.setStatus(com.example.backend.model.RescueServiceDeletionRequest.Status.APPROVED);
+        request.setProcessedAt(LocalDateTime.now());
+        request = rescueServiceDeletionRequestRepository.save(request);
+        log.info("Updated deletion request status to: {}", request.getStatus());
+
+        // 4. Delete the service
+        log.info("Deleting service: {}", serviceId);
+        rescueServiceRepository.deleteById(serviceId);
+        log.info("Service deleted successfully");
+
+        // Create response with stored info
+        return RescueServiceDeletionResponse.builder()
+            .id(request.getId())
+            .serviceId(serviceId)
+            .serviceName(serviceName)
+            .companyId(companyId)
+            .companyName(companyName)
+            .reason(request.getReason())
+            .status(request.getStatus())
+            .createdAt(request.getCreatedAt())
+            .processedAt(request.getProcessedAt())
+            .build();
+    }
+
+    @Override
+    @Transactional
+    public RescueServiceDeletionResponse rejectServiceDeletion(String requestId, String reason) {
+        com.example.backend.model.RescueServiceDeletionRequest request = rescueServiceDeletionRequestRepository.findById(requestId)
+            .orElseThrow(() -> new ResourceNotFoundException("Deletion request not found with id: " + requestId));
+
+        if (request.getStatus() != com.example.backend.model.RescueServiceDeletionRequest.Status.PENDING) {
+            throw new IllegalStateException("Can only reject pending deletion requests");
+        }
+
+        request.setStatus(com.example.backend.model.RescueServiceDeletionRequest.Status.REJECTED);
+        request.setProcessedAt(LocalDateTime.now());
+        request.setReason(request.getReason() + " (Rejected: " + reason + ")");
+
+        return toDeletionResponse(rescueServiceDeletionRequestRepository.save(request));
+    }
+
+    private RescueServiceDeletionResponse toDeletionResponse(com.example.backend.model.RescueServiceDeletionRequest request) {
+        RescueService service = request.getService();
+        RescueCompany company = request.getCompany();
+
+        return RescueServiceDeletionResponse.builder()
+            .id(request.getId())
+            .serviceId(service != null ? service.getId() : null)
+            .serviceName(service != null ? service.getName() : null)
+            .companyId(company != null ? company.getId() : null)
+            .companyName(company != null ? company.getName() : null)
+            .reason(request.getReason())
+            .status(request.getStatus())
+            .createdAt(request.getCreatedAt())
+            .processedAt(request.getProcessedAt())
+            .build();
     }
 } 

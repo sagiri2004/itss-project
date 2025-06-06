@@ -56,4 +56,6 @@ public interface CompanyRatingRepository extends JpaRepository<CompanyRating, St
 
     List<CompanyRating> findByCreatedAtAfter(LocalDateTime date);
     List<CompanyRating> findByCommentContainingIgnoreCase(String keyword);
+
+	void deleteByServiceId(String serviceId);
 }

@@ -862,10 +862,6 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 		RescueRequestResponse.RescueRequestResponseBuilder builder = RescueRequestResponse.builder()
 				.id(request.getId())
 				.userId(request.getUser().getId())
-				.serviceId(request.getRescueService().getId())
-				.serviceName(request.getRescueService().getName())
-				.companyId(request.getRescueService().getCompany().getId())
-				.companyName(request.getRescueService().getCompany().getName())
 				.latitude(request.getLatitude())
 				.longitude(request.getLongitude())
 				.description(request.getDescription())
@@ -879,6 +875,27 @@ public class RescueRequestServiceImpl implements RescueRequestService {
 				.vehicleYear(request.getVehicleYear())
 				.vehicleLicensePlate(request.getVehicleLicensePlate())
 				.vehicleColor(request.getVehicleColor());
+
+		// Add service info if available
+		RescueService service = request.getRescueService();
+		if (service != null) {
+			builder.serviceId(service.getId())
+				   .serviceName(service.getName());
+			
+			// Add company info from service if available
+			RescueCompany company = service.getCompany();
+			if (company != null) {
+				builder.companyId(company.getId())
+					   .companyName(company.getName());
+			}
+		} else {
+			// If service is null, try to get company info directly from request
+			RescueCompany company = request.getCompany();
+			if (company != null) {
+				builder.companyId(company.getId())
+					   .companyName(company.getName());
+			}
+		}
 
 		// Add notes if they exist
 		if (request.getNotes() != null && !request.getNotes().isEmpty()) {

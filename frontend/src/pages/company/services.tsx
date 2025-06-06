@@ -29,7 +29,7 @@ interface Service {
   description: string
   price: number
   type: RescueServiceType
-  isActive: boolean
+  status: 'ACTIVE' | 'INACTIVE'
   company?: {
     id: string
     name: string
@@ -55,6 +55,9 @@ export default function CompanyServices() {
   const [currentService, setCurrentService] = useState<Service | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [deleteReason, setDeleteReason] = useState("")
+  const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null)
 
   const [formData, setFormData] = useState({
     name: "",
@@ -157,12 +160,14 @@ export default function CompanyServices() {
 
     try {
       if (isEditing && currentService) {
-        // Update service
+        // Update service with all required fields
         await api.rescueServices.updateService(currentService.id, {
           name: formData.name,
           description: formData.description,
           price: Number.parseFloat(formData.price),
           type: formData.type,
+          companyId: currentService.company?.id,
+          status: currentService.status // Preserve current status
         })
         toast({
           title: "Service updated",
@@ -176,6 +181,7 @@ export default function CompanyServices() {
           price: Number.parseFloat(formData.price),
           type: formData.type,
           companyId: user?.companyId,
+          status: 'ACTIVE' // Set initial status for new services
         })
         toast({
           title: "Service created",
@@ -193,13 +199,29 @@ export default function CompanyServices() {
     }
   }
 
-  const toggleServiceStatus = async (id: string, isActive: boolean) => {
+  const toggleServiceStatus = async (id: string, currentStatus: 'ACTIVE' | 'INACTIVE') => {
     try {
-      await api.rescueServices.updateService(id, { isActive: !isActive })
+      const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
+      // Get the current service to preserve other fields
+      const currentService = services.find(s => s.id === id)
+      if (!currentService) {
+        throw new Error('Service not found')
+      }
+
+      // Update service with all required fields
+      await api.rescueServices.updateService(id, {
+        name: currentService.name,
+        description: currentService.description,
+        price: currentService.price,
+        type: currentService.type,
+        companyId: currentService.company?.id,
+        status: newStatus
+      })
+
       fetchServices()
       toast({
-        title: isActive ? "Service deactivated" : "Service activated",
-        description: `Service has been ${isActive ? "deactivated" : "activated"}.`,
+        title: "Service status updated",
+        description: `Service has been ${newStatus === 'ACTIVE' ? 'activated' : 'deactivated'}.`,
       })
     } catch (error: any) {
       toast({
@@ -210,19 +232,30 @@ export default function CompanyServices() {
     }
   }
 
-  const deleteService = async (id: string) => {
-    try {
-      await api.rescueServices.deleteService(id)
-      fetchServices()
+  const handleDeleteRequest = async () => {
+    if (!serviceToDelete || !deleteReason) {
       toast({
-        title: "Service removed",
-        description: `Service has been removed from your services.`,
+        variant: "destructive",
+        title: "Error",
+        description: "Please provide a reason for deletion",
+      })
+      return
+    }
+
+    try {
+      await api.rescueServices.requestServiceDeletion(serviceToDelete.id, deleteReason)
+      setIsDeleteDialogOpen(false)
+      setDeleteReason("")
+      setServiceToDelete(null)
+      toast({
+        title: "Deletion request sent",
+        description: "Your request to delete this service has been sent to the administrator.",
       })
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.response?.data?.message || "Failed to delete service",
+        description: error.response?.data?.message || "Failed to send deletion request",
       })
     }
   }
@@ -289,6 +322,7 @@ export default function CompanyServices() {
                     <TableHead>Price</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Company</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -319,15 +353,20 @@ export default function CompanyServices() {
                         <TableCell>
                           {service.company?.name || "N/A"}
                         </TableCell>
+                        <TableCell>
+                          <Badge variant={service.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                            {service.status}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
                               variant="outline"
                               size="icon"
-                              onClick={() => toggleServiceStatus(service.id, service.isActive)}
-                              title={service.isActive ? "Deactivate" : "Activate"}
+                              onClick={() => toggleServiceStatus(service.id, service.status)}
+                              title={service.status === 'ACTIVE' ? "Deactivate" : "Activate"}
                             >
-                              {service.isActive ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                              {service.status === 'ACTIVE' ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                             </Button>
                             <Button
                               variant="outline"
@@ -340,8 +379,11 @@ export default function CompanyServices() {
                             <Button
                               variant="outline"
                               size="icon"
-                              onClick={() => deleteService(service.id)}
-                              title="Delete"
+                              onClick={() => {
+                                setServiceToDelete(service)
+                                setIsDeleteDialogOpen(true)
+                              }}
+                              title="Request Deletion"
                             >
                               <Trash className="h-4 w-4" />
                             </Button>
@@ -430,6 +472,42 @@ export default function CompanyServices() {
               <Button type="submit">{isEditing ? "Update" : "Create"}</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Delete Request Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Request Service Deletion</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for deleting this service. Your request will be reviewed by an administrator.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="reason">Reason for Deletion</Label>
+              <Textarea
+                id="reason"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="Please explain why you want to delete this service..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => {
+              setIsDeleteDialogOpen(false)
+              setDeleteReason("")
+              setServiceToDelete(null)
+            }}>
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" onClick={handleDeleteRequest}>
+              Request Deletion
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </motion.div>

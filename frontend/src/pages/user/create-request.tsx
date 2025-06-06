@@ -39,6 +39,8 @@ import {
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { FaCar, FaMapMarkerAlt, FaInfoCircle, FaUpload } from "react-icons/fa";
+import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 
 interface Service {
   id: string;
@@ -150,37 +152,90 @@ export default function CreateRequest() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleUseCurrentLocation = () => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setFormData((prev) => ({
-            ...prev,
-            useCurrentLocation: true,
-            location: `${latitude},${longitude}`,
-          }));
+  const handleUseCurrentLocation = async () => {
+    try {
+      const isMobile = Capacitor.isNativePlatform();
+      
+      if (isMobile) {
+        // Kiểm tra quyền truy cập vị trí
+        const permissionStatus = await Geolocation.checkPermissions();
+        
+        if (permissionStatus.location === 'prompt' || permissionStatus.location === 'denied') {
+          // Hiển thị dialog yêu cầu quyền
+          const requestStatus = await Geolocation.requestPermissions();
+          
+          if (requestStatus.location !== 'granted') {
+            toast({
+              variant: "destructive",
+              title: "Location permission required",
+              description: "Please enable location access in your device settings to use this feature.",
+            });
+            return;
+          }
+        }
 
-          toast({
-            title: "Location detected",
-            description: "Using your current location for this request.",
-          });
-        },
-        (error) => {
+        // Lấy vị trí hiện tại với độ chính xác cao
+        const coordinates = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 10000,
+        });
+
+        const { latitude, longitude } = coordinates.coords;
+        setFormData((prev) => ({
+          ...prev,
+          useCurrentLocation: true,
+          location: `${latitude},${longitude}`,
+        }));
+
+        toast({
+          title: "Location detected",
+          description: "Using your current location for this request.",
+        });
+      } else {
+        // Fallback cho web browser
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords;
+              setFormData((prev) => ({
+                ...prev,
+                useCurrentLocation: true,
+                location: `${latitude},${longitude}`,
+              }));
+
+              toast({
+                title: "Location detected",
+                description: "Using your current location for this request.",
+              });
+            },
+            (error) => {
+              console.error('Geolocation error:', error);
+              toast({
+                variant: "destructive",
+                title: "Location error",
+                description: "Failed to get your location. Please enter it manually.",
+              });
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0
+            }
+          );
+        } else {
           toast({
             variant: "destructive",
-            title: "Location error",
-            description:
-              "Failed to get your location. Please enter it manually.",
+            title: "Location not supported",
+            description: "Your browser does not support geolocation. Please enter your location manually.",
           });
         }
-      );
-    } else {
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
       toast({
         variant: "destructive",
-        title: "Location not supported",
-        description:
-          "Your browser does not support geolocation. Please enter your location manually.",
+        title: "Location error",
+        description: "Failed to get your location. Please enter it manually.",
       });
     }
   };

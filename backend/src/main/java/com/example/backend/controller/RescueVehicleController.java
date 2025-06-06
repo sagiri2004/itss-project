@@ -1,6 +1,7 @@
 package com.example.backend.controller;
 
 import com.example.backend.dto.request.RescueVehicleRequest;
+import com.example.backend.dto.request.VehicleStatusRequest;
 import com.example.backend.dto.response.RescueVehicleResponse;
 import com.example.backend.model.enums.RescueEquipment;
 import com.example.backend.service.RescueVehicleService;
@@ -14,6 +15,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -128,5 +130,12 @@ public class RescueVehicleController {
 	@GetMapping("/company/{companyId}")
 	public List<RescueVehicleResponse> getByCompany(@PathVariable String companyId) {
 		return vehicleService.getByCompany(companyId);
+	}
+
+	@PutMapping("/{id}/status")
+	public ResponseEntity<RescueVehicleResponse> updateStatus(
+			@PathVariable String id,
+			@RequestBody VehicleStatusRequest request) {
+		return ResponseEntity.ok(vehicleService.updateStatus(id, request));
 	}
 }
